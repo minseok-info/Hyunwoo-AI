@@ -17,6 +17,9 @@ app.add_middleware(
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+ID = os.getenv("ID")
+PWD = os.getenv("PWD")
+
 class Thought(BaseModel):
   type: str
   title: str
@@ -34,6 +37,15 @@ async def shutdown():
 async def home():
   print("health check")
   return { "status": "ok" }
+
+@app.post("/auth")
+async def check_auth(auth: {id: string, pwd: string}):
+  if auth.id != ID:
+    return { "status": "failed" }
+  elif auth.pwd != PWD:
+    return { "status": "failed" }
+
+  return { "status": "success" }
 
 @app.get("/thoughts")
 async def read_thoughts():
