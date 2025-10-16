@@ -45,7 +45,7 @@ async def home():
   print("health check")
   return { "status": "ok" }
 
-@app.post("/sign")
+@app.post("/auth")
 async def sign_in(
   id: str = Form(...),
   pwd: str = Form(...)
