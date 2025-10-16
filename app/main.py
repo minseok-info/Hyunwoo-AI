@@ -46,12 +46,12 @@ async def home():
 async def check_auth(auth: Auth):
   if auth.id != ID:
     return {
-      "status": "failed"
+      "status": "failed",
       "reason": "id"
     }
   elif auth.pwd != PWD:
     return {
-      "status": "failed"
+      "status": "failed",
       "reason": "pwd"
     }
 
