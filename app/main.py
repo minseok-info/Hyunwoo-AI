@@ -25,6 +25,10 @@ class Thought(BaseModel):
   title: str
   content: str
 
+class Auth(BaseModel):
+  id: str
+  pwd: str
+
 @app.on_event("startup")
 async def startup():
   app.state.db = await asyncpg.create_pool(DATABASE_URL)
@@ -39,11 +43,17 @@ async def home():
   return { "status": "ok" }
 
 @app.post("/auth")
-async def check_auth(auth: {id: string, pwd: string}):
+async def check_auth(auth: Auth):
   if auth.id != ID:
-    return { "status": "failed" }
+    return {
+      "status": "failed"
+      "reason": "id"
+    }
   elif auth.pwd != PWD:
-    return { "status": "failed" }
+    return {
+      "status": "failed"
+      "reason": "pwd"
+    }
 
   return { "status": "success" }
 
