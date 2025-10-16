@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -25,17 +25,20 @@ class Thought(BaseModel):
   title: str
   content: str
 
-class Auth(BaseModel):
-  id: str
-  pwd: str
-
 @app.on_event("startup")
 async def startup():
-  app.state.db = await asyncpg.create_pool(DATABASE_URL)
+  try:
+    app.state.db = await asyncpg.create_pool(DATABASE_URL)
+    print("Success connecting with DB")
+  except Exception as e:
+    print(f"DATABASE_URL is [ {DATABASE_URL} ]")
+    print(f"Failed connectiong with DB: [ {e} ]",)
 
 @app.on_event("shutdown")
 async def shutdown():
-  await app.state.db.close()
+  if getattr(app.state, "db", None):
+    await app.state.db.close()
+    print("Close DB")
 
 @app.get("/")
 async def home():
@@ -43,13 +46,16 @@ async def home():
   return { "status": "ok" }
 
 @app.post("/auth")
-async def check_auth(auth: Auth):
-  if auth.id != ID:
+async def check_auth(
+  id: str = Form(...),
+  pwd: str = Form(...)
+):
+  if id != ID:
     return {
       "status": "failed",
       "reason": "id"
     }
-  elif auth.pwd != PWD:
+  elif pwd != PWD:
     return {
       "status": "failed",
       "reason": "pwd"
@@ -59,6 +65,9 @@ async def check_auth(auth: Auth):
 
 @app.get("/thoughts")
 async def read_thoughts():
+  if app.state.db is None:
+    raise HTTPException(status_code=500, detail="Cannot Connect DB")
+
   async with app.state.db.acquire() as connection:
     rows = await connection.fetch("select * from thoughts")
     thoughts = [dict(row) for row in rows]
@@ -66,6 +75,9 @@ async def read_thoughts():
 
 @app.post("/thoughts")
 async def add_thought(thought: Thought):
+  if app.state.db is None:
+    raise HTTPException(status_code=500, detail="Cannot Connect DB")
+
   async with app.state.db.acquire() as connection:
     try:
       await connection.execute(
@@ -89,6 +101,9 @@ async def add_thought(thought: Thought):
 
 @app.delete("/thoughts/{thought_id}")
 async def delete_thought(thought_id: int):
+  if app.state.db is None:
+    raise HTTPException(status_code=500, detail="Cannot Connect DB")
+
   async with app.state.db.acquire() as connection:
     result = await connection.execute(
       "delete from thoughts where id = $1",

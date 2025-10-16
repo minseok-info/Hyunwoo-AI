@@ -4,3 +4,4 @@ gunicorn
 
 asyncpg
 pydantic
+python-multipart
