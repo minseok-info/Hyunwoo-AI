@@ -3,8 +3,50 @@
   padding: 0;
 }
 
+input {
+  border-radius: 2.5px;
+  border: 1px solid dimgray;
+}
+
 .display {
   width: 100dvw;
   height: 100dvh;
   position: relative;
+}
+
+.full {
+  width: 100dvw;
+  height: 100dvh;
+}
+
+.fullWidth {
+  width: 100dvw;
+}
+
+.flex {
+  display: flex;
+}
+
+.flexColumn {
+  flex-direction: column;
+}
+
+.justifyCenter {
+  justify-content: center;
+}
+
+.alignCenter {
+  align-items: center;
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.pointer {
+  cursor: pointer;
+}
+
+.pointer:disabled {
+  cursor: not-allowed;
 }
