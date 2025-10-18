@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Form
+from typing import List, Optional
+from fastapi import FastAPI, HTTPException, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -21,6 +22,7 @@ ID = os.getenv("ID")
 PWD = os.getenv("PWD")
 
 class Thought(BaseModel):
+  id: Optional[int] = None
   type: str
   title: str
   content: str
@@ -74,43 +76,55 @@ async def read_thoughts():
     return thoughts
 
 @app.post("/thoughts")
-async def add_thought(thought: Thought):
+async def add_thought(thoughts: List[Thought] = Body(...)):
   if app.state.db is None:
     raise HTTPException(status_code=500, detail="Cannot Connect DB")
 
+  to_insert = [t for t in thoughts if t.id is None]
+  to_change = [t for t in thoughts if t.id is not None]
+
   async with app.state.db.acquire() as connection:
     try:
-      await connection.execute(
-        """
-        insert into thoughts (type, title, content)
-        values ($1, $2, $3)
-        """,
-        thought.type,
-        thought.title,
-        thought.content
-      )
+      if to_insert:
+        insert_values = [(t.type, t.title, t.content) for t in to_insert]
+        await connection.executemany(
+          """
+          insert into thoughts (type, title, content)
+          values ($1, $2, $3)
+          """,
+          insert_values
+        )
+
+      if to_change:
+        update_values = [(t.type, t.title, t.content, t.id) for t in to_change]
+        await connection.executemany(
+          """
+          update thoughts
+          set type = $1, title = $2, content = $3
+          where id = $4
+          """,
+          update_values
+        )
     except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
 
   return {
-    "type": thought.type,
-    "title": thought.title,
-    "content": thought.content,
-    "status": "added"
+    "updated_count": len(thoughts),
+    "status": "updated"
   }
 
-@app.delete("/thoughts/{thought_id}")
-async def delete_thought(thought_id: int):
+@app.delete("/thoughts")
+async def delete_thought(thought_ids: List[int] = Body(...)):
   if app.state.db is None:
     raise HTTPException(status_code=500, detail="Cannot Connect DB")
 
   async with app.state.db.acquire() as connection:
     result = await connection.execute(
-      "delete from thoughts where id = $1",
-      thought_id
+      "delete from thoughts where id = ANY($1)",
+      thought_ids
     )
   
   return {
-    "id": thought_id,
+    "ids": thought_ids,
     "status": "deleted"
   }
