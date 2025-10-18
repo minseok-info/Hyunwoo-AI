@@ -13,13 +13,13 @@ type ItemType = {
 type DataType = { type: "planet" | "neuron" } & ItemType
 
 type Props = {
-  data: DataType[],
   query: any,
 }
 
-const Manage = ({ data, query }: Props) => {
+const Manage = ({ query }: Props) => {
   const router = useRouter();
 
+  const [data, setData] = useState<Array<DataType>>([]);
   const [list, setList] = useState<Array<ItemType>>([]);
 
   const [changeList, setChangeList] = useState<Array<DataType>>([]);
@@ -142,6 +142,17 @@ const Manage = ({ data, query }: Props) => {
   }
 
   useEffect(() => {
+    let tempList = new Array<ItemType>;
+    data.forEach((item) => {
+      if (item.type === query.type) {
+        tempList.push({ id: item.id, title: item.title, content: item.content });
+      }
+    });
+
+    setList(tempList);
+  }, [data]);
+
+  useEffect(() => {
     const auth = sessionStorage.getItem("auth");
     if (!auth) {
       router.replace("/sign");
@@ -152,14 +163,23 @@ const Manage = ({ data, query }: Props) => {
       router.push("/admin");
     }
 
-    let tempList = new Array<ItemType>;
-    data.forEach((item) => {
-      if (item.type === type) {
-        tempList.push({ id: item.id, title: item.title, content: item.content });
+    const fetchData = async () => {
+      try {
+        const res = await fetch("https://hyunwoo-ai-backend.fly.dev/thoughts", {
+          method: "GET",
+        });
+  
+        if (res.ok) {
+          const result = await res.json();
+          setData(result);
+        }
       }
-    });
+      catch (error) {
+        setData([]);
+      }
+    }
 
-    setList(tempList);
+    fetchData();
   }, []);
 
   return (
@@ -192,24 +212,9 @@ const Manage = ({ data, query }: Props) => {
 
 export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
   const { query } = context;
-  let data: DataType[] = [];
-
-  try {
-    const res = await fetch("https://hyunwoo-ai-backend.fly.dev/thoughts", {
-      method: "GET",
-    });
-
-    if (res.ok) {
-      data = await res.json();
-    }
-  }
-  catch (error) {
-    data = [];
-  }
 
   return {
     props: {
-      data: data,
       query: query,
     },
   }

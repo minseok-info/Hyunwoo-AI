@@ -1,0 +1,30 @@
+.desc {
+  display: none;
+  position: absolute;
+  top: 5dvh;
+  right: 5dvw;
+}
+
+.desc > div {
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.15);
+  transition: all 150ms;
+}
+
+.desc hr {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.desc p {
+  margin-top: 5px;
+  font-size: 12px;
+}
+
+@media screen and (hover:hover) {
+  .desc:hover > div {
+    transform: scale(0.85);
+  }
+}

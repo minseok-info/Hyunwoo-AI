@@ -1,11 +1,21 @@
-import { useEffect, useRef } from "react";
+import styles from "@/styles/home.module.css";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { EffectComposer, GLTFLoader, OrbitControls, RenderPass } from "three/examples/jsm/Addons.js";
 
 const Home = () => {
+  type ItemType = {
+    id?: number,
+    title: string,
+    content: string,
+  }
+
+  type DataType = { type: "planet" | "neuron" } & ItemType
+
   type ModelType = THREE.Object3D | null;
 
   const mountRef = useRef<HTMLDivElement>(null);
+  const descRef = useRef<HTMLDivElement>(null);
 
   const spaceRef = useRef<ModelType>(null);
   const humanRef = useRef<ModelType>(null);
@@ -15,7 +25,25 @@ const Home = () => {
   const leftBrainVector = new THREE.Vector3(-3, 1, 0);
   const rightBrainVector = new THREE.Vector3(3, 1, 0);
 
-  const cameraTargetRef = useRef<THREE.Vector3>(centerVector.clone());
+  const sceneRef = useRef<THREE.Scene>();
+  const cameraRef = useRef<THREE.Camera>();
+  const controlsRef = useRef<OrbitControls>();
+
+  const cameraTargetRef = useRef<THREE.Vector3>(centerVector);
+  const initialTargetRef = useRef<THREE.Vector3>(cameraTargetRef.current);
+
+  const zoomListenerRef = useRef<() => void>();
+
+  const planetRef = useRef<THREE.Mesh[]>([]);
+
+  const [data, setData] = useState<Array<DataType>>([]);
+
+  const planetListRef = useRef<DataType[]>([]);
+  const leftNeuronRef = useRef<DataType[]>([]);
+  const rightNeuronRef = useRef<DataType[]>([]);
+
+  const [title, setTitle] = useState<string>("");
+  const [content, setContent] = useState<string>("");
 
   const loadSpaceModel = (
     loader: GLTFLoader,
@@ -129,6 +157,89 @@ const Home = () => {
     });
   }
 
+  const createTextSprite = (text: string, radius = 0.05, fontSize = 24, color = "#ffffff") => {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d")!;
+
+    context.font = `${fontSize}px Arial`;
+    const metrics = context.measureText(text);
+    const textWidth = metrics.width;
+    const textHeight = fontSize;
+
+    const size = Math.pow(2, Math.ceil(Math.log2(Math.max(textWidth, textHeight))));
+    canvas.width = size;
+    canvas.height = size;
+
+    context.font = `${fontSize}px Arial`;
+    context.fillStyle = color;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(text, size / 2, size / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false, });
+    const sprite = new THREE.Sprite(material);
+
+    sprite.scale.set(radius, radius, 1);
+    return sprite;
+  }
+
+  const createPlanets = (scene: THREE.Scene, planets: DataType[]) => {
+    if (planets.length < 1) return;
+    planetRef.current.forEach(p => scene.remove(p));
+
+    const minDistance = 25;
+    const maxDistance = 80;
+    
+    const minSize = 5;
+    const maxSize = 10;
+
+    const fixedY = 0;
+    const sphereDistance = 75;
+
+    const occupiedPositions: THREE.Vector3[] = [];
+    
+    planets.forEach((p, index) => {
+      let orbitRadius = 0;
+      let theta = 0;
+      let x = 0, z = 0;
+      let valid = false;
+  
+      while (!valid) {
+        orbitRadius = minDistance + Math.random() * (maxDistance - minDistance);
+        theta = Math.random() * 2 * Math.PI;
+        x = orbitRadius * Math.cos(theta);
+        z = orbitRadius * Math.sin(theta);
+  
+        valid = occupiedPositions.every((pos) => {
+          return pos.distanceTo(new THREE.Vector3(x, fixedY, z)) >= sphereDistance;
+        });
+      }
+      occupiedPositions.push(new THREE.Vector3(x, fixedY, z));
+  
+      const y = fixedY;
+      const radius = minSize + Math.random() * (maxSize - minSize);
+  
+      const geometry = new THREE.SphereGeometry(radius, 32, 32);
+      const material = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(Math.random() * 0.4, Math.random() * 0.4, Math.random() * 0.4),
+      });
+  
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.name = `planet${index}`;
+      mesh.position.set(x, y, z);
+  
+      const sprite = createTextSprite(p.title, radius, 48);
+      sprite.position.set(0, 0, 0);
+
+      mesh.visible = false;
+      planetRef.current.push(mesh);
+
+      mesh.add(sprite);
+      scene.add(mesh);
+    });
+  }
+
   const updateOpacityByDistance = (
     model: ModelType,
     distance: number,
@@ -180,6 +291,13 @@ const Home = () => {
     scene.background = new THREE.Color(r, g, b);
   }
 
+  const resetCamera = () => {
+    cameraTargetRef.current = initialTargetRef.current;
+    descRef.current!.style.setProperty("display", "none");
+
+    controlsRef.current?.addEventListener("change", zoomListenerRef.current!);
+  }
+
   const handleResize = (
     mountRef: React.RefObject<HTMLDivElement>,
     camera: THREE.PerspectiveCamera,
@@ -210,29 +328,93 @@ const Home = () => {
     const angle = controls.getAzimuthalAngle();
 
     updateOpacityByDistance(humanRef.current, distance, 300, 200);
-    updateOpacityByDistance(brainRef.current, distance, 6, 3);
+    updateOpacityByDistance(brainRef.current, distance, 6, 2.5);
 
-    updateBackgroundByDistance(scene, distance, 6, 3, new THREE.Color(0x000000), new THREE.Color(0xffffff));
+    updateBackgroundByDistance(scene, distance, 6, 2.5, new THREE.Color(0x000000), new THREE.Color(0xffffff));
 
     if (distance < 10) {
+      planetRef.current.forEach(mesh => mesh.visible = false);
       if (cameraTargetRef.current.equals(centerVector)) {
         cameraTargetRef.current = angle < 0 ? leftBrainVector.clone() : rightBrainVector.clone();
       }
     }
     else if (distance < 150) {
+      planetRef.current.forEach(mesh => mesh.visible = true);
       if (!cameraTargetRef.current.equals(centerVector)) {
         cameraTargetRef.current = centerVector.clone();
-      } 
+      }
+    }
+    else if (distance < 200) {
+      planetRef.current.forEach(mesh => mesh.visible = true);
+    }
+    else {
+      planetRef.current.forEach(mesh => mesh.visible = false);
+    }
+  }
+
+  const handleClick = (event: MouseEvent) => {
+    if (!mountRef.current || !cameraRef.current || !controlsRef.current) return;
+
+    const rect = mountRef.current.getBoundingClientRect();
+    const mouse = new THREE.Vector2();
+
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, cameraRef.current);
+
+    const thoughts = [...planetRef.current];
+    const intersects = raycaster.intersectObjects(thoughts);
+
+    if (intersects.length > 0) {
+      if (cameraTargetRef.current.equals(centerVector)) initialTargetRef.current = cameraTargetRef.current;
+      descRef.current?.style.setProperty("display", "flex");
+
+      const target = intersects[0].object as THREE.Mesh;
+      const geometry = target.geometry as THREE.SphereGeometry;
+
+      const name = target.name;
+      const id = parseInt(name.replace(/planet|leftNeuron|rightNeuron/g, ""));
+      if (name.includes("planet")) {
+        const planet = planetListRef.current[id];
+
+        setTitle(planet.title);
+        setContent(planet.content);
+      }
+      else {
+      }
+
+      const radius = geometry.parameters.radius;
+      if (radius < 1) return;
+
+      controlsRef.current.removeEventListener("change", zoomListenerRef.current!);
+      const position = target.position.clone();
+
+      const cameraDir = new THREE.Vector3();
+      cameraRef.current.getWorldDirection(cameraDir);
+      
+      const zoomDistance = radius * 3;
+      const zoomTarget = position.clone().add(cameraDir.clone().multiplyScalar(-zoomDistance));
+
+      let zoomProgress = 0;
+      const zoomIn = () => {
+        zoomProgress += 0.02;
+        cameraTargetRef.current = position
+        cameraRef.current!.position.lerp(zoomTarget, 0.05);
+
+        if (zoomProgress < 1) {
+          requestAnimationFrame(zoomIn);
+        }
+      }
+
+      zoomIn();
     }
   }
 
   const animate = (
-    scene: THREE.Scene,
-    camera: THREE.PerspectiveCamera,
-    renderer: THREE.WebGLRenderer,
     controls: OrbitControls,
     composer: EffectComposer,
-    models: { space: ModelType; human: ModelType; brain: ModelType; },
   ) => {
     const loop = () => {
       controls.target.lerp(cameraTargetRef.current, 0.05);
@@ -240,12 +422,32 @@ const Home = () => {
       controls.update();
       composer.render();
 
-      renderer.render(scene, camera);
       requestAnimationFrame(loop);
     }
 
     loop();
   }
+
+  useEffect(() => {
+    let planets: DataType[] = [];
+
+    let leftNeurons: DataType[] = [];
+    let rightNeurons: DataType[] = [];
+
+    data.forEach((item) => {
+      if (item.type === "planet") planets.push(item);
+      else {
+        if (Math.random() < 0.5) leftNeurons.push(item);
+        else rightNeurons.push(item);
+      }
+    });
+
+    planetListRef.current = planets;
+    createPlanets(sceneRef.current!, planets);
+
+    leftNeuronRef.current = leftNeurons;
+    rightNeuronRef.current = rightNeurons;
+  }, [data]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -282,18 +484,38 @@ const Home = () => {
     const resizeListener = () => handleResize(mountRef, camera, renderer, composer);
     window.addEventListener("resize", resizeListener);
 
-    const zoomListener = () => handleZoom(mountRef, scene, camera, controls);
-    controls.addEventListener("change", zoomListener);
+    zoomListenerRef.current = () => handleZoom(mountRef, scene, camera, controls);
+    controls.addEventListener("change", zoomListenerRef.current);
 
-    animate(scene, camera, renderer, controls, composer, {
-      space: spaceRef.current,
-      human: humanRef.current,
-      brain: brainRef.current,
-    });
+    const clickListener = (event: MouseEvent) => handleClick(event);
+    mountRef.current.addEventListener("pointerdown", clickListener);
+
+    animate(controls, composer);
+
+    sceneRef.current = scene;
+    cameraRef.current = camera;
+    controlsRef.current = controls;
+
+    const fetchData = async () => {
+      try {
+        const res = await fetch("https://hyunwoo-ai-backend.fly.dev/thoughts", {
+          method: "GET",
+        });
+  
+        if (res.ok) {
+          const result = await res.json();
+          setData(result);
+        }
+      }
+      catch (error) {
+        setData([]);
+      }
+    }
+    fetchData();
 
     return () => {
       window.removeEventListener("resize", resizeListener);
-      controls.removeEventListener("change", zoomListener);
+      controls.removeEventListener("change", zoomListenerRef.current!);
       controls.dispose();
       renderer.dispose();
       mountRef.current!.innerHTML = "";
@@ -301,7 +523,16 @@ const Home = () => {
   }, []);
 
   return (
-    <div ref={mountRef} className="display" />
+    <>
+      <div ref={mountRef} className="display" />
+      <div ref={descRef} className={`pointer ${styles.desc}`} onClick={resetCamera}>
+        <div className="flex flexColumn">
+          <h4>{ title }</h4>
+          <hr />
+          <p>{ content }</p>
+        </div>
+      </div>
+    </>
   );
 }
 
