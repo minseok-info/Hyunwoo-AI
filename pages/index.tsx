@@ -195,7 +195,7 @@ const Home = () => {
     const maxSize = 10;
 
     const fixedY = 0;
-    const sphereDistance = 75;
+    const sphereDistance = 25;
 
     const occupiedPositions: THREE.Vector3[] = [];
     
