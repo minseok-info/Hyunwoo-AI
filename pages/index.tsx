@@ -195,30 +195,33 @@ const Home = () => {
     const maxSize = 10;
 
     const fixedY = 0;
-    const sphereDistance = 25;
+    const sphereDistance = 5;
 
     const occupiedPositions: THREE.Vector3[] = [];
+    const occupiedRadii: number[] = [];
     
     planets.forEach((p, index) => {
-      let orbitRadius = 0;
-      let theta = 0;
       let x = 0, z = 0;
       let valid = false;
+
+      const y = fixedY;
+      const radius = minSize + Math.random() * (maxSize - minSize);
   
       while (!valid) {
-        orbitRadius = minDistance + Math.random() * (maxDistance - minDistance);
-        theta = Math.random() * 2 * Math.PI;
+        const orbitRadius = minDistance + Math.random() * (maxDistance - minDistance);
+        const theta = Math.random() * 2 * Math.PI;
         x = orbitRadius * Math.cos(theta);
         z = orbitRadius * Math.sin(theta);
   
-        valid = occupiedPositions.every((pos) => {
-          return pos.distanceTo(new THREE.Vector3(x, fixedY, z)) >= sphereDistance;
+        valid = occupiedPositions.every((pos, i) => {
+          const otherRadius = occupiedRadii[i];
+          const minAllowedDistance = radius + otherRadius + sphereDistance;
+          return pos.distanceTo(new THREE.Vector3(x, fixedY, z)) >= minAllowedDistance;
         });
       }
+
       occupiedPositions.push(new THREE.Vector3(x, fixedY, z));
-  
-      const y = fixedY;
-      const radius = minSize + Math.random() * (maxSize - minSize);
+      occupiedRadii.push(radius);
   
       const geometry = new THREE.SphereGeometry(radius, 32, 32);
       const material = new THREE.MeshStandardMaterial({
