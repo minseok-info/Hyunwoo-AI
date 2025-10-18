@@ -30,6 +30,22 @@
   gap: 10px;
 }
 
+.save {
+  margin-left: auto;
+  margin-bottom: 35px;
+  padding: 5px 15px;
+  border: 1px solid white;
+  border-radius: 5px;
+  color: white;
+  font-size: 12px;
+  background-color: transparent;
+  transition: all 150ms;
+}
+
+.save:disabled {
+  opacity: 0.25;
+}
+
 .add {
   padding: 10px 25px;
   border: 2px dashed white;
@@ -42,17 +58,41 @@
 .item > div {
   display: flex;
   justify-content: center;
-  padding: 10px 25px;
   border: 1px solid white;
   border-radius: 5px;
   color: white;
-  gap: 5px;
   transition: all 150ms;
 }
 
-.item p {
+.item input {
+  outline: none;
+  border: none;
+  color: white;
+  background-color: transparent;
+}
+
+.item input:nth-child(1) {
+  font-size: 1.17em;
+  font-weight: bold;
+}
+
+.item input:nth-child(2) {
   font-size: 12px;
   word-break: break-word;
+}
+
+.item .desc {
+  flex: 1;
+  padding: 10px;
+  gap: 5px;
+}
+
+.item .del {
+  padding: 10px;
+  border-top-right-radius: 5px;
+  border-bottom-right-radius: 5px;
+  background-color: rgba(255, 0, 0, 0.2);
+  transition: all 150ms;
 }
 
 @media screen and (hover:hover) {
@@ -60,13 +100,20 @@
     color: rgba(255, 255, 255, 0.75);
     background-color: rgba(0, 0, 0, 0.55);
   }
+  
+  .save:not(:disabled):hover {
+    background-color: rgba(255, 255, 255, 0.35);
+  }
 
   .add:hover {
     background-color: rgba(255, 255, 255, 0.35);
   }
 
-  .item:hover > div {
-    transform: scale(0.9);
-    opacity: 0.25;
+  .item .del:hover {
+    padding-left: 50px;
+  }
+
+  .item:has(.del:active) > div {
+    transform: scale(0.975);
   }
 }

@@ -17,6 +17,7 @@ const Admin = () => {
     <div className={`full flex flexColumn justifyCenter alignCenter ${styles.category}`}>
       <p onClick={() => router.push("/admin/manage?type=planet")}>행성 관리</p>
       <p onClick={() => router.push("/admin/manage?type=neuron")}>뉴런 관리</p>
+      <p onClick={() => router.push("/")}>돌아 가기</p>
     </div>
   );
 }

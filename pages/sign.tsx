@@ -72,7 +72,7 @@ const Sign = () => {
           <input ref={idRef} type="text" value={id} onChange={(event: ChangeEvent<HTMLInputElement>) => setId(event.target.value)} onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => { event.key === "Enter" && signIn() }} />
           <input ref={pwdRef} type="password" value={pwd} onChange={(event: ChangeEvent<HTMLInputElement>) => setPwd(event.target.value)} onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => { event.key === "Enter" && signIn() }} />
         </div>
-        <input type="button" className="pointer" value={'Sign In'} onClick={signIn} disabled={!enableSignIn} />
+        <input type="button" className="pointer textCenter" value={'Sign In'} onClick={signIn} disabled={!enableSignIn} />
       </div>
     </div>
   );

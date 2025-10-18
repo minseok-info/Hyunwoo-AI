@@ -39,8 +39,16 @@ input {
   align-items: center;
 }
 
+.textStart {
+  text-align: start;
+}
+
 .textCenter {
   text-align: center;
+}
+
+.textEnd {
+  text-align: flex-end;
 }
 
 .pointer {
