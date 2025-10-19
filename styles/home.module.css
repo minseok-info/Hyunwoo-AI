@@ -1,8 +1,9 @@
 .desc {
   display: none;
   position: absolute;
-  top: 20px;
+  top: 60px;
   right: 20px;
+  max-width: calc(100% - 40px);
 }
 
 .desc > div {
@@ -21,6 +22,7 @@
 .desc p {
   margin-top: 5px;
   font-size: 12px;
+  word-break: break-word;
 }
 
 .title {

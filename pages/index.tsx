@@ -44,6 +44,7 @@ const Home = () => {
 
   const zoomListenerRef = useRef<() => void>();
 
+  const intersectTargetRef = useRef<THREE.Mesh | null>(null);
   const downIntersectRef = useRef<THREE.Mesh | null>(null);
   const planetRef = useRef<THREE.Mesh[]>([]);
 
@@ -309,6 +310,7 @@ const Home = () => {
     cameraTargetRef.current = initialTargetRef.current;
     descRef.current!.style.setProperty("display", "none");
 
+    controlsRef.current?.removeEventListener("change", handleTargetZoom);
     controlsRef.current?.addEventListener("change", zoomListenerRef.current!);
   }
 
@@ -366,6 +368,19 @@ const Home = () => {
     }
   }
 
+  const handleTargetZoom = () => {
+    if (!mountRef.current || !cameraRef.current || !controlsRef.current || !intersectTargetRef.current) return;
+
+    const distance = cameraRef.current.position.distanceTo(controlsRef.current.target);
+    const target = intersectTargetRef.current;
+    const geometry = target.geometry as THREE.SphereGeometry;
+    const radius = geometry.parameters.radius;
+
+    if ((distance - radius) > 25) {
+      resetCamera();
+    }
+  }
+
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (!mountRef.current || !cameraRef.current || !controlsRef.current) return;
 
@@ -409,6 +424,7 @@ const Home = () => {
 
     if (intersects.length > 0 && intersects[0].object === downIntersectRef.current) {
       descRef.current?.style.setProperty("display", "flex");
+      intersectTargetRef.current = downIntersectRef.current;
 
       const target = downIntersectRef.current;
       const geometry = target.geometry as THREE.SphereGeometry;
@@ -442,6 +458,9 @@ const Home = () => {
 
         if (zoomProgress < 1) {
           requestAnimationFrame(zoomIn);
+        }
+        else {
+          controlsRef.current?.addEventListener("change", handleTargetZoom);
         }
       }
 
