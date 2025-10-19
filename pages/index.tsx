@@ -1,5 +1,5 @@
 import styles from "@/styles/home.module.css";
-import { useEffect, useRef, useState } from "react";
+import { PointerEvent, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { EffectComposer, GLTFLoader, OrbitControls, RenderPass } from "three/examples/jsm/Addons.js";
 
@@ -34,6 +34,7 @@ const Home = () => {
 
   const zoomListenerRef = useRef<() => void>();
 
+  const downIntersectRef = useRef<THREE.Mesh | null>(null);
   const planetRef = useRef<THREE.Mesh[]>([]);
 
   const [data, setData] = useState<Array<DataType>>([]);
@@ -355,7 +356,7 @@ const Home = () => {
     }
   }
 
-  const handleClick = (event: MouseEvent) => {
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (!mountRef.current || !cameraRef.current || !controlsRef.current) return;
 
     const rect = mountRef.current.getBoundingClientRect();
@@ -367,14 +368,39 @@ const Home = () => {
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, cameraRef.current);
 
-    const thoughts = [...planetRef.current];
+    const thoughts: THREE.Mesh[] = [];
+    const isPlanetVisible = planetRef.current.every(p => p.visible === true);
+
+    if (isPlanetVisible) thoughts.push(...planetRef.current);
     const intersects = raycaster.intersectObjects(thoughts);
 
     if (intersects.length > 0) {
-      if (cameraTargetRef.current.equals(centerVector)) initialTargetRef.current = cameraTargetRef.current;
+      downIntersectRef.current = intersects[0].object as THREE.Mesh;
+    }
+  }
+
+  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (!mountRef.current || !cameraRef.current || !controlsRef.current || !downIntersectRef.current) return;
+
+    const rect = mountRef.current.getBoundingClientRect();
+    const mouse = new THREE.Vector2();
+
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, cameraRef.current);
+
+    const thoughts: THREE.Mesh[] = [];
+    const isPlanetVisible = planetRef.current.every(p => p.visible === true);
+
+    if (isPlanetVisible) thoughts.push(...planetRef.current);
+    const intersects = raycaster.intersectObjects(thoughts);
+
+    if (intersects.length > 0 && intersects[0].object === downIntersectRef.current) {
       descRef.current?.style.setProperty("display", "flex");
 
-      const target = intersects[0].object as THREE.Mesh;
+      const target = downIntersectRef.current;
       const geometry = target.geometry as THREE.SphereGeometry;
 
       const name = target.name;
@@ -384,8 +410,6 @@ const Home = () => {
 
         setTitle(planet.title);
         setContent(planet.content);
-      }
-      else {
       }
 
       const radius = geometry.parameters.radius;
@@ -413,6 +437,8 @@ const Home = () => {
 
       zoomIn();
     }
+
+    downIntersectRef.current = null;
   }
 
   const animate = (
@@ -490,9 +516,6 @@ const Home = () => {
     zoomListenerRef.current = () => handleZoom(mountRef, scene, camera, controls);
     controls.addEventListener("change", zoomListenerRef.current);
 
-    const clickListener = (event: MouseEvent) => handleClick(event);
-    mountRef.current.addEventListener("pointerdown", clickListener);
-
     animate(controls, composer);
 
     sceneRef.current = scene;
@@ -527,7 +550,7 @@ const Home = () => {
 
   return (
     <>
-      <div ref={mountRef} className="display" />
+      <div ref={mountRef} className="display" onPointerDown={(event: PointerEvent<HTMLDivElement>) => handlePointerDown(event)} onPointerUp={(event: PointerEvent<HTMLDivElement>) => handlePointerUp(event)} />
       <div ref={descRef} className={`pointer ${styles.desc}`} onClick={resetCamera}>
         <div className="flex flexColumn">
           <h4>{ title }</h4>
