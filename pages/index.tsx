@@ -1,8 +1,15 @@
 import styles from "@/styles/home.module.css";
 import Head from "next/head";
+import Image from "next/image";
+import { useRouter } from "next/router";
 import { PointerEvent, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { EffectComposer, GLTFLoader, OrbitControls, RenderPass } from "three/examples/jsm/Addons.js";
+
+const githubIcon = {
+  src: require("@/public/icons/github.svg"),
+  alt: "githubIcon",
+}
 
 const Home = () => {
   type ItemType = {
@@ -14,6 +21,8 @@ const Home = () => {
   type DataType = { type: "planet" | "neuron" } & ItemType
 
   type ModelType = THREE.Object3D | null;
+
+  const router = useRouter();
 
   const mountRef = useRef<HTMLDivElement>(null);
   const descRef = useRef<HTMLDivElement>(null);
@@ -561,6 +570,9 @@ const Home = () => {
           <hr />
           <p>{ content }</p>
         </div>
+      </div>
+      <div className={`pointer ${styles.social}`} onClick={() => router.push("https://github.com/hyunwoo")}>
+        <Image src={githubIcon.src} alt={githubIcon.alt} />
       </div>
     </>
   );

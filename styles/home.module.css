@@ -1,8 +1,8 @@
 .desc {
   display: none;
   position: absolute;
-  top: 5dvh;
-  right: 5dvw;
+  top: 20px;
+  right: 20px;
 }
 
 .desc > div {
@@ -23,8 +23,30 @@
   font-size: 12px;
 }
 
+.social {
+  position: absolute;
+  bottom: 25px;
+  right: 25px;
+  display: flex;
+  width: 40px;
+  height: 40px;
+  border-radius: 5px;
+  overflow: hidden;
+  filter: opacity(0.5) brightness(0.75);
+  transition: all 150ms;
+}
+
+.social > img {
+  width: 100%;
+  height: 100%;
+}
+
 @media screen and (hover:hover) {
   .desc:hover > div {
     transform: scale(0.85);
+  }
+
+  .social:hover {
+    filter: opacity(1) brightness(1);
   }
 }
