@@ -593,7 +593,7 @@ const Home = () => {
       <div className={`${styles.title}`}>
         <p>Hyunwoo Kim</p>
       </div>
-      <div className={`pointer ${styles.social}`} onClick={() => router.push("https://github.com/hyunwoo")}>
+      <div className={`pointer ${styles.social}`} onClick={() => router.push("https://github.com/hwk06023")}>
         <Image src={githubIcon.src} alt={githubIcon.alt} />
       </div>
     </>
