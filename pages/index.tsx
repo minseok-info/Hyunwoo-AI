@@ -1,4 +1,5 @@
 import styles from "@/styles/home.module.css";
+import Head from "next/head";
 import { PointerEvent, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { EffectComposer, GLTFLoader, OrbitControls, RenderPass } from "three/examples/jsm/Addons.js";
@@ -550,6 +551,9 @@ const Home = () => {
 
   return (
     <>
+      <Head>
+        <title>Hyunwoo AI</title>
+      </Head>
       <div ref={mountRef} className="display" onPointerDown={(event: PointerEvent<HTMLDivElement>) => handlePointerDown(event)} onPointerUp={(event: PointerEvent<HTMLDivElement>) => handlePointerUp(event)} />
       <div ref={descRef} className={`pointer ${styles.desc}`} onClick={resetCamera}>
         <div className="flex flexColumn">
