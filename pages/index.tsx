@@ -561,7 +561,7 @@ const Home = () => {
   return (
     <>
       <Head>
-        <title>Hyunwoo AI</title>
+        <title>Hyunwoo Kim</title>
       </Head>
       <div ref={mountRef} className="display" onPointerDown={(event: PointerEvent<HTMLDivElement>) => handlePointerDown(event)} onPointerUp={(event: PointerEvent<HTMLDivElement>) => handlePointerUp(event)} />
       <div ref={descRef} className={`pointer ${styles.desc}`} onClick={resetCamera}>
@@ -570,6 +570,9 @@ const Home = () => {
           <hr />
           <p>{ content }</p>
         </div>
+      </div>
+      <div className={`${styles.title}`}>
+        <p>Hyunwoo Kim</p>
       </div>
       <div className={`pointer ${styles.social}`} onClick={() => router.push("https://github.com/hyunwoo")}>
         <Image src={githubIcon.src} alt={githubIcon.alt} />
