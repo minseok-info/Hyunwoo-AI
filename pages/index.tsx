@@ -22,8 +22,6 @@ const Home = () => {
 
   type ModelType = THREE.Object3D | null;
 
-  const router = useRouter();
-
   const mountRef = useRef<HTMLDivElement>(null);
   const descRef = useRef<HTMLDivElement>(null);
 
@@ -593,7 +591,7 @@ const Home = () => {
       <div className={`${styles.title}`}>
         <p>Hyunwoo Kim</p>
       </div>
-      <div className={`pointer ${styles.social}`} onClick={() => router.push("https://github.com/hwk06023")}>
+      <div className={`pointer ${styles.social}`} onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
         <Image src={githubIcon.src} alt={githubIcon.alt} />
       </div>
     </>
