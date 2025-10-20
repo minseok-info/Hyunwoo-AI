@@ -374,7 +374,7 @@ const Home = () => {
     const geometry = target.geometry as THREE.SphereGeometry;
     const radius = geometry.parameters.radius;
 
-    if ((distance - radius) > 25) {
+    if ((distance - radius) > 40) {
       resetCamera();
     }
   }
