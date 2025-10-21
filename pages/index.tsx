@@ -44,13 +44,16 @@ const Home = () => {
 
   const intersectTargetRef = useRef<THREE.Mesh | null>(null);
   const downIntersectRef = useRef<THREE.Mesh | null>(null);
-  const planetRef = useRef<THREE.Mesh[]>([]);
+
+  const planetMeshesRef = useRef<THREE.Mesh[]>([]);
+  const leftNeuronMeshesRef = useRef<THREE.Mesh[]>([]);
+  const rightNeuronMeshesRef = useRef<THREE.Mesh[]>([]);
 
   const [data, setData] = useState<Array<DataType>>([]);
 
-  const planetListRef = useRef<DataType[]>([]);
-  const leftNeuronRef = useRef<DataType[]>([]);
-  const rightNeuronRef = useRef<DataType[]>([]);
+  const planetDataRef = useRef<DataType[]>([]);
+  const leftNeuronDataRef = useRef<DataType[]>([]);
+  const rightNeuronDataRef = useRef<DataType[]>([]);
 
   const [title, setTitle] = useState<string>("");
   const [content, setContent] = useState<string>("");
@@ -194,9 +197,55 @@ const Home = () => {
     return sprite;
   }
 
+  const createNeuron = (scene: THREE.Scene, vector: THREE.Vector3, neurons: DataType[]) => {
+    if (neurons.length < 1) return;
+
+    const isLeft = vector === leftBrainVector;
+    const neuronRef = isLeft ? leftNeuronMeshesRef : rightNeuronMeshesRef;
+    neuronRef.current = [];
+
+    const maxDistance = 0.6;
+
+    const minSize = 0.02;
+    const maxSize = 0.04;
+
+    neurons.forEach((n, index) => {
+      const u = Math.random();
+      const v = Math.random();
+      const theta = 2 * Math.PI * u;
+      const phi = Math.acos(2 * v - 1);
+      const r = Math.cbrt(Math.random()) * maxDistance;
+
+      const x = r * Math.sin(phi) * Math.cos(theta) + vector.x;
+      const y = r * Math.sin(phi) * Math.sin(theta) + vector.y;
+      const z = r * Math.cos(phi) + vector.z;
+
+      const radius = minSize + Math.random() * (maxSize - minSize);
+
+      const geometry = new THREE.SphereGeometry(radius, 16, 16);
+      const material = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(Math.random() * 0.4, Math.random() * 0.4, Math.random() * 0.4),
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.name = `${isLeft ? "left" : "right"}Neuron${index}`;
+      mesh.position.set(x, y, z);
+
+      const sprite = createTextSprite(n.title, radius, 18);
+      sprite.position.set(0, 0, 0);
+
+      mesh.visible = false;
+      neuronRef.current.push(mesh);
+
+      mesh.add(sprite);
+      scene.add(mesh);
+    });
+  }
+
   const createPlanets = (scene: THREE.Scene, planets: DataType[]) => {
     if (planets.length < 1) return;
-    planetRef.current.forEach(p => scene.remove(p));
+    planetMeshesRef.current.forEach(p => scene.remove(p));
+    planetMeshesRef.current = [];
 
     const minDistance = 25;
     const maxDistance = 80;
@@ -246,7 +295,7 @@ const Home = () => {
       sprite.position.set(0, 0, 0);
 
       mesh.visible = false;
-      planetRef.current.push(mesh);
+      planetMeshesRef.current.push(mesh);
 
       mesh.add(sprite);
       scene.add(mesh);
@@ -337,6 +386,7 @@ const Home = () => {
     controls: OrbitControls,
   ) => {
     if (!mountRef.current) return;
+    const childDiv = descRef.current?.firstElementChild as HTMLDivElement | null;
 
     const distance = camera.position.distanceTo(controls.target);
     const angle = controls.getAzimuthalAngle();
@@ -347,22 +397,37 @@ const Home = () => {
     updateBackgroundByDistance(scene, distance, 6, 2.5, new THREE.Color(0x000000), new THREE.Color(0xffffff));
 
     if (distance < 10) {
-      planetRef.current.forEach(mesh => mesh.visible = false);
+      childDiv?.style.setProperty("background-color", "rgba(0, 0, 0, 0.65)");
+
+      planetMeshesRef.current.forEach(mesh => mesh.visible = false);
       if (cameraTargetRef.current.equals(centerVector)) {
-        cameraTargetRef.current = angle < 0 ? leftBrainVector.clone() : rightBrainVector.clone();
+        const isLeft = angle < 0;
+        cameraTargetRef.current = (isLeft ? leftBrainVector : rightBrainVector).clone();
+
+        const [show, hide] = isLeft
+          ? [leftNeuronMeshesRef.current, rightNeuronMeshesRef.current]
+          : [rightNeuronMeshesRef.current, leftNeuronMeshesRef.current];
+        
+        show.forEach(mesh => mesh.visible = true);
+        hide.forEach(mesh => mesh.visible = false);
       }
     }
     else if (distance < 150) {
-      planetRef.current.forEach(mesh => mesh.visible = true);
+      childDiv?.style.setProperty("background-color", "rgba(255, 255, 255, 0.15)");
+
+      planetMeshesRef.current.forEach(mesh => mesh.visible = true);
       if (!cameraTargetRef.current.equals(centerVector)) {
         cameraTargetRef.current = centerVector.clone();
+
+        const neurons = [...leftNeuronMeshesRef.current, ...rightNeuronMeshesRef.current];
+        neurons.forEach(mesh => mesh.visible = false);
       }
     }
     else if (distance < 200) {
-      planetRef.current.forEach(mesh => mesh.visible = true);
+      planetMeshesRef.current.forEach(mesh => mesh.visible = true);
     }
     else {
-      planetRef.current.forEach(mesh => mesh.visible = false);
+      planetMeshesRef.current.forEach(mesh => mesh.visible = false);
     }
   }
 
@@ -370,11 +435,14 @@ const Home = () => {
     if (!mountRef.current || !cameraRef.current || !controlsRef.current || !intersectTargetRef.current) return;
 
     const distance = cameraRef.current.position.distanceTo(controlsRef.current.target);
+
     const target = intersectTargetRef.current;
     const geometry = target.geometry as THREE.SphereGeometry;
-    const radius = geometry.parameters.radius;
 
-    if ((distance - radius) > 40) {
+    const radius = geometry.parameters.radius;
+    const maxDistance = radius < 1 ? 0.2 : 40;
+
+    if ((distance - radius) > maxDistance) {
       resetCamera();
     }
   }
@@ -391,11 +459,12 @@ const Home = () => {
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, cameraRef.current);
 
-    const thoughts: THREE.Mesh[] = [];
-    const isPlanetVisible = planetRef.current.every(p => p.visible === true);
-
-    if (isPlanetVisible) thoughts.push(...planetRef.current);
-    const intersects = raycaster.intersectObjects(thoughts);
+    const visibleThoughts = [
+      ...planetMeshesRef.current.filter(m => m.visible),
+      ...leftNeuronMeshesRef.current.filter(m => m.visible),
+      ...rightNeuronMeshesRef.current.filter(m => m.visible),
+    ]
+    const intersects = raycaster.intersectObjects(visibleThoughts);
 
     if (intersects.length > 0) {
       downIntersectRef.current = intersects[0].object as THREE.Mesh;
@@ -414,11 +483,12 @@ const Home = () => {
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, cameraRef.current);
 
-    const thoughts: THREE.Mesh[] = [];
-    const isPlanetVisible = planetRef.current.every(p => p.visible === true);
-
-    if (isPlanetVisible) thoughts.push(...planetRef.current);
-    const intersects = raycaster.intersectObjects(thoughts);
+    const visibleThoughts = [
+      ...planetMeshesRef.current.filter(m => m.visible),
+      ...leftNeuronMeshesRef.current.filter(m => m.visible),
+      ...rightNeuronMeshesRef.current.filter(m => m.visible),
+    ]
+    const intersects = raycaster.intersectObjects(visibleThoughts);
 
     if (intersects.length > 0 && intersects[0].object === downIntersectRef.current) {
       descRef.current?.style.setProperty("display", "flex");
@@ -430,14 +500,23 @@ const Home = () => {
       const name = target.name;
       const id = parseInt(name.replace(/planet|leftNeuron|rightNeuron/g, ""));
       if (name.includes("planet")) {
-        const planet = planetListRef.current[id];
+        const planet = planetDataRef.current[id];
 
         setTitle(planet.title);
         setContent(planet.content);
       }
+      else if (name.toLowerCase().includes("neuron")) {
+        const neuronDataRef = name.includes("left")
+          ? leftNeuronDataRef
+          : rightNeuronDataRef
+
+        const neuron = neuronDataRef.current[id];
+
+        setTitle(neuron.title);
+        setContent(neuron.content);
+      }
 
       const radius = geometry.parameters.radius;
-      if (radius < 1) return;
 
       controlsRef.current.removeEventListener("change", zoomListenerRef.current!);
       const position = target.position.clone();
@@ -445,23 +524,22 @@ const Home = () => {
       const cameraDir = new THREE.Vector3();
       cameraRef.current.getWorldDirection(cameraDir);
       
-      const zoomDistance = radius * 3;
+      const isNeuron = radius < 1 ? true : false;
+      const zoomDistance = isNeuron ? 0.1 : 25;
       const zoomTarget = position.clone().add(cameraDir.clone().multiplyScalar(-zoomDistance));
 
-      let zoomProgress = 0;
       const zoomIn = () => {
-        zoomProgress += 0.02;
-        cameraTargetRef.current = position
-        cameraRef.current!.position.lerp(zoomTarget, 0.05);
+        const distance = cameraRef.current!.position.distanceTo(position);
 
-        if (zoomProgress < 1) {
+        if (distance > zoomDistance + (isNeuron ? 0.05 : 1)) {
+          cameraRef.current!.position.lerp(zoomTarget, 0.05);
+          cameraTargetRef.current = position;
           requestAnimationFrame(zoomIn);
-        }
-        else {
+        } else {
           controlsRef.current?.addEventListener("change", handleTargetZoom);
         }
       }
-
+      
       zoomIn();
     }
 
@@ -498,11 +576,14 @@ const Home = () => {
       }
     });
 
-    planetListRef.current = planets;
+    planetDataRef.current = planets;
     createPlanets(sceneRef.current!, planets);
 
-    leftNeuronRef.current = leftNeurons;
-    rightNeuronRef.current = rightNeurons;
+    leftNeuronDataRef.current = leftNeurons;
+    rightNeuronDataRef.current = rightNeurons;
+
+    createNeuron(sceneRef.current!, leftBrainVector, leftNeurons);
+    createNeuron(sceneRef.current!, rightBrainVector, rightNeurons);
   }, [data]);
 
   useEffect(() => {
@@ -571,7 +652,7 @@ const Home = () => {
       controls.removeEventListener("change", zoomListenerRef.current!);
       controls.dispose();
       renderer.dispose();
-      mountRef.current!.innerHTML = "";
+      mountRef.current?.replaceChildren();
     }
   }, []);
 
