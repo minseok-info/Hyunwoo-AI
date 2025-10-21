@@ -24,6 +24,8 @@ const Home = () => {
 
   const mountRef = useRef<HTMLDivElement>(null);
   const descRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLDivElement>(null);
+
 
   const spaceRef = useRef<ModelType>(null);
   const humanRef = useRef<ModelType>(null);
@@ -397,6 +399,7 @@ const Home = () => {
     updateBackgroundByDistance(scene, distance, 6, 2.5, new THREE.Color(0x000000), new THREE.Color(0xffffff));
 
     if (distance < 10) {
+      titleRef.current?.style.setProperty("color", "black");
       childDiv?.style.setProperty("background-color", "rgba(0, 0, 0, 0.65)");
 
       planetMeshesRef.current.forEach(mesh => mesh.visible = false);
@@ -413,6 +416,7 @@ const Home = () => {
       }
     }
     else if (distance < 150) {
+      titleRef.current?.style.setProperty("color", "white");
       childDiv?.style.setProperty("background-color", "rgba(255, 255, 255, 0.15)");
 
       planetMeshesRef.current.forEach(mesh => mesh.visible = true);
@@ -669,7 +673,7 @@ const Home = () => {
           <p>{ content }</p>
         </div>
       </div>
-      <div className={`${styles.title}`}>
+      <div ref={titleRef} className={`${styles.title}`}>
         <p>Hyunwoo Kim</p>
       </div>
       <div className={`pointer ${styles.social}`} onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
