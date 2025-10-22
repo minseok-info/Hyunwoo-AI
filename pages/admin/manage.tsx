@@ -19,11 +19,11 @@ type Props = {
 const Manage = ({ query }: Props) => {
   const router = useRouter();
 
-  const [data, setData] = useState<Array<DataType>>([]);
-  const [list, setList] = useState<Array<ItemType>>([]);
+  const [data, setData] = useState<DataType[]>([]);
+  const [list, setList] = useState<ItemType[]>([]);
 
-  const [changeList, setChangeList] = useState<Array<DataType>>([]);
-  const [deleteList, setDeleteList] = useState<Array<number>>([]);
+  const [changeList, setChangeList] = useState<DataType[]>([]);
+  const [deleteList, setDeleteList] = useState<number[]>([]);
 
   const [enableSave, setEnableSave] = useState<boolean>(true);
 
@@ -142,7 +142,7 @@ const Manage = ({ query }: Props) => {
   }
 
   useEffect(() => {
-    let tempList = new Array<ItemType>;
+    let tempList: ItemType[] = [];
     data.forEach((item) => {
       if (item.type === query.type) {
         tempList.push({ id: item.id, title: item.title, content: item.content });
