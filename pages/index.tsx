@@ -215,6 +215,7 @@ const Home = () => {
     const maxDistance = 25;
     const minSize = 1;
     const maxSize = 3;
+    const minSpeed= 0.001;
     const maxSpeed = 0.005;
 
     neurons.forEach((n, index) => {
@@ -231,9 +232,9 @@ const Home = () => {
       const radius = minSize + Math.random() * (maxSize - minSize);
 
       const velocity = new THREE.Vector3(
-        (Math.random() - 0.5) * maxSpeed,
-        (Math.random() - 0.5) * maxSpeed,
-        (Math.random() - 0.5) * maxSpeed
+        minSpeed + (Math.random() - 0.5) * (maxSpeed - minSpeed),
+        minSpeed + (Math.random() - 0.5) * (maxSpeed - minSpeed),
+        minSpeed + (Math.random() - 0.5) * (maxSpeed - minSpeed)
       );
 
       const geometry = new THREE.SphereGeometry(radius, 16, 16);
