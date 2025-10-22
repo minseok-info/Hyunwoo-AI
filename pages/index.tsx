@@ -25,7 +25,7 @@ const Home = () => {
     velocity: THREE.Vector3,
   }
 
-  type DataType = { type: "neuron" } & ItemType
+  type DataType = { type: "leftNeuron" | "rightNeuron" } & ItemType
   type ModelType = THREE.Object3D | null
 
   const mountRef = useRef<HTMLDivElement>(null);
@@ -616,7 +616,8 @@ const Home = () => {
     const rightNeurons: DataType[] = [];
 
     data.forEach(item => {
-      Math.random() < 0.5 ? leftNeurons.push(item) : rightNeurons.push(item);
+      if (item.type === "leftNeuron") leftNeurons.push(item)
+      else rightNeurons.push(item);
     });
 
     createNeuron(sceneRef.current!, leftBrainVector, leftNeurons);

@@ -10,7 +10,7 @@ type ItemType = {
   content: string,
 }
 
-type DataType = { type: "planet" | "neuron" } & ItemType
+type DataType = { type: "leftNeuron" | "rightNeuron" } & ItemType
 
 type Props = {
   query: any,
