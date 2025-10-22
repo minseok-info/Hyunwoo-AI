@@ -304,6 +304,51 @@ const Home = () => {
     });
   }
 
+  const connectNeuron = (neurons: THREE.Mesh[] = []) => {
+    if (neurons.length < 1) return;
+
+    const points: THREE.Vector3[] = [];
+    const connected = new Set<THREE.Mesh>();
+
+    neurons.forEach((n) => {
+      const centerPos = n.position;
+
+      let minDistance = Infinity;
+      let closestPos: THREE.Vector3 | null = null;
+
+      neurons.forEach((cand) => {
+        if (cand === n) return;
+        else if (connected.has(cand)) return;
+
+        const candPos = cand.position;
+        const distance = centerPos.distanceTo(candPos);
+
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestPos = candPos;
+        }
+      });
+
+      if (closestPos) {
+        const candPos = closestPos as THREE.Vector3;
+        points.push(centerPos.clone(), candPos.clone());
+        connected.add(n);
+      }
+    });
+
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.3,
+    });
+
+    const lines = new THREE.LineSegments(geometry, material);
+    sceneRef.current!.add(lines);
+
+    return lines;
+  }
+
   const updateOpacityByDistance = (
     model: ModelType,
     distance: number,
@@ -588,6 +633,9 @@ const Home = () => {
 
     createNeuron(sceneRef.current!, leftBrainVector, leftNeurons);
     createNeuron(sceneRef.current!, rightBrainVector, rightNeurons);
+
+    connectNeuron(leftNeuronMeshesRef.current);
+    connectNeuron(rightNeuronMeshesRef.current);
   }, [data]);
 
   useEffect(() => {
