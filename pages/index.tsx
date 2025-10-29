@@ -75,7 +75,6 @@ const Home = () => {
       const size = 30;
 
       model.scale.set(size, size, size);
-      model.traverse((obj) => obj.layers.enable(1));
 
       ref.current = model;
       scene.add(ref.current);
