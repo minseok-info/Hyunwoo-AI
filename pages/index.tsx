@@ -673,9 +673,9 @@ const Home = () => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableRotate = true;
     controls.enableZoom = true;
-    controls.zoomSpeed = 1.5;
+    controls.zoomSpeed = 0.8;
     controls.enableDamping = true;
-    controls.dampingFactor = 0.1;
+    controls.dampingFactor = 0.05;
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
