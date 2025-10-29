@@ -12,6 +12,7 @@ input {
   width: 100dvw;
   height: 100dvh;
   position: relative;
+  user-select: none;
 }
 
 .full {

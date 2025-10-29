@@ -661,8 +661,13 @@ const Home = () => {
     const camera = new THREE.PerspectiveCamera(75, clientWidth / clientHeight, 1, 15000);
     camera.position.z = 750;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: "high-performance",
+      alpha: false,
+    });
     renderer.setSize(clientWidth, clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mountRef.current.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
