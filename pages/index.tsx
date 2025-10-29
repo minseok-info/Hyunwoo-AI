@@ -387,7 +387,7 @@ const Home = () => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        const opacity = direction === "sh" ? (1 - t) : (0.25 * t);
+        const opacity = direction === "sh" ? (1 - t) : (0.35 * t);
 
         materials.forEach((mat) => {
           const m = mat as THREE.MeshStandardMaterial & { opacity?: number; transparent?: boolean };
@@ -410,6 +410,30 @@ const Home = () => {
         }
 
         m.visible = opacity > 0;
+      }
+    });
+  }
+
+  const changeColorByAngle = (
+    model: ModelType,
+    isLeft: boolean,
+  ) => {
+    if (!model) return;
+    model.rotation.set(0, 0, 0);
+    isLeft
+      ? model.rotation.set(-1, 0.75, 0.5)
+      : model.rotation.set(1, 0.75, -1.5);
+
+    model.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const mat = Array.isArray(mesh.material)
+          ? (mesh.material[0] as THREE.MeshStandardMaterial)
+          : (mesh.material as THREE.MeshStandardMaterial);
+
+        mat.emissive = isLeft
+          ? new THREE.Color(1, 0.15, 0.15)
+          : new THREE.Color(0.25, 0.25, 1);
       }
     });
   }
@@ -465,6 +489,8 @@ const Home = () => {
       if (cameraTargetRef.current.equals(centerVector)) {
         const isLeft = angle < 0;
         cameraTargetRef.current = (isLeft ? leftBrainVector : rightBrainVector).clone();
+
+        changeColorByAngle(planetRef.current, isLeft);
 
         const [show, hide] = isLeft ? [leftNeuronMeshes, rightNeuronMeshes] : [rightNeuronMeshes, leftNeuronMeshes];
         show.forEach(mesh => mesh.visible = true);
