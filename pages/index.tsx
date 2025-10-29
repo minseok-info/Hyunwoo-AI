@@ -453,7 +453,7 @@ const Home = () => {
 
     updateOpacityByDistance(humanRef.current, "sh", distance, 300, 200);
     updateOpacityByDistance(brainRef.current, "sh", distance, 100, 50);
-    updateOpacityByDistance(planetRef.current, "hs", distance, 75, 10);
+    updateOpacityByDistance(planetRef.current, "hs", distance, 75, 25);
 
     const leftNeuronMeshes = leftNeuronInfosRef.current.map(info => info.mesh);
     const rightNeuronMeshes = rightNeuronInfosRef.current.map(info => info.mesh);
