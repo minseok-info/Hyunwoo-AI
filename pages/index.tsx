@@ -35,6 +35,7 @@ const Home = () => {
   const spaceRef = useRef<ModelType>(null);
   const humanRef = useRef<ModelType>(null);
   const brainRef = useRef<ModelType>(null);
+  const planetRef = useRef<ModelType>(null);
 
   const centerVector = new THREE.Vector3(0, 0, 0);
   const leftBrainVector = new THREE.Vector3(-35, 5, 0);
@@ -74,6 +75,7 @@ const Home = () => {
       const size = 30;
 
       model.scale.set(size, size, size);
+      model.traverse((obj) => obj.layers.enable(1));
 
       ref.current = model;
       scene.add(ref.current);
@@ -116,7 +118,7 @@ const Home = () => {
             if (m.roughness === undefined) m.roughness = 0.5;
             if (m.metalness === undefined) m.metalness = 0.5;
             m.needsUpdate = true;
-          })
+          });
         }
       });
 
@@ -172,6 +174,29 @@ const Home = () => {
         }
       });
       
+      ref.current = model;
+      scene.add(ref.current);
+    });
+  }
+
+  const loadPlanetModel = (
+    loader: GLTFLoader,
+    scene: THREE.Scene,
+    ref: React.MutableRefObject<ModelType>
+  ) => {
+    loader.load("/models/planet.glb", (gltf) => {
+      const model = gltf.scene;
+      const size = 25;
+
+      model.scale.set(size, size, size);
+
+      model.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          mesh.visible = false;
+        }
+      });
+
       ref.current = model;
       scene.add(ref.current);
     });
@@ -249,6 +274,7 @@ const Home = () => {
       const sprite = createTextSprite(n.title, radius, 18);
       sprite.position.set(0, 0, 0);
       mesh.add(sprite);
+
       mesh.visible = false;
       scene.add(mesh);
 
@@ -291,7 +317,7 @@ const Home = () => {
     });
 
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 });
+    const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
     const lines = new THREE.LineSegments(geometry, material);
     lines.visible = false;
     scene.add(lines);
@@ -350,6 +376,7 @@ const Home = () => {
 
   const updateOpacityByDistance = (
     model: ModelType,
+    direction: "sh" | "hs",
     distance: number,
     distStart: number,
     distEnd: number,
@@ -361,7 +388,7 @@ const Home = () => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        const opacity = 1 - t;
+        const opacity = direction === "sh" ? (1 - t) : (0.25 * t);
 
         materials.forEach((mat) => {
           const m = mat as THREE.MeshStandardMaterial & { opacity?: number; transparent?: boolean };
@@ -386,23 +413,6 @@ const Home = () => {
         m.visible = opacity > 0;
       }
     });
-  }
-
-  const updateBackgroundByDistance = (
-    scene: THREE.Scene,
-    distance: number,
-    distStart: number,
-    distEnd: number,
-    colorStart: THREE.Color,
-    colorEnd: THREE.Color,
-  ) => {
-    const t = THREE.MathUtils.clamp((distance - distStart) / (distEnd - distStart), 0, 1);
-
-    const r = THREE.MathUtils.lerp(colorStart.r, colorEnd.r, t);
-    const g = THREE.MathUtils.lerp(colorStart.g, colorEnd.g, t);
-    const b = THREE.MathUtils.lerp(colorStart.b, colorEnd.b, t);
-
-    scene.background = new THREE.Color(r, g, b);
   }
 
   const resetCamera = () => {
@@ -435,19 +445,16 @@ const Home = () => {
   }
 
   const handleZoom = (
-    scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
     controls: OrbitControls,
   ) => {
     if (!mountRef.current) return;
-    const childDiv = descRef.current?.firstElementChild as HTMLDivElement | null;
-
     const distance = camera.position.distanceTo(controls.target);
     const angle = controls.getAzimuthalAngle();
 
-    updateOpacityByDistance(humanRef.current, distance, 300, 200);
-    updateOpacityByDistance(brainRef.current, distance, 100, 50);
-    updateBackgroundByDistance(scene, distance, 100, 50, new THREE.Color(0x000000), new THREE.Color(0xffffff));
+    updateOpacityByDistance(humanRef.current, "sh", distance, 300, 200);
+    updateOpacityByDistance(brainRef.current, "sh", distance, 100, 50);
+    updateOpacityByDistance(planetRef.current, "hs", distance, 75, 10);
 
     const leftNeuronMeshes = leftNeuronInfosRef.current.map(info => info.mesh);
     const rightNeuronMeshes = rightNeuronInfosRef.current.map(info => info.mesh);
@@ -456,9 +463,6 @@ const Home = () => {
     const rightLines = rightLinesRef.current;
 
     if (distance < 100) {
-      titleRef.current?.style.setProperty("color", "black");
-      childDiv?.style.setProperty("background-color", "rgba(0, 0, 0, 0.65)");
-
       if (cameraTargetRef.current.equals(centerVector)) {
         const isLeft = angle < 0;
         cameraTargetRef.current = (isLeft ? leftBrainVector : rightBrainVector).clone();
@@ -472,9 +476,6 @@ const Home = () => {
       }
     }
     else if (distance < 150) {
-      titleRef.current?.style.setProperty("color", "white");
-      childDiv?.style.setProperty("background-color", "rgba(255, 255, 255, 0.15)");
-
       if (!cameraTargetRef.current.equals(centerVector)) {
         cameraTargetRef.current = centerVector.clone();
         [...leftNeuronMeshes, ...rightNeuronMeshes].forEach(mesh => mesh.visible = false);
@@ -547,7 +548,6 @@ const Home = () => {
       intersectTargetRef.current = downIntersectRef.current;
 
       const target = downIntersectRef.current;
-      const geometry = target.geometry as THREE.SphereGeometry;
 
       const name = target.name;
       const id = parseInt(name.replace(/leftNeuron|rightNeuron/g, ""));
@@ -559,8 +559,6 @@ const Home = () => {
         setTitle(neuronInfo.data.title);
         setContent(neuronInfo.data.content);
       }
-
-      const radius = geometry.parameters.radius;
 
       controlsRef.current.removeEventListener("change", zoomListenerRef.current!);
       const position = target.position.clone();
@@ -635,7 +633,7 @@ const Home = () => {
     const clientHeight = mountRef.current.clientHeight;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, clientWidth / clientHeight, 0.1, 5000);
+    const camera = new THREE.PerspectiveCamera(75, clientWidth / clientHeight, 1, 15000);
     camera.position.z = 750;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -659,11 +657,12 @@ const Home = () => {
     loadSpaceModel(loader, scene, spaceRef);
     loadHumanModel(loader, scene, humanRef);
     loadBrainModel(loader, scene, brainRef);
+    loadPlanetModel(loader, scene, planetRef);
 
     const resizeListener = () => handleResize(camera, renderer, composer);
     window.addEventListener("resize", resizeListener);
 
-    zoomListenerRef.current = () => handleZoom(scene, camera, controls);
+    zoomListenerRef.current = () => handleZoom(camera, controls);
     controls.addEventListener("change", zoomListenerRef.current);
 
     targetZoomListenerRef.current = () => handleTargetZoom();

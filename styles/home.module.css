@@ -8,19 +8,21 @@
 
 .desc > div {
   color: white;
+  min-width: 25dvw;
+  min-height: 30dvh;
   padding: 10px;
-  border-radius: 5px;
-  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 2.5px;
+  background-color: rgba(255, 255, 255, 0.25);
   transition: all 150ms;
 }
 
 .desc hr {
+  margin: 2.5px 0px 7.5px;
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .desc p {
-  margin-top: 5px;
   font-size: 12px;
   word-break: break-word;
 }
@@ -32,7 +34,6 @@
   transform: translateX(-50%);
   color: white;
   pointer-events: none;
-  transition: all 1000ms;
 }
 
 .social {
@@ -55,7 +56,7 @@
 
 @media screen and (hover:hover) {
   .desc:hover > div {
-    transform: scale(0.85);
+    opacity: 0.25;
   }
 
   .social:hover {
