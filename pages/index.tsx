@@ -73,6 +73,13 @@ const Home = () => {
   const startZoomDistance = 750;
   const [zoomDistance, setZoomDistance] = useState<number>(startZoomDistance);
 
+  const modelSizes = {
+    space: 30,
+    human: 12,
+    brain: 175,
+    planet: 25,
+  }
+
   const loadSpaceModel = (
     loader: GLTFLoader,
     scene: THREE.Scene,
@@ -80,7 +87,7 @@ const Home = () => {
   ) => {
     loader.load("/models/space.glb", (gltf) => {
       const model = gltf.scene;
-      const size = 30;
+      const size = modelSizes.space;
 
       model.scale.set(size, size, size);
 
@@ -96,7 +103,7 @@ const Home = () => {
   ) => {
     loader.load("/models/human.glb", (gltf) => {
       const model = gltf.scene;
-      const size = 12;
+      const size = modelSizes.human;
 
       model.scale.set(size, size, size);
       model.position.set(0, -1875, 30);
@@ -139,7 +146,7 @@ const Home = () => {
   ) => {
     loader.load("/models/brain.glb", (gltf) => {
       const model = gltf.scene;
-      const size = 175;
+      const size = modelSizes.brain;
 
       model.scale.set(size, size, size);
       model.rotation.set(0, (Math.PI - 0.4), 0);
@@ -191,7 +198,7 @@ const Home = () => {
   ) => {
     loader.load("/models/planet.glb", (gltf) => {
       const model = gltf.scene;
-      const size = 25;
+      const size = modelSizes.planet;
 
       model.scale.set(size, size, size);
 
