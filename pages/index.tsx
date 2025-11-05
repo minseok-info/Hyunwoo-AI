@@ -69,14 +69,14 @@ const Home = () => {
   const [content, setContent] = useState<string>("");
 
   const minZoomDistance = 0;
-  const maxZoomDistance = 3000;
-  const startZoomDistance = 750;
+  const maxZoomDistance = 5000;
+  const startZoomDistance = 1250;
   const [zoomDistance, setZoomDistance] = useState<number>(startZoomDistance);
 
   const modelSizes = {
-    space: 30,
-    human: 12,
-    brain: 175,
+    space: 50,
+    human: 24,
+    brain: 275,
     planet: 25,
   }
 
@@ -106,7 +106,7 @@ const Home = () => {
       const size = modelSizes.human;
 
       model.scale.set(size, size, size);
-      model.position.set(0, -1875, 30);
+      model.position.set(0, -3750, 30);
 
       model.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
@@ -152,7 +152,7 @@ const Home = () => {
       model.rotation.set(0, (Math.PI - 0.4), 0);
       model.position.set(0, -25, 0);
 
-      const centerOffset = -2.28;
+      const centerOffset = -3.585;
       const modelBox = new THREE.Box3().setFromObject(model);
       const modelCenter = (modelBox.min.x + modelBox.max.x) / 2 + centerOffset;
       brainModelCenterRef.current = modelCenter;
@@ -511,9 +511,9 @@ const Home = () => {
 
     setZoomDistance(distance);
 
-    updateOpacityByDistance(humanModelRef.current, "sh", distance, 300, 200);
-    updateOpacityByDistance(brainModelRef.current, "sh", distance, 100, 50);
-    updateOpacityByDistance(planetModelRef.current, "hs", distance, 75, 25);
+    updateOpacityByDistance(humanModelRef.current, "sh", distance, 400, 300);
+    updateOpacityByDistance(brainModelRef.current, "sh", distance, 200, 150);
+    updateOpacityByDistance(planetModelRef.current, "hs", distance, 150, 50);
 
     const leftGroupMeshes = leftGroupInfosRef.current.map(info => info.mesh);
     const rightGroupMeshes = rightGroupInfosRef.current.map(info => info.mesh);
@@ -521,7 +521,7 @@ const Home = () => {
     const leftLines = leftLinesRef.current;
     const rightLines = rightLinesRef.current;
 
-    if (distance < 100) {
+    if (distance < 150) {
       if (cameraTargetRef.current.equals(centerVector)) {
         const isLeft = angle < 0;
         const hasIntersectTarget = intersectTargetRef.current?.name.includes(isLeft ? "left" : "right");
@@ -540,7 +540,7 @@ const Home = () => {
         if (rightLines) rightLines.visible = !isLeft;
       }
     }
-    else if (distance < 150) {
+    else if (distance < 250) {
       if (!cameraTargetRef.current.equals(centerVector)) {
         cameraTargetRef.current = centerVector.clone();
         [...leftGroupMeshes, ...rightGroupMeshes].forEach(mesh => mesh.visible = false);
