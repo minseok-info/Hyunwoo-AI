@@ -21,7 +21,7 @@ const Home = () => {
     mesh: THREE.Mesh,
     data: DataType,
   }
-  type NeuronInfo = MeshInfo & {
+  type GroupInfo = MeshInfo & {
     position: THREE.Vector3,
     velocity: THREE.Vector3,
   }
@@ -57,8 +57,8 @@ const Home = () => {
   const intersectTargetRef = useRef<THREE.Mesh | null>(null);
   const downIntersectRef = useRef<THREE.Mesh | null>(null);
 
-  const leftNeuronInfosRef = useRef<NeuronInfo[]>([]);
-  const rightNeuronInfosRef = useRef<NeuronInfo[]>([]);
+  const leftGroupInfosRef = useRef<GroupInfo[]>([]);
+  const rightGroupInfosRef = useRef<GroupInfo[]>([]);
 
   const leftLinesRef = useRef<THREE.LineSegments | null>(null);
   const rightLinesRef = useRef<THREE.LineSegments | null>(null);
@@ -235,12 +235,12 @@ const Home = () => {
     return sprite;
   }
 
-  const createNeuron = (scene: THREE.Scene, vector: THREE.Vector3, neurons: DataType[]) => {
-    if (neurons.length < 1) return;
+  const createGroups = (scene: THREE.Scene, vector: THREE.Vector3, groups: DataType[]) => {
+    if (groups.length < 1) return;
 
     const isLeft = vector === leftBrainVector;
-    const neuronInfosRef = isLeft ? leftNeuronInfosRef : rightNeuronInfosRef;
-    neuronInfosRef.current = [];
+    const groupInfosRef = isLeft ? leftGroupInfosRef : rightGroupInfosRef;
+    groupInfosRef.current = [];
 
     const maxDistance = 25;
     const minSize = 1;
@@ -248,7 +248,7 @@ const Home = () => {
     const minSpeed= 0.001;
     const maxSpeed = 0.005;
 
-    neurons.forEach((n, index) => {
+    groups.forEach((g, index) => {
       const u = Math.random();
       const v = Math.random();
       const theta = 2 * Math.PI * u;
@@ -275,38 +275,38 @@ const Home = () => {
       });
 
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.name = `${isLeft ? "left" : "right"}Neuron${index}`;
+      mesh.name = `${isLeft ? "left" : "right"}Group${index}`;
       mesh.position.set(x, y, z);
 
-      const sprite = createTextSprite(n.title);
+      const sprite = createTextSprite(g.title);
       sprite.position.set(0, radius + 1, 0);
       mesh.add(sprite);
 
       mesh.visible = false;
       scene.add(mesh);
 
-      neuronInfosRef.current.push({
+      groupInfosRef.current.push({
         mesh: mesh,
-        data: n,
+        data: g,
         position: new THREE.Vector3(x, y, z),
         velocity: velocity,
       });
     });
   };
 
-  const connectNeuron = (scene: THREE.Scene, neurons: MeshInfo[]) => {
-    if (neurons.length < 1) return null;
+  const connectGroup = (scene: THREE.Scene, groups: MeshInfo[]) => {
+    if (groups.length < 1) return null;
 
     const points: THREE.Vector3[] = [];
     const connected = new Set<THREE.Mesh>();
 
-    neurons.forEach(n => {
-      const centerPos = n.mesh.position;
+    groups.forEach(g => {
+      const centerPos = g.mesh.position;
       let minDistance = Infinity;
       let closestPos: THREE.Vector3 | null = null;
 
-      neurons.forEach(cand => {
-        if (cand.mesh === n.mesh) return;
+      groups.forEach(cand => {
+        if (cand.mesh === g.mesh) return;
         else if (connected.has(cand.mesh)) return;
 
         const candPos = cand.mesh.position;
@@ -319,7 +319,7 @@ const Home = () => {
 
       if (closestPos) {
         points.push(centerPos.clone(), (closestPos as THREE.Vector3).clone());
-        connected.add(n.mesh);
+        connected.add(g.mesh);
       }
     });
 
@@ -331,36 +331,36 @@ const Home = () => {
     return lines;
   };
 
-  const updateNeurons = (neurons: NeuronInfo[], center: THREE.Vector3) => {
-    neurons.forEach(n => {
-      const mesh = n.mesh;
+  const updateGroups = (groups: GroupInfo[], center: THREE.Vector3) => {
+    groups.forEach(g => {
+      const mesh = g.mesh;
       const uuid = mesh.uuid;
       const intersectedUuid = intersectTargetRef.current?.uuid;
 
       if (intersectedUuid && uuid === intersectedUuid) return;
 
-      n.position.add(n.velocity);
-      n.mesh.position.copy(n.position);
+      g.position.add(g.velocity);
+      g.mesh.position.copy(g.position);
 
-      if (n.position.distanceTo(center) > 25) {
-        n.position.sub(center).normalize().multiplyScalar(25).add(center);
-        n.velocity.reflect(n.position.clone().sub(center).normalize());
+      if (g.position.distanceTo(center) > 25) {
+        g.position.sub(center).normalize().multiplyScalar(25).add(center);
+        g.velocity.reflect(g.position.clone().sub(center).normalize());
       }
     });
   }
 
-  const updateLines = (lines: THREE.LineSegments, neurons: NeuronInfo[]) => {
+  const updateLines = (lines: THREE.LineSegments, groups: GroupInfo[]) => {
     const points: number[] = [];
     const connected = new Set<THREE.Mesh>();
 
-    neurons.forEach(n => {
-      const centerPos = n.mesh.position;
+    groups.forEach(g => {
+      const centerPos = g.mesh.position;
 
       let minDistance = Infinity;
       let closestPos: THREE.Vector3 | null = null;
 
-      neurons.forEach(cand => {
-        if (cand.mesh === n.mesh) return;
+      groups.forEach(cand => {
+        if (cand.mesh === g.mesh) return;
         else if (connected.has(cand.mesh)) return;
 
         const candPos = cand.mesh.position;
@@ -374,7 +374,7 @@ const Home = () => {
       if (closestPos) {
         points.push(centerPos.x, centerPos.y, centerPos.z);
         points.push((closestPos as THREE.Vector3).x, (closestPos as THREE.Vector3).y, (closestPos as THREE.Vector3).z);
-        connected.add(n.mesh);
+        connected.add(g.mesh);
       }
     });
 
@@ -456,7 +456,7 @@ const Home = () => {
     if (!intersectTargetRef.current) return;
     const name = intersectTargetRef.current!.name;
 
-    if (!name.toLowerCase().includes("neuron")) cameraTargetRef.current = initialTargetRef.current;
+    if (!name.toLowerCase().includes("group")) cameraTargetRef.current = initialTargetRef.current;
     // descRef.current!.style.setProperty("display", "none");
 
     controlsRef.current?.removeEventListener("change", targetZoomListenerRef.current!);
@@ -508,8 +508,8 @@ const Home = () => {
     updateOpacityByDistance(brainModelRef.current, "sh", distance, 100, 50);
     updateOpacityByDistance(planetModelRef.current, "hs", distance, 75, 25);
 
-    const leftNeuronMeshes = leftNeuronInfosRef.current.map(info => info.mesh);
-    const rightNeuronMeshes = rightNeuronInfosRef.current.map(info => info.mesh);
+    const leftGroupMeshes = leftGroupInfosRef.current.map(info => info.mesh);
+    const rightGroupMeshes = rightGroupInfosRef.current.map(info => info.mesh);
 
     const leftLines = leftLinesRef.current;
     const rightLines = rightLinesRef.current;
@@ -525,7 +525,7 @@ const Home = () => {
 
         changeColorByAngle(planetModelRef.current, isLeft);
 
-        const [show, hide] = isLeft ? [leftNeuronMeshes, rightNeuronMeshes] : [rightNeuronMeshes, leftNeuronMeshes];
+        const [show, hide] = isLeft ? [leftGroupMeshes, rightGroupMeshes] : [rightGroupMeshes, leftGroupMeshes];
         show.forEach(mesh => mesh.visible = true);
         hide.forEach(mesh => mesh.visible = false);
 
@@ -536,7 +536,7 @@ const Home = () => {
     else if (distance < 150) {
       if (!cameraTargetRef.current.equals(centerVector)) {
         cameraTargetRef.current = centerVector.clone();
-        [...leftNeuronMeshes, ...rightNeuronMeshes].forEach(mesh => mesh.visible = false);
+        [...leftGroupMeshes, ...rightGroupMeshes].forEach(mesh => mesh.visible = false);
         [leftLines, rightLines].forEach(lines => { if (lines) lines.visible = false; });
       }
     }
@@ -571,8 +571,8 @@ const Home = () => {
     raycaster.setFromCamera(mouse, cameraRef.current);
 
     const visibleThoughts = [
-      ...leftNeuronInfosRef.current.map(info => info.mesh).filter(m => m.visible),
-      ...rightNeuronInfosRef.current.map(info => info.mesh).filter(m => m.visible),
+      ...leftGroupInfosRef.current.map(info => info.mesh).filter(m => m.visible),
+      ...rightGroupInfosRef.current.map(info => info.mesh).filter(m => m.visible),
     ];
     const intersects = raycaster.intersectObjects(visibleThoughts);
 
@@ -594,8 +594,8 @@ const Home = () => {
     raycaster.setFromCamera(mouse, cameraRef.current);
 
     const visibleThoughts = [
-      ...leftNeuronInfosRef.current.map(info => info.mesh).filter(m => m.visible),
-      ...rightNeuronInfosRef.current.map(info => info.mesh).filter(m => m.visible),
+      ...leftGroupInfosRef.current.map(info => info.mesh).filter(m => m.visible),
+      ...rightGroupInfosRef.current.map(info => info.mesh).filter(m => m.visible),
     ];
     const intersects = raycaster.intersectObjects(visibleThoughts);
 
@@ -608,14 +608,14 @@ const Home = () => {
       const target = downIntersectRef.current;
 
       const name = target.name;
-      const id = parseInt(name.replace(/leftNeuron|rightNeuron/g, ""));
+      const id = parseInt(name.replace(/leftGroup|rightGroup/g, ""));
 
-      if (name.toLowerCase().includes("neuron")) {
-        const neuronInfosRef = name.includes("left") ? leftNeuronInfosRef : rightNeuronInfosRef;
-        const neuronInfo = neuronInfosRef.current[id];
+      if (name.toLowerCase().includes("group")) {
+        const groupInfosRef = name.includes("left") ? leftGroupInfosRef : rightGroupInfosRef;
+        const groupInfo = groupInfosRef.current[id];
 
-        setTitle(neuronInfo.data.title);
-        setContent(neuronInfo.data.content);
+        setTitle(groupInfo.data.title);
+        setContent(groupInfo.data.content);
       }
 
       controlsRef.current.removeEventListener("change", zoomListenerRef.current!);
@@ -647,19 +647,19 @@ const Home = () => {
   }
 
   useEffect(() => {
-    const leftNeurons: DataType[] = [];
-    const rightNeurons: DataType[] = [];
+    const leftGroups: DataType[] = [];
+    const rightGroups: DataType[] = [];
 
     data.forEach(item => {
-      if (item.type === "leftNeuron") leftNeurons.push(item)
-      else rightNeurons.push(item);
+      if (item.type === "leftNeuron") leftGroups.push(item)
+      else rightGroups.push(item);
     });
 
-    createNeuron(sceneRef.current!, leftBrainVector, leftNeurons);
-    createNeuron(sceneRef.current!, rightBrainVector, rightNeurons);
+    createGroups(sceneRef.current!, leftBrainVector, leftGroups);
+    createGroups(sceneRef.current!, rightBrainVector, rightGroups);
 
-    leftLinesRef.current = connectNeuron(sceneRef.current!, leftNeuronInfosRef.current);
-    rightLinesRef.current = connectNeuron(sceneRef.current!, rightNeuronInfosRef.current);
+    leftLinesRef.current = connectGroup(sceneRef.current!, leftGroupInfosRef.current);
+    rightLinesRef.current = connectGroup(sceneRef.current!, rightGroupInfosRef.current);
   }, [data]);
 
   useEffect(() => {
@@ -725,10 +725,10 @@ const Home = () => {
     const animate = () => {
       requestAnimationFrame(animate);
 
-      updateNeurons(leftNeuronInfosRef.current, leftBrainVector);
-      updateNeurons(rightNeuronInfosRef.current, rightBrainVector);
-      if (leftLinesRef.current) leftLinesRef.current = updateLines(leftLinesRef.current, leftNeuronInfosRef.current);
-      if (rightLinesRef.current) rightLinesRef.current = updateLines(rightLinesRef.current, rightNeuronInfosRef.current);
+      updateGroups(leftGroupInfosRef.current, leftBrainVector);
+      updateGroups(rightGroupInfosRef.current, rightBrainVector);
+      if (leftLinesRef.current) leftLinesRef.current = updateLines(leftLinesRef.current, leftGroupInfosRef.current);
+      if (rightLinesRef.current) rightLinesRef.current = updateLines(rightLinesRef.current, rightGroupInfosRef.current);
 
       controls.target.lerp(cameraTargetRef.current, 0.05);
       controls.update();
