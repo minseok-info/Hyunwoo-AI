@@ -71,7 +71,7 @@ const Home = () => {
   const minZoomDistance = 0;
   const maxZoomDistance = 3000;
   const startZoomDistance = 750;
-  const [zoomProgress, setZoomProgress] = useState<number>(startZoomDistance);
+  const [zoomDistance, setZoomDistance] = useState<number>(startZoomDistance);
 
   const loadSpaceModel = (
     loader: GLTFLoader,
@@ -267,7 +267,7 @@ const Home = () => {
         minSpeed + (Math.random() - 0.5) * (maxSpeed - minSpeed)
       );
 
-      const geometry = new THREE.SphereGeometry(radius, 16, 16);
+      const geometry = new THREE.SphereGeometry(radius, 32, 32);
       const material = new THREE.MeshStandardMaterial({
         color: new THREE.Color(Math.random() * 0.8, Math.random() * 0.8, Math.random() * 0.8),
         emissive: new THREE.Color(0xffffff),
@@ -333,6 +333,12 @@ const Home = () => {
 
   const updateNeurons = (neurons: NeuronInfo[], center: THREE.Vector3) => {
     neurons.forEach(n => {
+      const mesh = n.mesh;
+      const uuid = mesh.uuid;
+      const intersectedUuid = intersectTargetRef.current?.uuid;
+
+      if (intersectedUuid && uuid === intersectedUuid) return;
+
       n.position.add(n.velocity);
       n.mesh.position.copy(n.position);
 
@@ -449,10 +455,9 @@ const Home = () => {
   const resetCamera = () => {
     if (!intersectTargetRef.current) return;
     const name = intersectTargetRef.current!.name;
-    intersectTargetRef.current = null;
 
     if (!name.toLowerCase().includes("neuron")) cameraTargetRef.current = initialTargetRef.current;
-    descRef.current!.style.setProperty("display", "none");
+    // descRef.current!.style.setProperty("display", "none");
 
     controlsRef.current?.removeEventListener("change", targetZoomListenerRef.current!);
     controlsRef.current?.addEventListener("change", zoomListenerRef.current!);
@@ -497,7 +502,7 @@ const Home = () => {
     const distance = camera.position.distanceTo(controls.target);
     const angle = controls.getAzimuthalAngle();
 
-    setZoomProgress(distance);
+    setZoomDistance(distance);
 
     updateOpacityByDistance(humanModelRef.current, "sh", distance, 300, 200);
     updateOpacityByDistance(brainModelRef.current, "sh", distance, 100, 50);
@@ -512,7 +517,11 @@ const Home = () => {
     if (distance < 100) {
       if (cameraTargetRef.current.equals(centerVector)) {
         const isLeft = angle < 0;
-        cameraTargetRef.current = (isLeft ? leftBrainVector : rightBrainVector).clone();
+        const hasIntersectTarget = intersectTargetRef.current?.name.includes(isLeft ? "left" : "right");
+        const target = hasIntersectTarget ? intersectTargetRef.current!.position.clone()
+          : (isLeft ? leftBrainVector : rightBrainVector).clone();
+
+        cameraTargetRef.current = target;
 
         changeColorByAngle(planetModelRef.current, isLeft);
 
@@ -593,7 +602,7 @@ const Home = () => {
     if (intersects.length > 0 && intersects[0].object === downIntersectRef.current) {
       resetCamera();
 
-      descRef.current?.style.setProperty("display", "flex");
+      // descRef.current?.style.setProperty("display", "flex");
       intersectTargetRef.current = downIntersectRef.current;
 
       const target = downIntersectRef.current;
@@ -621,6 +630,7 @@ const Home = () => {
 
       const zoomIn = () => {
         const distance = cameraRef.current!.position.distanceTo(position);
+        setZoomDistance(distance);
 
         if (distance > zoomDistance + 1) {
           cameraRef.current!.position.lerp(zoomTarget, 0.05);
@@ -714,12 +724,11 @@ const Home = () => {
 
     const animate = () => {
       requestAnimationFrame(animate);
-      if (!intersectTargetRef.current) {
-        updateNeurons(leftNeuronInfosRef.current, leftBrainVector);
-        updateNeurons(rightNeuronInfosRef.current, rightBrainVector);
-        if (leftLinesRef.current) leftLinesRef.current = updateLines(leftLinesRef.current, leftNeuronInfosRef.current);
-        if (rightLinesRef.current) rightLinesRef.current = updateLines(rightLinesRef.current, rightNeuronInfosRef.current);
-      }
+
+      updateNeurons(leftNeuronInfosRef.current, leftBrainVector);
+      updateNeurons(rightNeuronInfosRef.current, rightBrainVector);
+      if (leftLinesRef.current) leftLinesRef.current = updateLines(leftLinesRef.current, leftNeuronInfosRef.current);
+      if (rightLinesRef.current) rightLinesRef.current = updateLines(rightLinesRef.current, rightNeuronInfosRef.current);
 
       controls.target.lerp(cameraTargetRef.current, 0.05);
       controls.update();
@@ -770,7 +779,7 @@ const Home = () => {
       <div ref={titleRef} className={`${styles.title}`}>
         <p>Hyunwoo Kim</p>
       </div>
-      <ZoomProgressBar distance={zoomProgress} minDistance={minZoomDistance} maxDistance={maxZoomDistance} onZoomUpdate={handleZoomUpdate} />
+      <ZoomProgressBar distance={zoomDistance} minDistance={minZoomDistance} maxDistance={maxZoomDistance} onZoomUpdate={handleZoomUpdate} />
       <div className={`pointer ${styles.social}`} onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
         <Image src={githubIcon.src} alt={githubIcon.alt} />
       </div>
