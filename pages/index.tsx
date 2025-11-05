@@ -1,9 +1,10 @@
+import { ZoomProgressBar } from "@/components";
 import styles from "@/styles/home.module.css";
 import Head from "next/head";
 import Image from "next/image";
 import { PointerEvent, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { EffectComposer, GLTFLoader, OrbitControls, RenderPass } from "three/examples/jsm/Addons.js";
+import { EffectComposer, GLTFLoader, OrbitControls, RenderPass, UnrealBloomPass } from "three/examples/jsm/Addons.js";
 
 const githubIcon = {
   src: require("@/public/icons/github.svg"),
@@ -32,10 +33,12 @@ const Home = () => {
   const descRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
 
-  const spaceRef = useRef<ModelType>(null);
-  const humanRef = useRef<ModelType>(null);
-  const brainRef = useRef<ModelType>(null);
-  const planetRef = useRef<ModelType>(null);
+  const spaceModelRef = useRef<ModelType>(null);
+  const humanModelRef = useRef<ModelType>(null);
+  const brainModelRef = useRef<ModelType>(null);
+  const planetModelRef = useRef<ModelType>(null);
+
+  const brainModelCenterRef = useRef<number>(0);
 
   const centerVector = new THREE.Vector3(0, 0, 0);
   const leftBrainVector = new THREE.Vector3(-35, 5, 0);
@@ -64,6 +67,11 @@ const Home = () => {
 
   const [title, setTitle] = useState<string>("");
   const [content, setContent] = useState<string>("");
+
+  const minZoomDistance = 0;
+  const maxZoomDistance = 3000;
+  const startZoomDistance = 750;
+  const [zoomProgress, setZoomProgress] = useState<number>(startZoomDistance);
 
   const loadSpaceModel = (
     loader: GLTFLoader,
@@ -99,7 +107,7 @@ const Home = () => {
 
           const edgesGeometry = new THREE.EdgesGeometry(mesh.geometry, 15);
           const lineMaterial = new THREE.LineBasicMaterial({
-            color: 0xf2f2f2,
+            color: 0xcccccc,
             transparent: true,
             opacity: 1,
             linewidth: 1,
@@ -110,9 +118,7 @@ const Home = () => {
           const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           materials.forEach((mat) => {
             const m = mat as THREE.MeshStandardMaterial;
-
-            m.emissive = new THREE.Color(0xffffff);
-            m.emissiveIntensity = 0.5;
+            m.color.set(new THREE.Color(1, 1, 1));
 
             if (m.roughness === undefined) m.roughness = 0.5;
             if (m.metalness === undefined) m.metalness = 0.5;
@@ -142,16 +148,16 @@ const Home = () => {
       const centerOffset = -2.28;
       const modelBox = new THREE.Box3().setFromObject(model);
       const modelCenter = (modelBox.min.x + modelBox.max.x) / 2 + centerOffset;
+      brainModelCenterRef.current = modelCenter;
 
       model.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
           const mesh = child as THREE.Mesh;
           
-          const oldMat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
           mesh.material = new THREE.MeshStandardMaterial({
             vertexColors: true,
-            roughness: (oldMat as THREE.MeshStandardMaterial).roughness,
-            metalness: (oldMat as THREE.MeshStandardMaterial).metalness,
+            roughness: 0.25,
+            metalness: 0.25,
           });
 
           const geometry = mesh.geometry as THREE.BufferGeometry;
@@ -172,7 +178,7 @@ const Home = () => {
           color.needsUpdate = true;
         }
       });
-      
+
       ref.current = model;
       scene.add(ref.current);
     });
@@ -201,7 +207,7 @@ const Home = () => {
     });
   }
 
-  const createTextSprite = (text: string, radius = 0.05, fontSize = 24, color = "#ffffff") => {
+  const createTextSprite = (text: string, scale = 8, fontSize = 24, color = "#ffffff") => {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d")!;
 
@@ -224,7 +230,7 @@ const Home = () => {
     const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false, });
     const sprite = new THREE.Sprite(material);
 
-    sprite.scale.set(radius, radius, 1);
+    sprite.scale.set(scale, scale, scale);
     sprite.raycast = () => {};
     return sprite;
   }
@@ -264,14 +270,16 @@ const Home = () => {
       const geometry = new THREE.SphereGeometry(radius, 16, 16);
       const material = new THREE.MeshStandardMaterial({
         color: new THREE.Color(Math.random() * 0.8, Math.random() * 0.8, Math.random() * 0.8),
+        emissive: new THREE.Color(0xffffff),
+        emissiveIntensity: 1
       });
 
       const mesh = new THREE.Mesh(geometry, material);
       mesh.name = `${isLeft ? "left" : "right"}Neuron${index}`;
       mesh.position.set(x, y, z);
 
-      const sprite = createTextSprite(n.title, radius, 18);
-      sprite.position.set(0, 0, 0);
+      const sprite = createTextSprite(n.title);
+      sprite.position.set(0, radius + 1, 0);
       mesh.add(sprite);
 
       mesh.visible = false;
@@ -467,6 +475,20 @@ const Home = () => {
     composer.setSize(width, height);
   }
 
+  const handleZoomUpdate = (distance: number) => {
+    if (!cameraRef.current || !controlsRef.current) return;
+    
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+
+    const dir = new THREE.Vector3()
+      .subVectors(camera.position, controls.target)
+      .normalize();
+
+    camera.position.copy(dir.multiplyScalar(distance).add(controls.target));
+    controls.update();
+  }
+
   const handleZoom = (
     camera: THREE.PerspectiveCamera,
     controls: OrbitControls,
@@ -475,9 +497,11 @@ const Home = () => {
     const distance = camera.position.distanceTo(controls.target);
     const angle = controls.getAzimuthalAngle();
 
-    updateOpacityByDistance(humanRef.current, "sh", distance, 300, 200);
-    updateOpacityByDistance(brainRef.current, "sh", distance, 100, 50);
-    updateOpacityByDistance(planetRef.current, "hs", distance, 75, 25);
+    setZoomProgress(distance);
+
+    updateOpacityByDistance(humanModelRef.current, "sh", distance, 300, 200);
+    updateOpacityByDistance(brainModelRef.current, "sh", distance, 100, 50);
+    updateOpacityByDistance(planetModelRef.current, "hs", distance, 75, 25);
 
     const leftNeuronMeshes = leftNeuronInfosRef.current.map(info => info.mesh);
     const rightNeuronMeshes = rightNeuronInfosRef.current.map(info => info.mesh);
@@ -490,7 +514,7 @@ const Home = () => {
         const isLeft = angle < 0;
         cameraTargetRef.current = (isLeft ? leftBrainVector : rightBrainVector).clone();
 
-        changeColorByAngle(planetRef.current, isLeft);
+        changeColorByAngle(planetModelRef.current, isLeft);
 
         const [show, hide] = isLeft ? [leftNeuronMeshes, rightNeuronMeshes] : [rightNeuronMeshes, leftNeuronMeshes];
         show.forEach(mesh => mesh.visible = true);
@@ -612,29 +636,6 @@ const Home = () => {
     downIntersectRef.current = null;
   }
 
-  const animate = (
-    controls: OrbitControls,
-    composer: EffectComposer,
-  ) => {
-    const loop = () => {
-      if (!intersectTargetRef.current) {
-        updateNeurons(leftNeuronInfosRef.current, leftBrainVector);
-        updateNeurons(rightNeuronInfosRef.current, rightBrainVector);
-        if (leftLinesRef.current) leftLinesRef.current = updateLines(leftLinesRef.current, leftNeuronInfosRef.current);
-        if (rightLinesRef.current) rightLinesRef.current = updateLines(rightLinesRef.current, rightNeuronInfosRef.current);
-      }
-
-      controls.target.lerp(cameraTargetRef.current, 0.05);
-
-      controls.update();
-      composer.render();
-
-      requestAnimationFrame(loop);
-    }
-
-    loop();
-  }
-
   useEffect(() => {
     const leftNeurons: DataType[] = [];
     const rightNeurons: DataType[] = [];
@@ -659,7 +660,7 @@ const Home = () => {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, clientWidth / clientHeight, 1, 15000);
-    camera.position.z = 750;
+    camera.position.z = startZoomDistance;
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -674,20 +675,30 @@ const Home = () => {
     controls.enableRotate = true;
     controls.enableZoom = true;
     controls.zoomSpeed = 0.8;
+    controls.minDistance = minZoomDistance
+    controls.maxDistance = maxZoomDistance
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
 
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(clientWidth, clientHeight),
+      1,
+      0.4,
+      1
+    )
+
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
+    composer.addPass(bloomPass);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 3);
     scene.add(ambientLight);
 
     const loader = new GLTFLoader();
-    loadSpaceModel(loader, scene, spaceRef);
-    loadHumanModel(loader, scene, humanRef);
-    loadBrainModel(loader, scene, brainRef);
-    loadPlanetModel(loader, scene, planetRef);
+    loadSpaceModel(loader, scene, spaceModelRef);
+    loadHumanModel(loader, scene, humanModelRef);
+    loadBrainModel(loader, scene, brainModelRef);
+    loadPlanetModel(loader, scene, planetModelRef);
 
     const resizeListener = () => handleResize(camera, renderer, composer);
     window.addEventListener("resize", resizeListener);
@@ -697,11 +708,25 @@ const Home = () => {
 
     targetZoomListenerRef.current = () => handleTargetZoom();
 
-    animate(controls, composer);
-
     sceneRef.current = scene;
     cameraRef.current = camera;
     controlsRef.current = controls;
+
+    const animate = () => {
+      requestAnimationFrame(animate);
+      if (!intersectTargetRef.current) {
+        updateNeurons(leftNeuronInfosRef.current, leftBrainVector);
+        updateNeurons(rightNeuronInfosRef.current, rightBrainVector);
+        if (leftLinesRef.current) leftLinesRef.current = updateLines(leftLinesRef.current, leftNeuronInfosRef.current);
+        if (rightLinesRef.current) rightLinesRef.current = updateLines(rightLinesRef.current, rightNeuronInfosRef.current);
+      }
+
+      controls.target.lerp(cameraTargetRef.current, 0.05);
+      controls.update();
+
+      composer.render();
+    }
+    animate();
 
     const fetchData = async () => {
       try {
@@ -745,6 +770,7 @@ const Home = () => {
       <div ref={titleRef} className={`${styles.title}`}>
         <p>Hyunwoo Kim</p>
       </div>
+      <ZoomProgressBar distance={zoomProgress} minDistance={minZoomDistance} maxDistance={maxZoomDistance} onZoomUpdate={handleZoomUpdate} />
       <div className={`pointer ${styles.social}`} onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
         <Image src={githubIcon.src} alt={githubIcon.alt} />
       </div>
