@@ -68,16 +68,26 @@ const Home = () => {
   const [title, setTitle] = useState<string>("");
   const [content, setContent] = useState<string>("");
 
-  const minZoomDistance = 0;
-  const maxZoomDistance = 5000;
-  const startZoomDistance = 1250;
-  const [zoomDistance, setZoomDistance] = useState<number>(startZoomDistance);
+  const zoom = {
+    minDistance: 0,
+    maxDistance: 5000,
+    startDistance: 1250,
+  }
+  const [zoomDistance, setZoomDistance] = useState<number>(zoom.startDistance);
 
   const modelSizes = {
     space: 50,
     human: 24,
     brain: 275,
     planet: 25,
+  }
+
+  const group = {
+    maxDistance: 100,
+    minSize: 1,
+    maxSize: 3,
+    minSpeed: 0.001,
+    maxSpeed: 0.005,
   }
 
   const loadSpaceModel = (
@@ -249,11 +259,11 @@ const Home = () => {
     const groupInfosRef = isLeft ? leftGroupInfosRef : rightGroupInfosRef;
     groupInfosRef.current = [];
 
-    const maxDistance = 25;
-    const minSize = 1;
-    const maxSize = 3;
-    const minSpeed= 0.001;
-    const maxSpeed = 0.005;
+    const maxDistance = group.maxDistance;
+    const minSize = group.minSize;
+    const maxSize = group.maxSize;
+    const minSpeed = group.minSpeed;
+    const maxSpeed = group.maxSpeed;
 
     groups.forEach((g, index) => {
       const u = Math.random();
@@ -349,7 +359,7 @@ const Home = () => {
       g.position.add(g.velocity);
       g.mesh.position.copy(g.position);
 
-      if (g.position.distanceTo(center) > 25) {
+      if (g.position.distanceTo(center) > group.maxDistance) {
         g.position.sub(center).normalize().multiplyScalar(25).add(center);
         g.velocity.reflect(g.position.clone().sub(center).normalize());
       }
@@ -677,7 +687,7 @@ const Home = () => {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, clientWidth / clientHeight, 1, 15000);
-    camera.position.z = startZoomDistance;
+    camera.position.z = zoom.startDistance;
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -692,8 +702,8 @@ const Home = () => {
     controls.enableRotate = true;
     controls.enableZoom = true;
     controls.zoomSpeed = 0.8;
-    controls.minDistance = minZoomDistance
-    controls.maxDistance = maxZoomDistance
+    controls.minDistance = zoom.minDistance
+    controls.maxDistance = zoom.maxDistance
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
 
@@ -786,7 +796,7 @@ const Home = () => {
       <div ref={titleRef} className={`${styles.title}`}>
         <p>Hyunwoo Kim</p>
       </div>
-      <ZoomProgressBar distance={zoomDistance} minDistance={minZoomDistance} maxDistance={maxZoomDistance} onZoomUpdate={handleZoomUpdate} />
+      <ZoomProgressBar distance={zoomDistance} minDistance={zoom.minDistance} maxDistance={zoom.maxDistance} onZoomUpdate={handleZoomUpdate} />
       <div className={`pointer ${styles.social}`} onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
         <Image src={githubIcon.src} alt={githubIcon.alt} />
       </div>
