@@ -41,8 +41,8 @@ const Home = () => {
   const brainModelCenterRef = useRef<number>(0);
 
   const centerVector = new THREE.Vector3(0, 0, 0);
-  const leftBrainVector = new THREE.Vector3(-35, 5, 0);
-  const rightBrainVector = new THREE.Vector3(35, 5, 0);
+  const leftBrainVector = new THREE.Vector3(-350, 0, 0);
+  const rightBrainVector = new THREE.Vector3(350, 0, 0);
 
   const sceneRef = useRef<THREE.Scene>();
   const cameraRef = useRef<THREE.Camera>();
@@ -69,25 +69,26 @@ const Home = () => {
   const [content, setContent] = useState<string>("");
 
   const zoom = {
+    speed: 0.5,
     minDistance: 0,
-    maxDistance: 5000,
-    startDistance: 1250,
+    maxDistance: 30000,
+    startDistance: 7500,
   }
   const [zoomDistance, setZoomDistance] = useState<number>(zoom.startDistance);
 
   const modelSizes = {
-    space: 50,
-    human: 24,
-    brain: 275,
-    planet: 25,
+    space: 300,
+    human: 150,
+    brain: 2000,
+    planet: 35,
   }
 
   const group = {
-    maxDistance: 100,
-    minSize: 1,
-    maxSize: 3,
-    minSpeed: 0.001,
-    maxSpeed: 0.005,
+    maxDistance: 750,
+    minSize: 75,
+    maxSize: 85,
+    minSpeed: 0.05,
+    maxSpeed: 0.08,
   }
 
   const loadSpaceModel = (
@@ -116,7 +117,7 @@ const Home = () => {
       const size = modelSizes.human;
 
       model.scale.set(size, size, size);
-      model.position.set(0, -3750, 30);
+      model.position.set(0, -23250, 500);
 
       model.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
@@ -160,9 +161,9 @@ const Home = () => {
 
       model.scale.set(size, size, size);
       model.rotation.set(0, (Math.PI - 0.4), 0);
-      model.position.set(0, -25, 0);
+      model.position.set(0, -350, 0);
 
-      const centerOffset = -3.585;
+      const centerOffset = -26.185;
       const modelBox = new THREE.Box3().setFromObject(model);
       const modelCenter = (modelBox.min.x + modelBox.max.x) / 2 + centerOffset;
       brainModelCenterRef.current = modelCenter;
@@ -224,7 +225,7 @@ const Home = () => {
     });
   }
 
-  const createTextSprite = (text: string, scale = 8, fontSize = 24, color = "#ffffff") => {
+  const createTextSprite = (text: string, scale = 158, fontSize = 64, color = "#ffffff") => {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d")!;
 
@@ -296,7 +297,7 @@ const Home = () => {
       mesh.position.set(x, y, z);
 
       const sprite = createTextSprite(g.title);
-      sprite.position.set(0, radius + 1, 0);
+      sprite.position.set(0, radius + 25, 0);
       mesh.add(sprite);
 
       mesh.visible = false;
@@ -360,8 +361,9 @@ const Home = () => {
       g.mesh.position.copy(g.position);
 
       if (g.position.distanceTo(center) > group.maxDistance) {
-        g.position.sub(center).normalize().multiplyScalar(25).add(center);
-        g.velocity.reflect(g.position.clone().sub(center).normalize());
+        const dirFromCenter = g.position.clone().sub(center).normalize();
+        g.position.copy(dirFromCenter.multiplyScalar(group.maxDistance).add(center));
+        g.velocity.multiplyScalar(-1);
       }
     });
   }
@@ -516,14 +518,17 @@ const Home = () => {
     controls: OrbitControls,
   ) => {
     if (!mountRef.current) return;
-    const distance = camera.position.distanceTo(controls.target);
     const angle = controls.getAzimuthalAngle();
+
+    const targetDistance = camera.position.distanceTo(cameraTargetRef.current);
+    const centerDistance = camera.position.distanceTo(centerVector);
+    const distance = Math.min(targetDistance, centerDistance);
 
     setZoomDistance(distance);
 
-    updateOpacityByDistance(humanModelRef.current, "sh", distance, 400, 300);
-    updateOpacityByDistance(brainModelRef.current, "sh", distance, 200, 150);
-    updateOpacityByDistance(planetModelRef.current, "hs", distance, 150, 50);
+    updateOpacityByDistance(humanModelRef.current, "sh", distance, 2700, 2200);
+    updateOpacityByDistance(brainModelRef.current, "sh", distance, 1500, 1250);
+    updateOpacityByDistance(planetModelRef.current, "hs", distance, 1250, 750);
 
     const leftGroupMeshes = leftGroupInfosRef.current.map(info => info.mesh);
     const rightGroupMeshes = rightGroupInfosRef.current.map(info => info.mesh);
@@ -531,26 +536,27 @@ const Home = () => {
     const leftLines = leftLinesRef.current;
     const rightLines = rightLinesRef.current;
 
-    if (distance < 150) {
+    if (distance < 1250) {
       if (cameraTargetRef.current.equals(centerVector)) {
         const isLeft = angle < 0;
-        const hasIntersectTarget = intersectTargetRef.current?.name.includes(isLeft ? "left" : "right");
-        const target = hasIntersectTarget ? intersectTargetRef.current!.position.clone()
-          : (isLeft ? leftBrainVector : rightBrainVector).clone();
-
-        cameraTargetRef.current = target;
 
         changeColorByAngle(planetModelRef.current, isLeft);
+
+        const hasIntersectTarget = intersectTargetRef.current?.name.includes(isLeft ? "left" : "right");
+        const target = hasIntersectTarget
+          ? intersectTargetRef.current!.position.clone()
+          : isLeft ? leftBrainVector.clone() : rightBrainVector.clone();
+        cameraTargetRef.current = target;
 
         const [show, hide] = isLeft ? [leftGroupMeshes, rightGroupMeshes] : [rightGroupMeshes, leftGroupMeshes];
         show.forEach(mesh => mesh.visible = true);
         hide.forEach(mesh => mesh.visible = false);
-
+  
         if (leftLines) leftLines.visible = isLeft;
         if (rightLines) rightLines.visible = !isLeft;
       }
     }
-    else if (distance < 250) {
+    else if (distance < 1650) {
       if (!cameraTargetRef.current.equals(centerVector)) {
         cameraTargetRef.current = centerVector.clone();
         [...leftGroupMeshes, ...rightGroupMeshes].forEach(mesh => mesh.visible = false);
@@ -642,7 +648,7 @@ const Home = () => {
       const cameraDir = new THREE.Vector3();
       cameraRef.current.getWorldDirection(cameraDir);
 
-      const zoomDistance = 7.5;
+      const zoomDistance = 250;
       const zoomTarget = position.clone().add(cameraDir.clone().multiplyScalar(-zoomDistance));
 
       const zoomIn = () => {
@@ -686,7 +692,7 @@ const Home = () => {
     const clientHeight = mountRef.current.clientHeight;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, clientWidth / clientHeight, 1, 15000);
+    const camera = new THREE.PerspectiveCamera(75, clientWidth / clientHeight, 1, 75000);
     camera.position.z = zoom.startDistance;
 
     const renderer = new THREE.WebGLRenderer({
@@ -701,7 +707,7 @@ const Home = () => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableRotate = true;
     controls.enableZoom = true;
-    controls.zoomSpeed = 0.8;
+    controls.zoomSpeed = zoom.speed;
     controls.minDistance = zoom.minDistance
     controls.maxDistance = zoom.maxDistance
     controls.enableDamping = true;
