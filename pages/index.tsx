@@ -641,7 +641,6 @@ const Home = () => {
         setContent(groupInfo.data.content);
       }
 
-      controlsRef.current.removeEventListener("change", zoomListenerRef.current!);
       const position = target.position.clone();
       cameraTargetRef.current = position;
 
@@ -659,6 +658,7 @@ const Home = () => {
           cameraRef.current!.position.lerp(zoomTarget, 0.05);
           requestAnimationFrame(zoomIn);
         } else {
+          controlsRef.current?.removeEventListener("change", zoomListenerRef.current!);
           controlsRef.current?.addEventListener("change", targetZoomListenerRef.current!);
         }
       }
