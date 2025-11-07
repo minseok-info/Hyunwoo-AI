@@ -1,4 +1,4 @@
-import { ZoomProgressBar } from "@/components";
+import { SplashScreen, ZoomProgressBar } from "@/components";
 import styles from "@/styles/home.module.css";
 import Head from "next/head";
 import Image from "next/image";
@@ -10,6 +10,11 @@ const githubIcon = {
   src: require("@/public/icons/github.svg"),
   alt: "githubIcon",
 }
+
+// TODO:
+// - 클릭 시 타이틀 트랜지션과 함께 전환
+// - 뉴런 추가 (디자인 생각해 둘 것)
+// - 바닥에 놓인 구슬들
 
 const Home = () => {
   type ItemType = {
@@ -41,8 +46,8 @@ const Home = () => {
   const brainModelCenterRef = useRef<number>(0);
 
   const centerVector = new THREE.Vector3(0, 0, 0);
-  const leftBrainVector = new THREE.Vector3(-350, 0, 0);
-  const rightBrainVector = new THREE.Vector3(350, 0, 0);
+  const leftBrainVector = new THREE.Vector3(-3000, 0, 0);
+  const rightBrainVector = new THREE.Vector3(3000, 0, 0);
 
   const sceneRef = useRef<THREE.Scene>();
   const cameraRef = useRef<THREE.Camera>();
@@ -71,24 +76,24 @@ const Home = () => {
   const zoom = {
     speed: 0.5,
     minDistance: 0,
-    maxDistance: 30000,
-    startDistance: 7500,
+    maxDistance: 400000,
+    startDistance: 125000,
   }
   const [zoomDistance, setZoomDistance] = useState<number>(zoom.startDistance);
 
   const modelSizes = {
-    space: 300,
-    human: 150,
-    brain: 2000,
-    planet: 35,
+    space: 5000,
+    human: 1500,
+    brain: 17500,
+    planet: 75,
   }
 
   const group = {
-    maxDistance: 750,
-    minSize: 75,
-    maxSize: 85,
-    minSpeed: 0.05,
-    maxSpeed: 0.08,
+    maxDistance: 3000,
+    minSize: 250,
+    maxSize: 300,
+    minSpeed: 0.15,
+    maxSpeed: 0.25,
   }
 
   const loadSpaceModel = (
@@ -117,7 +122,7 @@ const Home = () => {
       const size = modelSizes.human;
 
       model.scale.set(size, size, size);
-      model.position.set(0, -23250, 500);
+      model.position.set(0, -235000, 5000);
 
       model.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
@@ -161,9 +166,9 @@ const Home = () => {
 
       model.scale.set(size, size, size);
       model.rotation.set(0, (Math.PI - 0.4), 0);
-      model.position.set(0, -350, 0);
+      model.position.set(0, -2500, 0);
 
-      const centerOffset = -26.185;
+      const centerOffset = -229.219;
       const modelBox = new THREE.Box3().setFromObject(model);
       const modelCenter = (modelBox.min.x + modelBox.max.x) / 2 + centerOffset;
       brainModelCenterRef.current = modelCenter;
@@ -225,7 +230,7 @@ const Home = () => {
     });
   }
 
-  const createTextSprite = (text: string, scale = 158, fontSize = 64, color = "#ffffff") => {
+  const createTextSprite = (text: string, scale = 1024, fontSize = 64, color = "#ffffff") => {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d")!;
 
@@ -297,7 +302,7 @@ const Home = () => {
       mesh.position.set(x, y, z);
 
       const sprite = createTextSprite(g.title);
-      sprite.position.set(0, radius + 25, 0);
+      sprite.position.set(0, radius + 100, 0);
       mesh.add(sprite);
 
       mesh.visible = false;
@@ -526,9 +531,9 @@ const Home = () => {
 
     setZoomDistance(distance);
 
-    updateOpacityByDistance(humanModelRef.current, "sh", distance, 2700, 2200);
-    updateOpacityByDistance(brainModelRef.current, "sh", distance, 1500, 1250);
-    updateOpacityByDistance(planetModelRef.current, "hs", distance, 1250, 750);
+    updateOpacityByDistance(humanModelRef.current, "sh", distance, 25000, 20000);
+    updateOpacityByDistance(brainModelRef.current, "sh", distance, 15000, 12000);
+    updateOpacityByDistance(planetModelRef.current, "hs", distance, 12000, 5000);
 
     const leftGroupMeshes = leftGroupInfosRef.current.map(info => info.mesh);
     const rightGroupMeshes = rightGroupInfosRef.current.map(info => info.mesh);
@@ -536,7 +541,7 @@ const Home = () => {
     const leftLines = leftLinesRef.current;
     const rightLines = rightLinesRef.current;
 
-    if (distance < 1250) {
+    if (distance < 12000) {
       if (cameraTargetRef.current.equals(centerVector)) {
         const isLeft = angle < 0;
 
@@ -556,7 +561,7 @@ const Home = () => {
         if (rightLines) rightLines.visible = !isLeft;
       }
     }
-    else if (distance < 1650) {
+    else if (distance < 15000) {
       if (!cameraTargetRef.current.equals(centerVector)) {
         cameraTargetRef.current = centerVector.clone();
         [...leftGroupMeshes, ...rightGroupMeshes].forEach(mesh => mesh.visible = false);
@@ -647,7 +652,7 @@ const Home = () => {
       const cameraDir = new THREE.Vector3();
       cameraRef.current.getWorldDirection(cameraDir);
 
-      const zoomDistance = 250;
+      const zoomDistance = 750;
       const zoomTarget = position.clone().add(cameraDir.clone().multiplyScalar(-zoomDistance));
 
       const zoomIn = () => {
@@ -692,7 +697,7 @@ const Home = () => {
     const clientHeight = mountRef.current.clientHeight;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, clientWidth / clientHeight, 1, 75000);
+    const camera = new THREE.PerspectiveCamera(75, clientWidth / clientHeight, 1, 875000);
     camera.position.z = zoom.startDistance;
 
     const renderer = new THREE.WebGLRenderer({
@@ -791,6 +796,7 @@ const Home = () => {
       <Head>
         <title>Hyunwoo Kim</title>
       </Head>
+      <SplashScreen />
       <div ref={mountRef} className="display" onPointerDown={(event: PointerEvent<HTMLDivElement>) => handlePointerDown(event)} onPointerUp={(event: PointerEvent<HTMLDivElement>) => handlePointerUp(event)} />
       <div ref={descRef} className={`pointer ${styles.desc}`} onClick={resetCamera}>
         <div className="flex flexColumn">

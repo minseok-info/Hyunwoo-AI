@@ -1,0 +1,16 @@
+.container {
+  z-index: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100dvw;
+  height: 100dvh;
+  background-color: #ddd;
+  transition: all 500ms;
+}
+
+.container > img {
+  max-width: 250px;
+  width: 25dvw;
+  height: auto;
+}
