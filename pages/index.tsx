@@ -11,11 +11,6 @@ const githubIcon = {
   alt: "githubIcon",
 }
 
-// TODO:
-// - 클릭 시 타이틀 트랜지션과 함께 전환
-// - 뉴런 추가 (디자인 생각해 둘 것)
-// - 바닥에 놓인 구슬들
-
 const Home = () => {
   type ItemType = {
     id?: number,
@@ -71,6 +66,8 @@ const Home = () => {
 
   const leftLinesRef = useRef<THREE.LineSegments | null>(null);
   const rightLinesRef = useRef<THREE.LineSegments | null>(null);
+
+  const neruonStepObjects = useRef<(THREE.DirectionalLight | THREE.Mesh | THREE.Mesh[])[]>([]);
 
   const [data, setData] = useState<DataType[]>([]);
   const [title, setTitle] = useState<string>("Hyunwoo Kim");
@@ -356,6 +353,92 @@ const Home = () => {
     return lines;
   };
 
+  const createLight = ({ x, y, z }: THREE.Vector3) => {
+    if (!sceneRef.current) return;
+
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+
+    light.position.set(x, y + 100, z);
+    light.target.position.set(x, y - 100, z);
+    light.castShadow = true;
+
+    sceneRef.current.add(light);
+    sceneRef.current.add(light.target);
+    return light;
+  }
+
+  const createPlane = ({ x, y, z }: THREE.Vector3) => {
+    if (!sceneRef.current) return;
+
+    const geometry = new THREE.PlaneGeometry(300, 300);
+    const material = new THREE.MeshStandardMaterial({ color: 0x808080 });
+    const plane = new THREE.Mesh(geometry, material);
+
+    plane.position.set(x, y - 100, z);
+    plane.rotation.x = -Math.PI / 2;
+    plane.receiveShadow = true;
+
+    sceneRef.current.add(plane);
+    return plane;
+  }
+
+  const createNeurons = ({ x, y, z }: THREE.Vector3) => {
+    if (!sceneRef.current) return;
+
+    const neruons = [];
+
+    const geometry = new THREE.SphereGeometry(5, 16, 16);
+    const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const neuron = new THREE.Mesh(geometry, material);
+
+    neuron.position.set(x, y, z);
+    neuron.castShadow = true;
+
+    sceneRef.current.add(neuron);
+    neruons.push(neuron);
+
+    return neruons;
+  }
+
+  const enterNueronStep = (target: THREE.Mesh) => {
+    const position = target.position;
+
+    const light = createLight(position);
+    const plane = createPlane(position);
+    const neurons = createNeurons(position);
+
+    if (light) neruonStepObjects.current.push(light);
+    if (plane) neruonStepObjects.current.push(plane);
+    if (neurons) neruonStepObjects.current.push(neurons);
+  }
+
+  const leaveNeuronStep = () => {
+    neruonStepObjects.current.forEach(object => {
+      if (Array.isArray(object)) {
+        object.forEach(obj => {
+          if (obj instanceof THREE.Mesh) {
+            sceneRef.current!.remove(obj);
+            obj.geometry.dispose();
+
+            const material = Array.isArray(obj.material) ? obj.material : [obj.material];
+            material.forEach(m => m.dispose());
+          }
+        });
+      }
+      else if (object instanceof THREE.DirectionalLight) {
+        if (object.shadow.map) object.shadow.map.dispose();
+        sceneRef.current!.remove(object);
+      }
+      else if (object instanceof THREE.Mesh) {
+        sceneRef.current!.remove(object);
+        object.geometry.dispose();
+
+        const material = Array.isArray(object.material) ? object.material : [object.material];
+        material.forEach(m => m.dispose());
+      }
+    });
+  }
+
   const updateGroups = (groups: GroupInfo[], center: THREE.Vector3) => {
     groups.forEach(g => {
       const mesh = g.mesh;
@@ -603,6 +686,7 @@ const Home = () => {
         });
   
         if (distance > 500) {
+          leaveNeuronStep();
           explorationModeRef.current = false;
 
           setTitle("Hyunwoo Kim");
@@ -677,6 +761,8 @@ const Home = () => {
       const id = parseInt(name.replace(/leftGroup|rightGroup/g, ""));
 
       if (name.toLowerCase().includes("group")) {
+        enterNueronStep(target);
+
         const isLeft = name.includes("left");
         brainPosition.current = isLeft ? "left" : "right";
 
@@ -771,6 +857,8 @@ const Home = () => {
     });
     renderer.setSize(clientWidth, clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mountRef.current.appendChild(renderer.domElement);
 
     const orbitControls = new OrbitControls(camera, renderer.domElement);
