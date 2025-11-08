@@ -1,33 +1,4 @@
-.desc {
-  display: none;
-  position: absolute;
-  top: 60px;
-  right: 20px;
-  max-width: calc(100% - 40px);
-}
-
-.desc > div {
-  color: white;
-  min-width: 25dvw;
-  min-height: 30dvh;
-  padding: 10px;
-  border-radius: 2.5px;
-  background-color: rgba(255, 255, 255, 0.25);
-  transition: all 150ms;
-}
-
-.desc hr {
-  margin: 2.5px 0px 7.5px;
-  width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-}
-
-.desc p {
-  font-size: 12px;
-  word-break: break-word;
-}
-
-.title {
+.titleContainer {
   position: absolute;
   top: 25px;
   left: 50%;
@@ -36,6 +7,7 @@
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
+  transition: all 250ms;
 }
 
 .zoomProgressBar {

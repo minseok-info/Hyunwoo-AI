@@ -34,9 +34,10 @@ const Home = () => {
   type DataType = { type: "leftNeuron" | "rightNeuron" } & ItemType
   type ModelType = THREE.Object3D | null
 
+  const [siteReady, setSiteReady] = useState<boolean>(false);
+
   const mountRef = useRef<HTMLDivElement>(null);
-  const descRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLDivElement>(null);
+  const titleContainerRef = useRef<HTMLDivElement>(null);
 
   const spaceModelRef = useRef<ModelType>(null);
   const humanModelRef = useRef<ModelType>(null);
@@ -44,6 +45,7 @@ const Home = () => {
   const planetModelRef = useRef<ModelType>(null);
 
   const brainModelCenterRef = useRef<number>(0);
+  const brainPosition = useRef<"left" | "right" | null>(null);
 
   const centerVector = new THREE.Vector3(0, 0, 0);
   const leftBrainVector = new THREE.Vector3(-3000, 0, 0);
@@ -51,16 +53,18 @@ const Home = () => {
 
   const sceneRef = useRef<THREE.Scene>();
   const cameraRef = useRef<THREE.Camera>();
-  const controlsRef = useRef<OrbitControls>();
+  const orbitControlsRef = useRef<OrbitControls>();
 
   const cameraTargetRef = useRef<THREE.Vector3>(centerVector);
-  const initialTargetRef = useRef<THREE.Vector3>(cameraTargetRef.current);
+
+  const isZoomingRef = useRef<boolean>(false);
+  const explorationModeRef = useRef<boolean>(false);
 
   const zoomListenerRef = useRef<() => void>();
-  const targetZoomListenerRef = useRef<() => void>();
+  const intersectTargetZoomListenerRef = useRef<() => void>();
 
-  const intersectTargetRef = useRef<THREE.Mesh | null>(null);
   const downIntersectRef = useRef<THREE.Mesh | null>(null);
+  const intersectTargetRef = useRef<THREE.Mesh | null>(null);
 
   const leftGroupInfosRef = useRef<GroupInfo[]>([]);
   const rightGroupInfosRef = useRef<GroupInfo[]>([]);
@@ -69,9 +73,7 @@ const Home = () => {
   const rightLinesRef = useRef<THREE.LineSegments | null>(null);
 
   const [data, setData] = useState<DataType[]>([]);
-
-  const [title, setTitle] = useState<string>("");
-  const [content, setContent] = useState<string>("");
+  const [title, setTitle] = useState<string>("Hyunwoo Kim");
 
   const zoom = {
     speed: 0.5,
@@ -412,44 +414,64 @@ const Home = () => {
   }
 
   const updateOpacityByDistance = (
-    model: ModelType,
-    direction: "sh" | "hs",
+    object: ModelType | THREE.Mesh[],
     distance: number,
-    distStart: number,
-    distEnd: number,
+    startDist: number,
+    endDist: number,
+    limit?: number
   ) => {
-    if (!model) return;
-    const t = THREE.MathUtils.clamp((distance - distStart) / (distEnd - distStart), 0, 1);
+    if (!object) return;
 
-    model.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
+    const t = THREE.MathUtils.clamp((distance - startDist) / (endDist - startDist), 0, 1);
+    const opacity = limit ? (limit * t) : (1 - t);
+    const [model, meshes] = [
+      !Array.isArray(object) && (object as THREE.Object3D).isObject3D ? object as THREE.Object3D : null,
+      Array.isArray(object) && (object[0] as THREE.Mesh).isMesh ? object as THREE.Mesh[] : null,
+    ];
+
+    if (model) {
+      model.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  
+          materials.forEach((mat) => {
+            const m = mat as THREE.MeshStandardMaterial & { opacity?: number; transparent?: boolean };
+            m.opacity = opacity;
+            m.transparent = opacity < 1;
+            m.needsUpdate = true;
+          });
+  
+          mesh.visible = opacity > 0;
+        }
+        else if ((child as THREE.LineSegments).isLineSegments) {
+          const line = child as THREE.LineSegments;
+          const m = line.material as any;
+          const opacity = 1 - t;
+  
+          if (m) {
+            m.opacity = opacity;
+            m.transparent = opacity < 1;
+            m.needsupdate = true;
+          }
+  
+          m.visible = opacity > 0;
+        }
+      });
+    }
+    else if (meshes && meshes.length > 0) {
+      meshes.forEach(mesh => {
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        const opacity = direction === "sh" ? (1 - t) : (0.35 * t);
-
-        materials.forEach((mat) => {
-          const m = mat as THREE.MeshStandardMaterial & { opacity?: number; transparent?: boolean };
+        materials.forEach(mat => {
+          const m = mat as THREE.MeshStandardMaterial;
           m.opacity = opacity;
           m.transparent = opacity < 1;
           m.needsUpdate = true;
         });
 
         mesh.visible = opacity > 0;
-      }
-      else if ((child as THREE.LineSegments).isLineSegments) {
-        const line = child as THREE.LineSegments;
-        const m = line.material as any;
-        const opacity = 1 - t;
-
-        if (m) {
-          m.opacity = opacity;
-          m.transparent = opacity < 1;
-          m.needsupdate = true;
-        }
-
-        m.visible = opacity > 0;
-      }
-    });
+      });
+    }
   }
 
   const changeColorByAngle = (
@@ -476,17 +498,6 @@ const Home = () => {
     });
   }
 
-  const resetCamera = () => {
-    if (!intersectTargetRef.current) return;
-    const name = intersectTargetRef.current!.name;
-
-    if (!name.toLowerCase().includes("group")) cameraTargetRef.current = initialTargetRef.current;
-    // descRef.current!.style.setProperty("display", "none");
-
-    controlsRef.current?.removeEventListener("change", targetZoomListenerRef.current!);
-    controlsRef.current?.addEventListener("change", zoomListenerRef.current!);
-  }
-
   const handleResize = (
     camera: THREE.PerspectiveCamera,
     renderer: THREE.WebGLRenderer,
@@ -505,10 +516,10 @@ const Home = () => {
   }
 
   const handleZoomUpdate = (distance: number) => {
-    if (!cameraRef.current || !controlsRef.current) return;
+    if (!cameraRef.current || !orbitControlsRef.current) return;
     
     const camera = cameraRef.current;
-    const controls = controlsRef.current;
+    const controls = orbitControlsRef.current;
 
     const dir = new THREE.Vector3()
       .subVectors(camera.position, controls.target)
@@ -528,23 +539,20 @@ const Home = () => {
     const targetDistance = camera.position.distanceTo(cameraTargetRef.current);
     const centerDistance = camera.position.distanceTo(centerVector);
     const distance = Math.min(targetDistance, centerDistance);
-
     setZoomDistance(distance);
 
-    updateOpacityByDistance(humanModelRef.current, "sh", distance, 25000, 20000);
-    updateOpacityByDistance(brainModelRef.current, "sh", distance, 15000, 12000);
-    updateOpacityByDistance(planetModelRef.current, "hs", distance, 12000, 5000);
+    if (!isZoomingRef.current) {
+      updateOpacityByDistance(humanModelRef.current, distance, 25000, 20000);
+      updateOpacityByDistance(brainModelRef.current, distance, 15000, 12000);
+      updateOpacityByDistance(planetModelRef.current, distance, 12000, 5000, 0.35);
+    }
 
-    const leftGroupMeshes = leftGroupInfosRef.current.map(info => info.mesh);
-    const rightGroupMeshes = rightGroupInfosRef.current.map(info => info.mesh);
-
-    const leftLines = leftLinesRef.current;
-    const rightLines = rightLinesRef.current;
+    const [leftGroupMeshes, rightGroupMeshes] = [leftGroupInfosRef, rightGroupInfosRef].map(group => group.current.map(info => info.mesh));
+    const [leftLines, rightLines] = [leftLinesRef, rightLinesRef].map(lines => lines.current);
 
     if (distance < 12000) {
       if (cameraTargetRef.current.equals(centerVector)) {
         const isLeft = angle < 0;
-
         changeColorByAngle(planetModelRef.current, isLeft);
 
         const hasIntersectTarget = intersectTargetRef.current?.name.includes(isLeft ? "left" : "right");
@@ -561,7 +569,7 @@ const Home = () => {
         if (rightLines) rightLines.visible = !isLeft;
       }
     }
-    else if (distance < 15000) {
+    else {
       if (!cameraTargetRef.current.equals(centerVector)) {
         cameraTargetRef.current = centerVector.clone();
         [...leftGroupMeshes, ...rightGroupMeshes].forEach(mesh => mesh.visible = false);
@@ -570,24 +578,54 @@ const Home = () => {
     }
   }
 
-  const handleTargetZoom = () => {
-    if (!mountRef.current || !cameraRef.current || !controlsRef.current || !intersectTargetRef.current) return;
-
-    const distance = cameraRef.current.position.distanceTo(intersectTargetRef.current.position);
+  const handleIntersectTargetZoom = () => {
+    if (!cameraRef.current || !intersectTargetRef.current || !brainPosition.current) return;
 
     const target = intersectTargetRef.current;
-    const geometry = target.geometry as THREE.SphereGeometry;
+    const distance = cameraRef.current.position.distanceTo(target.position);
+    setZoomDistance(distance);
 
-    const radius = geometry.parameters.radius;
-    const maxDistance = 10;
+    const resetHandler = () => {
+      const [leftGroupMeshes, rightGroupMeshes] = [leftGroupInfosRef, rightGroupInfosRef].map(group => group.current.map(info => info.mesh));
+      const [leftLines, rightLines] = [leftLinesRef, rightLinesRef].map(lines => lines.current);
+  
+      const objectsMap = {
+        left: [leftGroupMeshes, leftLines, planetModelRef.current, spaceModelRef.current],
+        right: [rightGroupMeshes, rightLines, planetModelRef.current, spaceModelRef.current],
+      }
+      const objects = brainPosition.current
+        ? objectsMap[brainPosition.current]
+        : null;
+  
+      if (objects) {
+        objects.forEach(object => {
+          updateOpacityByDistance(object, distance, 500, 450);
+        });
+  
+        if (distance > 500) {
+          explorationModeRef.current = false;
 
-    if ((distance - radius) > maxDistance) {
-      resetCamera();
+          setTitle("Hyunwoo Kim");
+          titleContainerRef.current!.style.setProperty("opacity", "1");
+  
+          updateOpacityByDistance(humanModelRef.current, distance, 25000, 20000);
+          updateOpacityByDistance(brainModelRef.current, distance, 15000, 12000);
+          updateOpacityByDistance(planetModelRef.current, distance, 12000, 5000, 0.35);
+  
+          orbitControlsRef.current?.removeEventListener("change", intersectTargetZoomListenerRef.current!);
+          orbitControlsRef.current?.addEventListener("change", zoomListenerRef.current!);
+        }
+        else if (distance > 450) {
+          titleContainerRef.current!.style.setProperty("opacity", "0");
+        }
+      }
     }
+
+    resetHandler();
   }
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (!mountRef.current || !cameraRef.current || !controlsRef.current) return;
+    if (!mountRef.current || !cameraRef.current || !orbitControlsRef.current || explorationModeRef.current) return;
 
     const rect = mountRef.current.getBoundingClientRect();
     const mouse = new THREE.Vector2();
@@ -610,7 +648,7 @@ const Home = () => {
   }
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    if (!mountRef.current || !cameraRef.current || !controlsRef.current || !downIntersectRef.current) return;
+    if (!mountRef.current || !cameraRef.current || !orbitControlsRef.current || !downIntersectRef.current || explorationModeRef.current) return;
 
     const rect = mountRef.current.getBoundingClientRect();
     const mouse = new THREE.Vector2();
@@ -621,16 +659,16 @@ const Home = () => {
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, cameraRef.current);
 
+    const [leftGroupMeshes, rightGroupMeshes] = [leftGroupInfosRef, rightGroupInfosRef].map(group => group.current.map(info => info.mesh));
+    const [leftLines, rightLines] = [leftLinesRef, rightLinesRef].map(lines => lines.current);
+
     const visibleThoughts = [
-      ...leftGroupInfosRef.current.map(info => info.mesh).filter(m => m.visible),
-      ...rightGroupInfosRef.current.map(info => info.mesh).filter(m => m.visible),
+      ...leftGroupMeshes.filter(m => m.visible),
+      ...rightGroupMeshes.filter(m => m.visible),
     ];
     const intersects = raycaster.intersectObjects(visibleThoughts);
 
     if (intersects.length > 0 && intersects[0].object === downIntersectRef.current) {
-      resetCamera();
-
-      // descRef.current?.style.setProperty("display", "flex");
       intersectTargetRef.current = downIntersectRef.current;
 
       const target = downIntersectRef.current;
@@ -639,36 +677,60 @@ const Home = () => {
       const id = parseInt(name.replace(/leftGroup|rightGroup/g, ""));
 
       if (name.toLowerCase().includes("group")) {
-        const groupInfosRef = name.includes("left") ? leftGroupInfosRef : rightGroupInfosRef;
+        const isLeft = name.includes("left");
+        brainPosition.current = isLeft ? "left" : "right";
+
+        const groupInfosRef = isLeft ? leftGroupInfosRef : rightGroupInfosRef;
         const groupInfo = groupInfosRef.current[id];
-
-        setTitle(groupInfo.data.title);
-        setContent(groupInfo.data.content);
-      }
-
-      const position = target.position.clone();
-      cameraTargetRef.current = position;
-
-      const cameraDir = new THREE.Vector3();
-      cameraRef.current.getWorldDirection(cameraDir);
-
-      const zoomDistance = 750;
-      const zoomTarget = position.clone().add(cameraDir.clone().multiplyScalar(-zoomDistance));
-
-      const zoomIn = () => {
-        const distance = cameraRef.current!.position.distanceTo(position);
-        setZoomDistance(distance);
-
-        if (distance > zoomDistance + 1) {
-          cameraRef.current!.position.lerp(zoomTarget, 0.05);
-          requestAnimationFrame(zoomIn);
-        } else {
-          controlsRef.current?.removeEventListener("change", zoomListenerRef.current!);
-          controlsRef.current?.addEventListener("change", targetZoomListenerRef.current!);
+        
+        const position = target.position.clone();
+        cameraTargetRef.current = position;
+  
+        const cameraDir = new THREE.Vector3();
+        cameraRef.current.getWorldDirection(cameraDir);
+  
+        const zoomDistance = 400;
+        const zoomTarget = position.clone().add(cameraDir.clone().multiplyScalar(-zoomDistance));
+  
+        const startDist = cameraRef.current.position.distanceTo(position);
+        const endDist = zoomDistance + 10;
+  
+        const objectsMap = {
+          left: [leftGroupMeshes, leftLines, planetModelRef.current, spaceModelRef.current],
+          right: [rightGroupMeshes, rightLines, planetModelRef.current, spaceModelRef.current],
         }
+        const objects = brainPosition.current
+          ? objectsMap[brainPosition.current]
+          : null;
+  
+        const zoomIn = () => {
+          const distance = cameraRef.current!.position.distanceTo(position);
+          setZoomDistance(distance);
+  
+          if (distance > zoomDistance + 1) {
+            if (objects) {
+              objects.forEach(object => {
+                updateOpacityByDistance(object, distance, startDist, endDist);
+              });
+            }
+            cameraRef.current!.position.lerp(zoomTarget, 0.05);
+            requestAnimationFrame(zoomIn);
+          } else {
+            isZoomingRef.current = false;
+            explorationModeRef.current = true;
+
+            setTitle(groupInfo.data.title);
+            titleContainerRef.current?.style.setProperty("opacity", "1");
+
+            orbitControlsRef.current?.removeEventListener("change", zoomListenerRef.current!);
+            orbitControlsRef.current?.addEventListener("change", intersectTargetZoomListenerRef.current!);
+          }
+        }
+        
+        titleContainerRef.current?.style.setProperty("opacity", "0");
+        isZoomingRef.current = true;
+        zoomIn();
       }
-      
-      zoomIn();
     }
 
     downIntersectRef.current = null;
@@ -688,6 +750,8 @@ const Home = () => {
 
     leftLinesRef.current = connectGroup(sceneRef.current!, leftGroupInfosRef.current);
     rightLinesRef.current = connectGroup(sceneRef.current!, rightGroupInfosRef.current);
+
+    setSiteReady(true);
   }, [data]);
 
   useEffect(() => {
@@ -709,21 +773,21 @@ const Home = () => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mountRef.current.appendChild(renderer.domElement);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableRotate = true;
-    controls.enableZoom = true;
-    controls.zoomSpeed = zoom.speed;
-    controls.minDistance = zoom.minDistance
-    controls.maxDistance = zoom.maxDistance
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    const orbitControls = new OrbitControls(camera, renderer.domElement);
+    orbitControls.enableRotate = true;
+    orbitControls.enableZoom = true;
+    orbitControls.zoomSpeed = zoom.speed;
+    orbitControls.minDistance = zoom.minDistance
+    orbitControls.maxDistance = zoom.maxDistance
+    orbitControls.enableDamping = true;
+    orbitControls.dampingFactor = 0.05;
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(clientWidth, clientHeight),
       1,
       0.4,
       1
-    )
+    );
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -741,14 +805,14 @@ const Home = () => {
     const resizeListener = () => handleResize(camera, renderer, composer);
     window.addEventListener("resize", resizeListener);
 
-    zoomListenerRef.current = () => handleZoom(camera, controls);
-    controls.addEventListener("change", zoomListenerRef.current);
+    zoomListenerRef.current = () => handleZoom(camera, orbitControls);
+    orbitControls.addEventListener("change", zoomListenerRef.current);
 
-    targetZoomListenerRef.current = () => handleTargetZoom();
+    intersectTargetZoomListenerRef.current = () => handleIntersectTargetZoom();
 
     sceneRef.current = scene;
     cameraRef.current = camera;
-    controlsRef.current = controls;
+    orbitControlsRef.current = orbitControls;
 
     const animate = () => {
       requestAnimationFrame(animate);
@@ -758,8 +822,8 @@ const Home = () => {
       if (leftLinesRef.current) leftLinesRef.current = updateLines(leftLinesRef.current, leftGroupInfosRef.current);
       if (rightLinesRef.current) rightLinesRef.current = updateLines(rightLinesRef.current, rightGroupInfosRef.current);
 
-      controls.target.lerp(cameraTargetRef.current, 0.05);
-      controls.update();
+      orbitControls.target.lerp(cameraTargetRef.current, 0.05);
+      orbitControls.update();
 
       composer.render();
     }
@@ -784,8 +848,8 @@ const Home = () => {
 
     return () => {
       window.removeEventListener("resize", resizeListener);
-      controls.removeEventListener("change", zoomListenerRef.current!);
-      controls.dispose();
+      orbitControls.removeEventListener("change", zoomListenerRef.current!);
+      orbitControls.dispose();
       renderer.dispose();
       mountRef.current?.replaceChildren();
     }
@@ -796,17 +860,10 @@ const Home = () => {
       <Head>
         <title>Hyunwoo Kim</title>
       </Head>
-      <SplashScreen />
+      <SplashScreen isReady={siteReady} />
       <div ref={mountRef} className="display" onPointerDown={(event: PointerEvent<HTMLDivElement>) => handlePointerDown(event)} onPointerUp={(event: PointerEvent<HTMLDivElement>) => handlePointerUp(event)} />
-      <div ref={descRef} className={`pointer ${styles.desc}`} onClick={resetCamera}>
-        <div className="flex flexColumn">
-          <h4>{ title }</h4>
-          <hr />
-          <p>{ content }</p>
-        </div>
-      </div>
-      <div ref={titleRef} className={`${styles.title}`}>
-        <p>Hyunwoo Kim</p>
+      <div ref={titleContainerRef} className={`${styles.titleContainer}`}>
+        <p>{ title }</p>
       </div>
       <ZoomProgressBar distance={zoomDistance} minDistance={zoom.minDistance} maxDistance={zoom.maxDistance} onZoomUpdate={handleZoomUpdate} />
       <div className={`pointer ${styles.social}`} onClick={() => window.open("https://github.com/hwk06023", "_blank")}>

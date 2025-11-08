@@ -7,6 +7,9 @@
   height: 100dvh;
   background-color: #ddd;
   transition: all 500ms;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .container > img {

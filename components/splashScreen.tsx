@@ -7,19 +7,21 @@ const icon = {
   alt: "icon",
 }
 
-const splashScreen = () => {
+const splashScreen = ({ isReady }: { isReady: Boolean }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setTimeout(() => {
-      if (!containerRef.current) return;
-      containerRef.current.style.setProperty("opacity", "0");
-    }, 1000);
-    setTimeout(() => {
-      if (!containerRef.current) return;
-      containerRef.current.style.setProperty("display", "none");
-    }, 1000 + 500);
-  }, []);
+    if (isReady) {
+      setTimeout(() => {
+        if (!containerRef.current) return;
+        containerRef.current.style.setProperty("opacity", "0");
+      }, 1000);
+      setTimeout(() => {
+        if (!containerRef.current) return;
+        containerRef.current.style.setProperty("display", "none");
+      }, 1000 + 500);
+    }
+  }, [isReady]);
 
   return (
     <div ref={containerRef} className={`flex justifyCenter alignCenter ${styles.container}`}>
