@@ -67,7 +67,7 @@ const Home = () => {
   const leftLinesRef = useRef<THREE.LineSegments | null>(null);
   const rightLinesRef = useRef<THREE.LineSegments | null>(null);
 
-  const neruonStepObjects = useRef<(THREE.DirectionalLight | THREE.Mesh | THREE.Mesh[])[]>([]);
+  const deepPhaseObjects = useRef<(THREE.DirectionalLight | THREE.Mesh | THREE.Mesh[])[]>([]);
 
   const [data, setData] = useState<DataType[]>([]);
   const [title, setTitle] = useState<string>("Hyunwoo Kim");
@@ -358,62 +358,119 @@ const Home = () => {
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
 
-    light.position.set(x, y + 100, z);
-    light.target.position.set(x, y - 100, z);
+    light.position.set(x + 50, y + 100, z + 75);
+    light.target.position.set(x, y - 50, z);
     light.castShadow = true;
+
+    light.shadow.mapSize.width = 2048;
+    light.shadow.mapSize.height = 2048;
+
+    const d = 300;
+    light.shadow.camera.left = -d;
+    light.shadow.camera.right = d;
+    light.shadow.camera.top = d;
+    light.shadow.camera.bottom = -d;
+    light.shadow.camera.near = 0.5;
+    light.shadow.camera.far = 1000;
+
+    light.shadow.radius = 2;
 
     sceneRef.current.add(light);
     sceneRef.current.add(light.target);
     return light;
   }
 
-  const createPlane = ({ x, y, z }: THREE.Vector3) => {
+  const createGround = ({ x, y, z }: THREE.Vector3) => {
     if (!sceneRef.current) return;
 
-    const geometry = new THREE.PlaneGeometry(300, 300);
-    const material = new THREE.MeshStandardMaterial({ color: 0x808080 });
-    const plane = new THREE.Mesh(geometry, material);
+    const geometry = new THREE.BoxGeometry(300, 100, 300);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x000000,
+      roughness: 1,
+      metalness: 0,
+    });
+    const ground = new THREE.Mesh(geometry, material);
 
-    plane.position.set(x, y - 100, z);
-    plane.rotation.x = -Math.PI / 2;
-    plane.receiveShadow = true;
+    ground.position.set(x, y - 100, z);
+    ground.receiveShadow = true;
 
-    sceneRef.current.add(plane);
-    return plane;
+    sceneRef.current.add(ground);
+    return ground;
   }
 
-  const createNeurons = ({ x, y, z }: THREE.Vector3) => {
+  const createHenges = ({ x, y, z }: THREE.Vector3) => {
     if (!sceneRef.current) return;
 
-    const neruons = [];
+    const henges = [];
 
-    const geometry = new THREE.SphereGeometry(5, 16, 16);
-    const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    const neuron = new THREE.Mesh(geometry, material);
+    const count = 10;
+    const groundTop = y - 50;
 
-    neuron.position.set(x, y, z);
-    neuron.castShadow = true;
+    const minRadius = 75;
+    const maxRadius = 120;
 
-    sceneRef.current.add(neuron);
-    neruons.push(neuron);
+    const minWidth = 25;
+    const maxWidth = 50;
 
-    return neruons;
+    const minHeight = 35;
+    const maxHeight = 150;
+
+    const minDepth = 7.5;
+    const maxDepth = 15;
+
+    const glowColor = 0xf4f4f4;
+    const colorMap = [0x111111, 0x333333, 0x555555, glowColor];
+
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const radius = minRadius + Math.random() * (maxRadius - minRadius);
+
+      const width = minWidth + Math.random() * (maxWidth - minWidth);
+      const height = minHeight + Math.random() * (maxHeight - minHeight);
+      const depth = minDepth + Math.random() * (maxDepth - minDepth);
+
+      const posX = x + Math.cos(angle) * radius;
+      const posZ = z + Math.sin(angle) * radius;
+      const posY = groundTop + height / 2;
+
+      const colorIndex = Math.floor(Math.random() * colorMap.length);
+
+      const geometry = new THREE.BoxGeometry(width, height, depth);
+      const material = new THREE.MeshStandardMaterial({
+        color: colorMap[colorIndex],
+        roughness: 1,
+        metalness: 0,
+      });
+      const henge = new THREE.Mesh(geometry, material);
+
+      henge.position.set(posX, posY, posZ);
+      henge.lookAt(x, posY, z);
+
+      henge.castShadow = true;
+      henge.receiveShadow = true;
+
+      sceneRef.current.add(henge);
+      henges.push(henge);
+    }
+
+    console.log(henges);
+    return henges;
   }
 
-  const enterNueronStep = (target: THREE.Mesh) => {
+  const enterDeepPhase = (target: THREE.Mesh) => {
     const position = target.position;
 
     const light = createLight(position);
-    const plane = createPlane(position);
-    const neurons = createNeurons(position);
+    const plane = createGround(position);
+    const neurons = createHenges(position);
 
-    if (light) neruonStepObjects.current.push(light);
-    if (plane) neruonStepObjects.current.push(plane);
-    if (neurons) neruonStepObjects.current.push(neurons);
+    if (light) deepPhaseObjects.current.push(light);
+    if (plane) deepPhaseObjects.current.push(plane);
+    if (neurons) deepPhaseObjects.current.push(neurons);
   }
 
-  const leaveNeuronStep = () => {
-    neruonStepObjects.current.forEach(object => {
+  const leaveDeepPhase = () => {
+    deepPhaseObjects.current.forEach(object => {
       if (Array.isArray(object)) {
         object.forEach(obj => {
           if (obj instanceof THREE.Mesh) {
@@ -686,7 +743,7 @@ const Home = () => {
         });
   
         if (distance > 500) {
-          leaveNeuronStep();
+          leaveDeepPhase();
           explorationModeRef.current = false;
 
           setTitle("Hyunwoo Kim");
@@ -761,7 +818,7 @@ const Home = () => {
       const id = parseInt(name.replace(/leftGroup|rightGroup/g, ""));
 
       if (name.toLowerCase().includes("group")) {
-        enterNueronStep(target);
+        enterDeepPhase(target);
 
         const isLeft = name.includes("left");
         brainPosition.current = isLeft ? "left" : "right";
