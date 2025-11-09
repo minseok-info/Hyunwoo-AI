@@ -38,6 +38,8 @@ const Home = () => {
   const humanModelRef = useRef<ModelType>(null);
   const brainModelRef = useRef<ModelType>(null);
   const planetModelRef = useRef<ModelType>(null);
+  const skyModelRef = useRef<ModelType>(null);
+  const grassModelRef = useRef<ModelType>(null);
 
   const brainModelCenterRef = useRef<number>(0);
   const brainPosition = useRef<"left" | "right" | null>(null);
@@ -67,7 +69,7 @@ const Home = () => {
   const leftLinesRef = useRef<THREE.LineSegments | null>(null);
   const rightLinesRef = useRef<THREE.LineSegments | null>(null);
 
-  const deepPhaseObjects = useRef<(THREE.DirectionalLight | THREE.Mesh | THREE.Mesh[])[]>([]);
+  const deepPhaseObjects = useRef<(ModelType | THREE.DirectionalLight | THREE.Mesh | THREE.Mesh[])[]>([]);
 
   const [data, setData] = useState<DataType[]>([]);
   const [title, setTitle] = useState<string>("Hyunwoo Kim");
@@ -85,6 +87,8 @@ const Home = () => {
     human: 1500,
     brain: 17500,
     planet: 75,
+    sky: 250,
+    grass: 30,
   }
 
   const group = {
@@ -223,6 +227,50 @@ const Home = () => {
           mesh.visible = false;
         }
       });
+
+      ref.current = model;
+      scene.add(ref.current);
+    });
+  }
+
+  const loadSkyModel = (
+    loader: GLTFLoader,
+    scene: THREE.Scene,
+    ref: React.MutableRefObject<ModelType>
+  ) => {
+    loader.load("/models/sky.glb", gltf => {
+      const model = gltf.scene;
+      const size = modelSizes.sky;
+
+      model.scale.set(size, size, size);
+      model.visible = false;
+
+      ref.current = model;
+      scene.add(ref.current);
+    });
+  }
+
+  const loadGrassModel = (
+    loader: GLTFLoader,
+    scene: THREE.Scene,
+    ref: React.MutableRefObject<ModelType>
+  ) => {
+    loader.load("/models/grass.glb", gltf => {
+      const model = gltf.scene;
+      const size = modelSizes.grass;
+
+      model.scale.set(size, size, size);
+      const toRemove: THREE.Object3D[] = [];
+
+      model.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          if (!mesh.name.includes("Plane")) toRemove.push(mesh);
+        }
+      });
+
+      toRemove.forEach(obj => obj.parent?.remove(obj));
+      model.visible = false;
 
       ref.current = model;
       scene.add(ref.current);
@@ -380,22 +428,24 @@ const Home = () => {
     return light;
   }
 
-  const createGround = ({ x, y, z }: THREE.Vector3) => {
-    if (!sceneRef.current) return;
+  const createSky = ({ x, y, z }: THREE.Vector3) => {
+    if (!skyModelRef.current) return null;
 
-    const geometry = new THREE.BoxGeometry(300, 100, 300);
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x000000,
-      roughness: 1,
-      metalness: 0,
-    });
-    const ground = new THREE.Mesh(geometry, material);
+    const model = skyModelRef.current;
+    model.position.set(x, y, z);
+    model.visible = true;
 
-    ground.position.set(x, y - 100, z);
-    ground.receiveShadow = true;
+    return model;
+  }
 
-    sceneRef.current.add(ground);
-    return ground;
+  const createGrass = ({ x, y, z }: THREE.Vector3) => {
+    if (!grassModelRef.current) return null;
+
+    const model = grassModelRef.current;
+    model.position.set(x + 23, y - 43 - modelSizes.grass / 2, z + 10);
+    model.visible = true;
+
+    return model;
   }
 
   const createHenges = ({ x, y, z }: THREE.Vector3) => {
@@ -453,19 +503,20 @@ const Home = () => {
       henges.push(henge);
     }
 
-    console.log(henges);
     return henges;
   }
 
   const enterDeepPhase = (target: THREE.Mesh) => {
     const position = target.position;
 
+    const sky = createSky(position);
+    const grass = createGrass(position);
     const light = createLight(position);
-    const plane = createGround(position);
     const neurons = createHenges(position);
 
+    if (sky) deepPhaseObjects.current.push(sky);
+    if (grass) deepPhaseObjects.current.push(grass);
     if (light) deepPhaseObjects.current.push(light);
-    if (plane) deepPhaseObjects.current.push(plane);
     if (neurons) deepPhaseObjects.current.push(neurons);
   }
 
@@ -492,6 +543,9 @@ const Home = () => {
 
         const material = Array.isArray(object.material) ? object.material : [object.material];
         material.forEach(m => m.dispose());
+      }
+      else if (object instanceof THREE.Object3D) {
+        object.visible = false;
       }
     });
   }
@@ -832,7 +886,7 @@ const Home = () => {
         const cameraDir = new THREE.Vector3();
         cameraRef.current.getWorldDirection(cameraDir);
   
-        const zoomDistance = 400;
+        const zoomDistance = 240;
         const zoomTarget = position.clone().add(cameraDir.clone().multiplyScalar(-zoomDistance));
   
         const startDist = cameraRef.current.position.distanceTo(position);
@@ -946,6 +1000,8 @@ const Home = () => {
     loadHumanModel(loader, scene, humanModelRef);
     loadBrainModel(loader, scene, brainModelRef);
     loadPlanetModel(loader, scene, planetModelRef);
+    loadSkyModel(loader, scene, skyModelRef);
+    loadGrassModel(loader, scene, grassModelRef);
 
     const resizeListener = () => handleResize(camera, renderer, composer);
     window.addEventListener("resize", resizeListener);
