@@ -3,6 +3,11 @@
   padding: 0;
 }
 
+body {
+  background-color: #000000;
+  color: #ffffff;
+}
+
 input {
   border-radius: 2.5px;
   border: 1px solid dimgray;
@@ -58,4 +63,11 @@ input {
 
 .pointer:disabled {
   cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: light) {
+  body {
+    background-color: #ffffff;
+    color: #000000
+  }
 }
