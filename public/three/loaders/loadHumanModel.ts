@@ -25,30 +25,30 @@ const loadHumanModel = ({
       model.position.set(x, -y, z);
   
       model.traverse(child => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          const geometry = mesh.geometry;
-  
-          const edgesGeometry = new THREE.EdgesGeometry(geometry, 15);
-          const lineMaterial = new THREE.LineBasicMaterial({
-            color: 0xcccccc,
-            linewidth: 1
-          });
-          const line = new THREE.LineSegments(edgesGeometry, lineMaterial);
-          mesh.add(line);
-  
-          const materials = Array.isArray(mesh.material)
-            ? mesh.material
-            : [mesh.material];
-          materials.forEach(mat => {
-            const m = mat as THREE.MeshStandardMaterial;
-            m.color.set(new THREE.Color(1, 1, 1));
-  
-            if (m.roughness === undefined) m.roughness = 0.5;
-            if (m.metalness === undefined) m.metalness = 0.5;
-            m.needsUpdate = true;
-          });
-        }
+        if (!(child as THREE.Mesh).isMesh) return;
+        
+        const mesh = child as THREE.Mesh;
+        const geometry = mesh.geometry;
+
+        const edgesGeometry = new THREE.EdgesGeometry(geometry, 15);
+        const lineMaterial = new THREE.LineBasicMaterial({
+          color: 0xcccccc,
+          linewidth: 1
+        });
+        const line = new THREE.LineSegments(edgesGeometry, lineMaterial);
+        mesh.add(line);
+
+        const materials = Array.isArray(mesh.material)
+          ? mesh.material
+          : [mesh.material];
+        materials.forEach(mat => {
+          const m = mat as THREE.MeshStandardMaterial;
+          m.color.set(new THREE.Color(1, 1, 1));
+
+          if (m.roughness === undefined) m.roughness = 0.5;
+          if (m.metalness === undefined) m.metalness = 0.5;
+          m.needsUpdate = true;
+        });
       });
   
       scene.add(model);

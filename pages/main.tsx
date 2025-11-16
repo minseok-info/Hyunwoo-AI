@@ -1,5 +1,4 @@
-import loadHumanModel from "@/public/three/loaders/loadHumanModel";
-import loadSpaceModel from "@/public/three/loaders/loadSpaceModel";
+import { loadBrainModel, loadHumanModel, loadSpaceModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { ModelType } from "@/types/modelParams";
 import clsx from "clsx";
@@ -16,6 +15,7 @@ const Main = () => {
 
   const spaceModelRef = useRef<ModelType>(null);
   const humanModelRef = useRef<ModelType>(null);
+  const brainModelRef = useRef<ModelType>(null);
 
   const isZoomingRef = useRef<boolean>(false);
   const pointerData = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
@@ -27,7 +27,7 @@ const Main = () => {
     maxFov: 100,
     rotateSpeed: 0.005,
     zoomSpeed: 0.075,
-    startZoom: 10,
+    startZoom: 500,
     minZoom: 0.1,
     maxZoom: 1000,
   }
@@ -158,19 +158,21 @@ const Main = () => {
     cameraRef.current = camera;
     rendererRef.current = renderer;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 3);
     scene.add(ambientLight);
     
     const loadModels = async () => {
       try {
         const loader = new GLTFLoader();
-        const [spaceModel, humanModel] = await Promise.all([
+        const [spaceModel, humanModel, brainModel] = await Promise.all([
           loadSpaceModel({ loader: loader, scene: scene, distance: CAMERA_CONSTANTS.startZoom }),
-          loadHumanModel({ loader: loader, scene: scene, distance: CAMERA_CONSTANTS.startZoom })
+          loadHumanModel({ loader: loader, scene: scene, distance: CAMERA_CONSTANTS.startZoom }),
+          loadBrainModel({ loader: loader, scene: scene, distance: CAMERA_CONSTANTS.startZoom })
         ]);
   
         spaceModelRef.current = spaceModel;
         humanModelRef.current = humanModel;
+        brainModelRef.current = brainModel;
 
         const boundingBox = new THREE.Box3().setFromObject(spaceModel!);
         const sizeVector = new THREE.Vector3();
