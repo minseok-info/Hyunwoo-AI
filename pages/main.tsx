@@ -1,7 +1,11 @@
+import loadHumanModel from "@/public/three/loaders/loadHumanModel";
+import loadSpaceModel from "@/public/three/loaders/loadSpaceModel";
 import styles from "@/styles/main.module.css";
+import { ModelType } from "@/types/modelParams";
 import clsx from "clsx";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/Addons.js";
 
 const Main = () => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -9,6 +13,9 @@ const Main = () => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+
+  const spaceModelRef = useRef<ModelType>(null);
+  const humanModelRef = useRef<ModelType>(null);
 
   const isZoomingRef = useRef<boolean>(false);
   const pointerData = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
@@ -18,21 +25,27 @@ const Main = () => {
     fov: 75,
     minFov: 5,
     maxFov: 100,
-    rotateSpeed: 0.0075,
+    rotateSpeed: 0.005,
     zoomSpeed: 0.075,
-    startZoom: 25,
+    startZoom: 10,
     minZoom: 0.1,
-    maxZoom: 1000
+    maxZoom: 1000,
   }
 
   const cameraFov = useRef<number>(CAMERA_CONSTANTS.fov);
   const cameraZoom = useRef<number>(CAMERA_CONSTANTS.startZoom);
-  const cameraRotation = useRef<{ theta: number; phi: number }>({ theta: 0, phi: 0 });
+  const cameraRotation = useRef<{
+    current: { theta: number; phi: number };
+    target: { theta: number; phi: number }
+  }>({
+    current: { theta: 0, phi: 0 },
+    target: { theta: 0, phi: 0 }
+  });
 
   const MOBILE_CONSTANTS = {
     zoomSpeed: 0.1
   }
- 
+
   const handleWheel = (event: WheelEvent) => {
     if (!cameraRef.current) return;
     event.preventDefault();
@@ -57,13 +70,13 @@ const Main = () => {
     else if (pointerData.current.x === null || pointerData.current.y === null) return;
     event.preventDefault();
 
-    const dx = event.clientX - pointerData.current.x;
-    const dy = event.clientY - pointerData.current.y;
+    const dx = (event.clientX - pointerData.current.x) * window.devicePixelRatio;
+    const dy = (event.clientY - pointerData.current.y) * window.devicePixelRatio;
 
-    cameraRotation.current.theta -= dx * CAMERA_CONSTANTS.rotateSpeed;
-    cameraRotation.current.phi += dy * CAMERA_CONSTANTS.rotateSpeed;
-    cameraRotation.current.phi = THREE.MathUtils.clamp(
-      cameraRotation.current.phi,
+    cameraRotation.current.target.theta -= dx * CAMERA_CONSTANTS.rotateSpeed;
+    cameraRotation.current.target.phi += dy * CAMERA_CONSTANTS.rotateSpeed;
+    cameraRotation.current.target.phi = THREE.MathUtils.clamp(
+      cameraRotation.current.target.phi,
       -Math.PI / 2 + 0.01,
       Math.PI / 2 - 0.01
     );
@@ -94,7 +107,7 @@ const Main = () => {
     const touches = event.touches;
     if (event.touches.length === 2 && touchData.current.prevDistance) {
       const dx = touches[0].clientX - touches[1].clientX;
-      const dy = touches[0].clientY - touches[0].clientY;
+      const dy = touches[0].clientY - touches[1].clientY;
       const distance = Math.hypot(dx, dy);
       const delta = touchData.current.prevDistance - distance;
 
@@ -113,32 +126,6 @@ const Main = () => {
     if (touches.length < 2) {
       isZoomingRef.current = false;
       touchData.current.prevDistance = null;
-    }
-  }
-
-  const animate = () => {
-    requestAnimationFrame(animate);
-
-    if (cameraRef.current) {
-      const camera = cameraRef.current;
-
-      camera.fov = THREE.MathUtils.lerp(
-        camera.fov,
-        cameraFov.current,
-        CAMERA_CONSTANTS.zoomSpeed
-      );
-      cameraRef.current.updateProjectionMatrix();
-
-      const radius = cameraZoom.current;
-      const { theta, phi } = cameraRotation.current;
-      camera.position.x = radius * Math.sin(theta) * Math.cos(phi);
-      camera.position.y = radius * Math.sin(phi);
-      camera.position.z = radius * Math.cos(theta) * Math.cos(phi);
-      camera.lookAt(0, 0, 0);
-    }
-
-    if (rendererRef.current && sceneRef.current) {
-      rendererRef.current.render(sceneRef.current, cameraRef.current!);
     }
   }
 
@@ -173,6 +160,31 @@ const Main = () => {
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
+    
+    const loadModels = async () => {
+      try {
+        const loader = new GLTFLoader();
+        const [spaceModel, humanModel] = await Promise.all([
+          loadSpaceModel({ loader: loader, scene: scene, distance: CAMERA_CONSTANTS.startZoom }),
+          loadHumanModel({ loader: loader, scene: scene, distance: CAMERA_CONSTANTS.startZoom })
+        ]);
+  
+        spaceModelRef.current = spaceModel;
+        humanModelRef.current = humanModel;
+
+        const boundingBox = new THREE.Box3().setFromObject(spaceModel!);
+        const sizeVector = new THREE.Vector3();
+        boundingBox.getSize(sizeVector);
+
+        const maxSize = Math.max(sizeVector.x, sizeVector.y, sizeVector.z);
+        camera.far = maxSize;
+        camera.updateProjectionMatrix();
+      }
+      catch (error) {
+        console.error(error);
+      }
+    }
+    loadModels();
 
     mountRef.current.addEventListener("wheel", handleWheel, { passive: false });
     mountRef.current.addEventListener("pointerdown", handlePointerDown, { passive: false });
@@ -192,13 +204,38 @@ const Main = () => {
       renderer.setSize(width, height);
     }
     window.addEventListener("resize", handleResize);
-
-    const qwe = new THREE.BoxGeometry(1, 1, 1);
-    const asd = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    const zxc = new THREE.Mesh(qwe, asd);
-    zxc.lookAt(camera.position);
-    scene.add(zxc);
     
+    const animate = () => {
+      requestAnimationFrame(animate);
+
+      camera.fov = THREE.MathUtils.lerp(
+        camera.fov,
+        cameraFov.current,
+        CAMERA_CONSTANTS.zoomSpeed
+      );
+      camera.updateProjectionMatrix();
+
+      const dampingFactor = CAMERA_CONSTANTS.rotateSpeed * 10;
+      cameraRotation.current.current.theta = THREE.MathUtils.lerp(
+        cameraRotation.current.current.theta,
+        cameraRotation.current.target.theta,
+        dampingFactor
+      );
+      cameraRotation.current.current.phi = THREE.MathUtils.lerp(
+        cameraRotation.current.current.phi,
+        cameraRotation.current.target.phi,
+        dampingFactor
+      );
+      
+      const radius = cameraZoom.current;
+      const { theta, phi } = cameraRotation.current.current;
+      camera.position.x = radius * Math.sin(theta) * Math.cos(phi);
+      camera.position.y = radius * Math.sin(phi);
+      camera.position.z = radius * Math.cos(theta) * Math.cos(phi);
+      camera.lookAt(0, 0, 0);
+
+      renderer.render(scene, camera);
+    }
     animate();
 
     return () => {
