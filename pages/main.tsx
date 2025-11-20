@@ -23,8 +23,6 @@ const Main = () => {
 
   const CAMERA_CONSTANTS = {
     fov: 75,
-    minFov: 5,
-    maxFov: 100,
     rotateSpeed: 0.005,
     zoomSpeed: 0.075,
     startZoom: 500,
@@ -32,8 +30,18 @@ const Main = () => {
     maxZoom: 1000,
   }
 
-  const cameraFov = useRef<number>(CAMERA_CONSTANTS.fov);
-  const cameraZoom = useRef<number>(CAMERA_CONSTANTS.startZoom);
+  const MOBILE_CONSTANTS = {
+    zoomSpeed: 1
+  }
+
+  const cameraZoom = useRef<{
+    current: number;
+    target: number
+  }>({
+    current: CAMERA_CONSTANTS.startZoom,
+    target: CAMERA_CONSTANTS.startZoom
+  });
+
   const cameraRotation = useRef<{
     current: { theta: number; phi: number };
     target: { theta: number; phi: number }
@@ -42,19 +50,15 @@ const Main = () => {
     target: { theta: 0, phi: 0 }
   });
 
-  const MOBILE_CONSTANTS = {
-    zoomSpeed: 0.1
-  }
-
   const handleWheel = (event: WheelEvent) => {
     if (!cameraRef.current) return;
     event.preventDefault();
 
-    const fovDelta = event.deltaY * 0.05;
-    cameraFov.current = THREE.MathUtils.clamp(
-      cameraRef.current.fov + fovDelta,
-      CAMERA_CONSTANTS.minFov,
-      CAMERA_CONSTANTS.maxFov
+    const delta = event.deltaY;
+    cameraZoom.current.target = THREE.MathUtils.clamp(
+      cameraZoom.current.target + (delta * CAMERA_CONSTANTS.zoomSpeed),
+      CAMERA_CONSTANTS.minZoom,
+      CAMERA_CONSTANTS.maxZoom
     );
   }
 
@@ -109,12 +113,12 @@ const Main = () => {
       const dx = touches[0].clientX - touches[1].clientX;
       const dy = touches[0].clientY - touches[1].clientY;
       const distance = Math.hypot(dx, dy);
-      const delta = touchData.current.prevDistance - distance;
+      const delta = (touchData.current.prevDistance - distance);
 
-      cameraFov.current = THREE.MathUtils.clamp(
-        cameraFov.current + delta * MOBILE_CONSTANTS.zoomSpeed,
-        CAMERA_CONSTANTS.minFov,
-        CAMERA_CONSTANTS.maxFov
+      cameraZoom.current.target = THREE.MathUtils.clamp(
+        cameraZoom.current.target + (delta * MOBILE_CONSTANTS.zoomSpeed),
+        CAMERA_CONSTANTS.minZoom,
+        CAMERA_CONSTANTS.maxZoom
       );
 
       touchData.current.prevDistance = distance;
@@ -210,26 +214,26 @@ const Main = () => {
     const animate = () => {
       requestAnimationFrame(animate);
 
-      camera.fov = THREE.MathUtils.lerp(
-        camera.fov,
-        cameraFov.current,
-        CAMERA_CONSTANTS.zoomSpeed
+      const zoomDampingFactor = 0.075;
+      cameraZoom.current.current = THREE.MathUtils.lerp(
+        cameraZoom.current.current,
+        cameraZoom.current.target,
+        zoomDampingFactor
       );
-      camera.updateProjectionMatrix();
 
-      const dampingFactor = CAMERA_CONSTANTS.rotateSpeed * 10;
+      const rotateDampingFactor = CAMERA_CONSTANTS.rotateSpeed * 10;
       cameraRotation.current.current.theta = THREE.MathUtils.lerp(
         cameraRotation.current.current.theta,
         cameraRotation.current.target.theta,
-        dampingFactor
+        rotateDampingFactor
       );
       cameraRotation.current.current.phi = THREE.MathUtils.lerp(
         cameraRotation.current.current.phi,
         cameraRotation.current.target.phi,
-        dampingFactor
+        rotateDampingFactor
       );
       
-      const radius = cameraZoom.current;
+      const radius = cameraZoom.current.current;
       const { theta, phi } = cameraRotation.current.current;
       camera.position.x = radius * Math.sin(theta) * Math.cos(phi);
       camera.position.y = radius * Math.sin(phi);
