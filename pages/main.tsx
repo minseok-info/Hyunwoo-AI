@@ -24,7 +24,7 @@ const Main = () => {
   const CAMERA_CONSTANTS = {
     fov: 75,
     rotateSpeed: 0.005,
-    zoomSpeed: 0.075,
+    zoomSpeed: 0.15,
     startZoom: 500,
     minZoom: 0.1,
     maxZoom: 1000,
@@ -54,9 +54,12 @@ const Main = () => {
     if (!cameraRef.current) return;
     event.preventDefault();
 
+    const factor = cameraZoom.current.current / CAMERA_CONSTANTS.startZoom;
     const delta = event.deltaY;
+    const normalizedDelta = delta * factor * CAMERA_CONSTANTS.zoomSpeed;
+
     cameraZoom.current.target = THREE.MathUtils.clamp(
-      cameraZoom.current.target + (delta * CAMERA_CONSTANTS.zoomSpeed),
+      cameraZoom.current.target + normalizedDelta,
       CAMERA_CONSTANTS.minZoom,
       CAMERA_CONSTANTS.maxZoom
     );
@@ -113,10 +116,13 @@ const Main = () => {
       const dx = touches[0].clientX - touches[1].clientX;
       const dy = touches[0].clientY - touches[1].clientY;
       const distance = Math.hypot(dx, dy);
+
+      const factor = cameraZoom.current.current / CAMERA_CONSTANTS.startZoom;
       const delta = (touchData.current.prevDistance - distance);
+      const normalizedDelta = delta * factor * MOBILE_CONSTANTS.zoomSpeed;
 
       cameraZoom.current.target = THREE.MathUtils.clamp(
-        cameraZoom.current.target + (delta * MOBILE_CONSTANTS.zoomSpeed),
+        cameraZoom.current.target + normalizedDelta,
         CAMERA_CONSTANTS.minZoom,
         CAMERA_CONSTANTS.maxZoom
       );
