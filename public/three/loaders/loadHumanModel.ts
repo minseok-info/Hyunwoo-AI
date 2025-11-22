@@ -10,16 +10,16 @@ const loadHumanModel = ({
   return new Promise((resolve, reject) => {
     loader.load("/three/models/human.glb", gltf => {
       const model = gltf.scene;
+      model.name = "human";
       model.scale.setScalar(distance * ratio);
   
       const boundingBox = new THREE.Box3().setFromObject(model);
       const centerVector = new THREE.Vector3();
       boundingBox.getCenter(centerVector);
   
-      const position = new THREE.Vector3();
-      position.x = centerVector.x;
-      position.z = centerVector.z;
-      position.y = centerVector.y * 1.925;
+      const position = centerVector.clone();
+      position.y *= 1.925;
+      position.z *= 7.5;
   
       const { x, y, z } = position;
       model.position.set(x, -y, z);

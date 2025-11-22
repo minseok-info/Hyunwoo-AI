@@ -4,11 +4,12 @@ const loadSpaceModel = ({
   loader,
   scene,
   distance,
-  ratio = 0.5
+  ratio = 5
 }: LoadModelParams): Promise<ModelType> => {
   return new Promise((resolve, reject) => {
     loader.load("/three/models/space.glb", gltf => {
       const model = gltf.scene;
+      model.name = "space";
       model.scale.setScalar(distance * ratio);
   
       scene.add(model);

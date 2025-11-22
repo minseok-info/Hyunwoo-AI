@@ -5,19 +5,23 @@ const loadBrainModel = ({
   loader,
   scene,
   distance,
-  ratio = 0.1
+  ratio = 1.05
 }: LoadModelParams): Promise<ModelType> => {
   return new Promise((resolve, reject) => {
     loader.load("/three/models/brain.glb", gltf => {
       const model = gltf.scene;
+      model.name = "brain";
       model.scale.setScalar(distance * ratio);
 
       const boundingBox = new THREE.Box3().setFromObject(model);
       const centerVector = new THREE.Vector3();
       boundingBox.getCenter(centerVector);
       
-      const { x, y, z } = centerVector;
-      model.position.set(x, -y * 2, z);
+      const position = centerVector.clone();
+      position.y *= 2;
+
+      const { x, y, z } = position;
+      model.position.set(x, -y, z);
       model.rotation.set(0, (Math.PI - 0.43), 0);
 
       model.traverse(child => {
@@ -64,6 +68,7 @@ const loadBrainModel = ({
         colorAttr.needsUpdate = true;
       });
 
+      model.visible = false;
       scene.add(model);
       resolve(model);
     }, undefined, error => reject(error));

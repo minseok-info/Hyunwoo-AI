@@ -1,6 +1,6 @@
 import { loadBrainModel, loadHumanModel, loadSpaceModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
-import { ModelType } from "@/types/modelParams";
+import { ModelNames, ModelTransformParams, ModelType, SectionConfigParams, SectionNames, SectionType } from "@/types/modelParams";
 import clsx from "clsx";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
@@ -13,9 +13,28 @@ const Main = () => {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
-  const spaceModelRef = useRef<ModelType>(null);
-  const humanModelRef = useRef<ModelType>(null);
-  const brainModelRef = useRef<ModelType>(null);
+  const modelsRef = useRef<Record<ModelNames, ModelType>>({
+    space: null,
+    human: null,
+    brain: null
+  });
+  const modelsTransformAttr: Record<ModelNames, ModelTransformParams> = {
+    space: {
+      posYRatio: 1,
+      posZRatio: 1,
+      visualSizeRatio: 1
+    },
+    human: {
+      posYRatio: 1.925,
+      posZRatio: 7.5,
+      visualSizeRatio: 0.85
+    },
+    brain: {
+      posYRatio: 2,
+      posZRatio: 1,
+      visualSizeRatio: 1
+    }
+  }
 
   const isZoomingRef = useRef<boolean>(false);
   const pointerData = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
@@ -34,6 +53,31 @@ const Main = () => {
     zoomSpeed: 1
   }
 
+  const sectionsRef = useRef<Partial<Record<SectionNames, SectionType>>>({});
+  const sectionsConfig: SectionConfigParams = {
+    human: {
+      minDistance: 10,
+      maxDistance: CAMERA_CONSTANTS.maxZoom,
+      prev: null,
+      next: "brain"
+    },
+    brain: {
+      minDistance: 10,
+      maxDistance: 750,
+      prev: "human",
+      next: null
+    },
+    temp: {
+      minDistance: 0,
+      maxDistance: 0,
+      prev: null,
+      next: null
+    }
+  }
+
+  const prevDistanceRef = useRef<number>(0);
+  const currentSectionRef = useRef<SectionNames>("human");
+
   const cameraZoom = useRef<{
     current: number;
     target: number
@@ -43,12 +87,104 @@ const Main = () => {
   });
 
   const cameraRotation = useRef<{
-    current: { theta: number; phi: number };
+    current: { theta: number; phi: number }
     target: { theta: number; phi: number }
   }>({
     current: { theta: 0, phi: 0 },
     target: { theta: 0, phi: 0 }
   });
+
+  const tempBox = new THREE.Box3();
+  const tempVec = new THREE.Vector3();
+
+  const updateSections = () => {
+    const sectionName = currentSectionRef.current;
+    if (!cameraRef.current || !sectionsRef.current[sectionName]) return;
+
+    const camera = cameraRef.current;
+
+    const section = sectionsRef.current[sectionName];
+    const isModel = section instanceof THREE.Group;
+
+    const attr = isModel
+      ? modelsTransformAttr[sectionName as ModelNames]
+      : null;
+    const config = sectionsConfig[sectionName];
+
+    tempBox.setFromObject(section);
+    const closestPoint = tempBox.clampPoint(camera.position, tempVec);
+    const adjustedPoint = attr
+      ? closestPoint.clone().multiplyScalar(attr.visualSizeRatio)
+      : closestPoint;
+
+    const modelDistance = camera.position.distanceTo(adjustedPoint);
+    const currentDistance = cameraZoom.current.current;
+
+    if (modelDistance < config.minDistance) {
+      if (!config.next) return;
+      const nextConfig = sectionsConfig[config.next];
+      console.log("next");
+
+      const zoomScaleFactor = nextConfig.maxDistance / currentDistance;
+      const currentScale = section.scale.x;
+      const adjustedScale = zoomScaleFactor * currentScale;
+      section.scale.setScalar(adjustedScale);
+
+      tempBox.setFromObject(section);
+      tempBox.getCenter(tempVec);
+
+      const position = tempVec.clone().sub(section.position);
+      position.y *= attr?.posYRatio ?? 1;
+      position.z *= attr?.posZRatio ?? 1;
+      
+      const { x, y, z } = position;
+      section.position.set(x, -y, z);
+
+      const nextSection = sectionsRef.current[config.next];
+      if (nextSection) {
+        nextSection.visible = true;
+        currentSectionRef.current = config.next;
+      }
+
+      prevDistanceRef.current = currentDistance;
+
+      const remainDistance = currentDistance - cameraZoom.current.target;
+      cameraZoom.current.current = nextConfig.maxDistance;
+      cameraZoom.current.target = nextConfig.maxDistance - remainDistance;
+    }
+    else if (currentDistance > config.maxDistance) {
+      if (!config.prev) return;
+      const prevSection = sectionsRef.current[config.prev]!;
+      const prevIsModel = prevSection instanceof THREE.Group;
+      const prevAttr = prevIsModel
+        ? modelsTransformAttr[config.prev as ModelNames]
+        : null;
+      const prevDistance = prevDistanceRef.current;
+      console.log("prev");
+
+      const zoomScaleFactor = prevDistance / currentDistance;
+      const currentScale = prevSection.scale.x;
+      const adjustedScale = zoomScaleFactor * currentScale;
+      prevSection.scale.setScalar(adjustedScale);
+
+      tempBox.setFromObject(prevSection);
+      tempBox.getCenter(tempVec);
+
+      const position = tempVec.clone().sub(prevSection.position);
+      position.y *= prevAttr?.posYRatio ?? 1;
+      position.z *= prevAttr?.posZRatio ?? 1;
+
+      const { x, y, z } = position;
+      prevSection.position.set(x, -y , z);
+
+      section.visible = false;
+      currentSectionRef.current = config.prev;
+
+      const remainDistance = currentDistance - cameraZoom.current.target;
+      cameraZoom.current.current = prevDistance;
+      cameraZoom.current.target = prevDistance - remainDistance;
+    }
+  }
 
   const handleWheel = (event: WheelEvent) => {
     if (!cameraRef.current) return;
@@ -141,6 +277,7 @@ const Main = () => {
 
   useEffect(() => {
     if (!mountRef.current) return;
+    let isMounted = true;
 
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
@@ -180,15 +317,21 @@ const Main = () => {
           loadBrainModel({ loader: loader, scene: scene, distance: CAMERA_CONSTANTS.startZoom })
         ]);
   
-        spaceModelRef.current = spaceModel;
-        humanModelRef.current = humanModel;
-        brainModelRef.current = brainModel;
+        modelsRef.current = {
+          space: spaceModel,
+          human: humanModel,
+          brain: brainModel
+        };
 
-        const boundingBox = new THREE.Box3().setFromObject(spaceModel!);
-        const sizeVector = new THREE.Vector3();
-        boundingBox.getSize(sizeVector);
+        sectionsRef.current = {
+          human: humanModel,
+          brain: brainModel
+        };
 
-        const maxSize = Math.max(sizeVector.x, sizeVector.y, sizeVector.z);
+        const boundingBox = tempBox.setFromObject(spaceModel!);
+        boundingBox.getSize(tempVec);
+
+        const maxSize = Math.max(tempVec.x, tempVec.y, tempVec.z);
         camera.far = maxSize;
         camera.updateProjectionMatrix();
       }
@@ -218,8 +361,10 @@ const Main = () => {
     window.addEventListener("resize", handleResize);
     
     const animate = () => {
+      if (!isMounted) return;
       requestAnimationFrame(animate);
-
+      updateSections();
+      
       const zoomDampingFactor = 0.075;
       cameraZoom.current.current = THREE.MathUtils.lerp(
         cameraZoom.current.current,
@@ -251,6 +396,7 @@ const Main = () => {
     animate();
 
     return () => {
+      isMounted = false;
       window.removeEventListener("resize", handleResize);
       if (mountRef.current) {
         mountRef.current.removeEventListener("wheel", handleWheel);
