@@ -46,7 +46,7 @@ const Main = () => {
     zoomSpeed: 0.15,
     startZoom: 500,
     minZoom: 0.1,
-    maxZoom: 1000,
+    maxZoom: 1500,
   }
 
   const MOBILE_CONSTANTS = {
@@ -76,7 +76,8 @@ const Main = () => {
   }
 
   const prevDistanceRef = useRef<number>(0);
-  const currentSectionRef = useRef<SectionNames>("human");
+  const prevSectionRef = useRef<ModelType>(null);
+  const currentSectionNameRef = useRef<SectionNames>("human");
 
   const cameraZoom = useRef<{
     current: number;
@@ -97,8 +98,48 @@ const Main = () => {
   const tempBox = new THREE.Box3();
   const tempVec = new THREE.Vector3();
 
+  const updateOpacityByDistance = (
+    section: ModelType,
+    dist: number,
+    maxDist: number,
+    minDist: number
+  ) => {
+    if (!section) return;
+    if (dist <= minDist && section.visible === false) return;
+
+    const t = THREE.MathUtils.clamp((dist - maxDist) / (minDist - maxDist), 0, 1);
+    const opacity = 1 - t;
+
+    section.visible = opacity > 0;
+    section.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const materials = Array.isArray(mesh.material)
+          ? mesh.material
+          : [mesh.material];
+
+        materials.forEach(mat => {
+          const m = mat as THREE.MeshStandardMaterial & { opacity?: number; transparent?: boolean };
+          m.opacity = opacity;
+          m.transparent = opacity < 1;
+          m.needsUpdate = true;
+        });
+      }
+      else if ((child as THREE.LineSegments).isLineSegments) {
+        const line = child as THREE.LineSegments;
+        const mat = line.material as any;
+
+        if (mat) {
+          mat.opacity = opacity;
+          mat.transparent = opacity < 1;
+          mat.needsupdate = true;
+        }
+      }
+    });
+  }
+
   const updateSections = () => {
-    const sectionName = currentSectionRef.current;
+    const sectionName = currentSectionNameRef.current;
     if (!cameraRef.current || !sectionsRef.current[sectionName]) return;
 
     const camera = cameraRef.current;
@@ -119,6 +160,12 @@ const Main = () => {
 
     const modelDistance = camera.position.distanceTo(adjustedPoint);
     const currentDistance = cameraZoom.current.current;
+
+    if (prevSectionRef.current) {
+      const maxDist = config.maxDistance;
+      const minDist = maxDist - (maxDist / 5);
+      updateOpacityByDistance(prevSectionRef.current, currentDistance, maxDist, minDist);
+    }
 
     if (modelDistance < config.minDistance) {
       if (!config.next) return;
@@ -143,22 +190,24 @@ const Main = () => {
       const nextSection = sectionsRef.current[config.next];
       if (nextSection) {
         nextSection.visible = true;
-        currentSectionRef.current = config.next;
+        currentSectionNameRef.current = config.next;
       }
 
       prevDistanceRef.current = currentDistance;
+      prevSectionRef.current = section;
 
-      const remainDistance = currentDistance - cameraZoom.current.target;
+      const remainDistance = (currentDistance - cameraZoom.current.target) * 2;
       cameraZoom.current.current = nextConfig.maxDistance;
       cameraZoom.current.target = nextConfig.maxDistance - remainDistance;
     }
     else if (currentDistance > config.maxDistance) {
-      if (!config.prev) return;
-      const prevSection = sectionsRef.current[config.prev]!;
+      if (!config.prev || !prevSectionRef.current) return;
+      const prevSection = prevSectionRef.current;
       const prevIsModel = prevSection instanceof THREE.Group;
       const prevAttr = prevIsModel
         ? modelsTransformAttr[config.prev as ModelNames]
         : null;
+      const prevConfig = sectionsConfig[config.prev];
       const prevDistance = prevDistanceRef.current;
       console.log("prev");
 
@@ -178,9 +227,12 @@ const Main = () => {
       prevSection.position.set(x, -y , z);
 
       section.visible = false;
-      currentSectionRef.current = config.prev;
+      prevSectionRef.current = prevConfig.prev
+        ? sectionsRef.current[prevConfig.prev] ?? null
+        : null;
+      currentSectionNameRef.current = config.prev;
 
-      const remainDistance = currentDistance - cameraZoom.current.target;
+      const remainDistance = (currentDistance - cameraZoom.current.target) / 4;
       cameraZoom.current.current = prevDistance;
       cameraZoom.current.target = prevDistance - remainDistance;
     }
