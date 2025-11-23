@@ -2,9 +2,15 @@ import { loadBrainModel, loadHumanModel, loadSpaceModel } from "@/public/three/l
 import styles from "@/styles/main.module.css";
 import { ModelNames, ModelTransformParams, ModelType, SectionConfigParams, SectionNames, SectionType } from "@/types/modelParams";
 import clsx from "clsx";
-import { useEffect, useRef } from "react";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/Addons.js";
+
+const githubIcon = {
+  src: require("@/public/icons/github.svg"),
+  alt: "github"
+}
 
 const Main = () => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -98,6 +104,8 @@ const Main = () => {
   const tempBox = new THREE.Box3();
   const tempVec = new THREE.Vector3();
 
+  const [title, setTitle] = useState<string>("Hyunwoo.ai");
+
   const updateOpacityByDistance = (
     section: ModelType,
     dist: number,
@@ -163,7 +171,7 @@ const Main = () => {
 
     if (prevSectionRef.current) {
       const maxDist = config.maxDistance;
-      const minDist = maxDist - (maxDist / 5);
+      const minDist = maxDist - (maxDist / 7.5);
       updateOpacityByDistance(prevSectionRef.current, currentDistance, maxDist, minDist);
     }
 
@@ -467,7 +475,17 @@ const Main = () => {
   }, []);
 
   return (
-    <div ref={mountRef} className={clsx(styles.fullScreen)} />
+    <>
+      <div className={clsx(styles.titleContainer)}>
+        <p>{ title }</p>
+      </div>
+      <div className={clsx(styles.socialContainer)}>
+        <div onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
+          <Image src={githubIcon.src} alt={githubIcon.alt} />
+        </div>
+      </div>
+      <div ref={mountRef} className={clsx(styles.fullScreen)} />
+    </>
   );
 }
 
