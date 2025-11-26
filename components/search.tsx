@@ -8,11 +8,13 @@ const Search = ({ data }: { data: DataType }) => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [tempword, setTempword] = useState<string>("");
-  const [keyword, setkeyword] = useState<string>("");
+  const [keyword, setkeyword] = useState<string | null>(null);
 
   const [result, setResult] = useState<DataType>([]);
 
   const searchByName = (objectList: DataType) => {
+    if (!keyword) return [];
+
     const result: DataType = [];
 
     const dfs = (objects: DataType) => {
@@ -53,10 +55,8 @@ const Search = ({ data }: { data: DataType }) => {
   }, [tempword]);
 
   useEffect(() => {
-    if (keyword.length > 0) {
-      const result = searchByName(data);
-      setResult(result);
-    }
+    const result = searchByName(data);
+    setResult(result);
   }, [keyword]);
 
   return (
