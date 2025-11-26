@@ -12,13 +12,14 @@ const textIcon = {
 
 const File = ({ file }: { file: FileType }) => {
   const router = useRouter();
-  const fileName = file.name.replace(/ /g, "");
+  
+  const fileId = file.id;
 
   const [isSelected, setIsSelected] = useState<boolean>(false);
 
   useEffect(() => {
-    const file = router.query["file"] || null;
-    if (file === fileName) setIsSelected(true);
+    const uuid = router.query["uuid"] || null;
+    if (uuid === fileId) setIsSelected(true);
     else setIsSelected(false);
   }, [router.query]);
 
@@ -26,7 +27,7 @@ const File = ({ file }: { file: FileType }) => {
     router.push(
       {
         pathname: router.pathname,
-        query: { file: fileName }
+        query: { uuid: fileId }
       },
       undefined,
       { shallow: true }

@@ -1,5 +1,5 @@
 import styles from "@/styles/explorer.module.css";
-import { FolderType } from "@/types/dataParms";
+import { DataType, FolderType } from "@/types/dataParms";
 import clsx from "clsx";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -11,22 +11,22 @@ const arrowIcon = {
   alt: "arrow"
 }
 
-const Folder = ({ folder }: { folder: FolderType }) => {
+const Folder = (props: { folder: FolderType, path: string[] }) => {
   const router = useRouter();
 
-  const fileName = folder.name.replace(/ /g, "");
+  const folderId = props.folder.id;
 
   const arrowIconRef = useRef<HTMLImageElement>(null);
   const doubleClickTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [isActivate, setIsActivate] = useState<boolean>(false);
+  const [isActive, setIsActive] = useState<boolean>(false);
   const [isSelected, setIsSelected] = useState<boolean>(false);
 
   const handleClick = () => {
     if (doubleClickTimerRef.current) {
       clearTimeout(doubleClickTimerRef.current);
       doubleClickTimerRef.current = null;
-      setIsActivate(!isActivate);
+      setIsActive(!isActive);
       return;
     }
 
@@ -37,7 +37,7 @@ const Folder = ({ folder }: { folder: FolderType }) => {
     router.push(
       {
         pathname: router.pathname,
-        query: { file: fileName }
+        query: { uuid: folderId }
       },
       undefined,
       { shallow: true }
@@ -47,15 +47,26 @@ const Folder = ({ folder }: { folder: FolderType }) => {
   useEffect(() => {
     if (!arrowIconRef.current) return;
 
-    if (isActivate) arrowIconRef.current.style.setProperty("transform", "");
+    if (isActive) arrowIconRef.current.style.setProperty("transform", "");
     else arrowIconRef.current.style.setProperty("transform", "rotate(-90deg)");
-  }, [isActivate]);
+  }, [isActive]);
 
   useEffect(() => {
-    const file = router.query["file"] || null;
-    if (file === fileName) setIsSelected(true);
+    const query = router.query["uuid"] || null;
+    if (!query) return;
+
+    const uuid = Array.isArray(query)
+      ? query[0]
+      : query
+
+    if (uuid === folderId) setIsSelected(true);
     else setIsSelected(false);
   }, [router.query]);
+
+  useEffect(() => {
+    if (props.path.length < 1) return;
+    else if (props.path.includes(folderId)) setIsActive(true);
+  }, [props.path]);
 
   return (
     <div className={clsx(styles.folder)}>
@@ -64,12 +75,12 @@ const Folder = ({ folder }: { folder: FolderType }) => {
         onClick={handleClick}
       >
         <Image ref={arrowIconRef} className={clsx(styles.arrowIcon)} src={arrowIcon.src} alt={arrowIcon.alt} />
-        <p>{ folder.name }</p>
+        <p>{ props.folder.name }</p>
       </div>
       {
-        (isActivate && folder.children) && (
-          folder.children.map((child, idx) => {
-            if (child.type === "folder") return <Folder folder={child} key={idx} />
+        (isActive && props.folder.children) && (
+          props.folder.children.map((child, idx) => {
+            if (child.type === "folder") return <Folder folder={child} path={props.path} key={idx} />
             else if (child.type === "file") return <File file={child} key={idx} />
           })
         )
