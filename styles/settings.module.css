@@ -1,0 +1,46 @@
+.settingList {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.settingList > div {
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  padding: 10px;
+  border-left: 2px solid transparent;
+}
+.settingList > div > img {
+  width: 100%;
+  height: auto;
+  filter: invert(1) opacity(0.25);
+  transition: all 50ms;
+}
+
+.selected {
+  border-left: #0078D4 2px solid !important;
+}
+.selected > img {
+  filter: invert(1) opacity(0.75) !important;
+}
+
+.setting {
+  width: 25%;
+  max-width: 250px;
+  background-color: var(--setting);
+  border-right: 1px solid var(--line);
+}
+.setting > div {
+  color: var(--text);
+}
+.setting h4 {
+  padding: 3.75px;
+}
+
+@media (hover: hover) {
+  .settingList > div:hover > img {
+    filter: invert(1) opacity(0.75);
+  }
+}
