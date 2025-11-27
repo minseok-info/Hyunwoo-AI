@@ -10,18 +10,21 @@ const textIcon = {
   alt: "text"
 }
 
-const File = ({ file }: { file: FileType }) => {
+const File = (props: { file: FileType, uuid: string }) => {
   const router = useRouter();
   
+  const file = props.file;
   const fileId = file.id;
 
   const [isSelected, setIsSelected] = useState<boolean>(false);
 
   useEffect(() => {
-    const uuid = router.query["uuid"] || null;
-    if (uuid === fileId) setIsSelected(true);
+    if (!props.uuid) return;
+    const uuid = props.uuid;
+    
+    if (fileId === uuid) setIsSelected(true);
     else setIsSelected(false);
-  }, [router.query]);
+  }, [props.uuid]);
 
   const handleClick = () => {
     router.push(

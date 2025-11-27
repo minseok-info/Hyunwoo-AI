@@ -11,12 +11,15 @@ const arrowIcon = {
   alt: "arrow"
 }
 
-const Folder = (props: { folder: FolderType, path: string[] }) => {
+const Folder = (props: { folder: FolderType, path: string[], uuid: string }) => {
   const router = useRouter();
 
-  const folderId = props.folder.id;
+  const folder = props.folder;
+  const folderId = folder.id;
 
   const arrowIconRef = useRef<HTMLImageElement>(null);
+
+  const uuidRef = useRef<string | null>(null);
   const doubleClickTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isActive, setIsActive] = useState<boolean>(false);
@@ -34,14 +37,16 @@ const Folder = (props: { folder: FolderType, path: string[] }) => {
       doubleClickTimerRef.current = null;
     }, 200);
 
-    router.push(
-      {
-        pathname: router.pathname,
-        query: { uuid: folderId }
-      },
-      undefined,
-      { shallow: true }
-    );
+    if (folderId !== uuidRef.current) {
+      router.push(
+        {
+          pathname: router.pathname,
+          query: { uuid: folderId }
+        },
+        undefined,
+        { shallow: true }
+      );
+    }
   }
 
   useEffect(() => {
@@ -52,21 +57,14 @@ const Folder = (props: { folder: FolderType, path: string[] }) => {
   }, [isActive]);
 
   useEffect(() => {
-    const query = router.query["uuid"] || null;
-    if (!query) return;
-
-    const uuid = Array.isArray(query)
-      ? query[0]
-      : query
+    if (!props.uuid) return;
+    const uuid = props.uuid;
 
     if (uuid === folderId) setIsSelected(true);
     else setIsSelected(false);
-  }, [router.query]);
 
-  useEffect(() => {
-    if (props.path.length < 1) return;
-    else if (props.path.includes(folderId)) setIsActive(true);
-  }, [props.path]);
+    if (props.path.includes(folderId)) setIsActive(true);
+  }, [props]);
 
   return (
     <div className={clsx(styles.folder)}>
@@ -75,13 +73,13 @@ const Folder = (props: { folder: FolderType, path: string[] }) => {
         onClick={handleClick}
       >
         <Image ref={arrowIconRef} className={clsx(styles.arrowIcon)} src={arrowIcon.src} alt={arrowIcon.alt} />
-        <p>{ props.folder.name }</p>
+        <p>{ folder.name }</p>
       </div>
       {
-        (isActive && props.folder.children) && (
-          props.folder.children.map((child, idx) => {
-            if (child.type === "folder") return <Folder folder={child} path={props.path} key={idx} />
-            else if (child.type === "file") return <File file={child} key={idx} />
+        (isActive && folder.children) && (
+          folder.children.map((child, idx) => {
+            if (child.type === "folder") return <Folder folder={child} path={props.path} uuid={props.uuid} key={idx} />
+            else if (child.type === "file") return <File file={child} uuid={props.uuid} key={idx} />
           })
         )
       }

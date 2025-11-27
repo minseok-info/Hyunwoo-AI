@@ -3,42 +3,32 @@ import Folder from "./folder";
 import File from "./file";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { getUuid, traverseTree } from "@/utils";
 
 const Explorer = ({ data }: { data: DataType }) => {
   const router = useRouter();
 
-  const [once, setOnce] = useState<boolean>(false);
   const [path, setPath] = useState<string[]>([]);
+  const [uuid, setUuid] = useState<string>("");
 
   useEffect(() => {
-    if (once) return;
-    
-    const uuid = router.query["uuid"] || null;
-    if (!uuid) return;
-    
-    const temp: string[] = [];
-    const dfs = (objects: DataType, prevPath: string[] = []) => {
-      for (const obj of objects) {
-        const currentPath: string[] = [...prevPath, obj.id];
-        
-        if (obj.id === uuid) {
-          temp.push(...currentPath);
-          return;
-        }
-        
-        if (obj.type === "folder") {
-          dfs(obj.children, currentPath);
-        }
+    const queryId = getUuid(router.query);
+    if (!queryId) return;
+
+    const resultPath = traverseTree<string[]>(data, (node, prevPath) => {
+      if (node.id === queryId) {
+        return prevPath;
       }
-    }
-    dfs(data);
-    setPath(temp);
-    setOnce(true);
+    });
+    if (!resultPath) return;
+    
+    setPath(resultPath);
+    setUuid(queryId);
   }, [router.query]);
 
   return data.map((d, idx) => {
-    if (d.type === "folder") return <Folder folder={d} path={path} key={idx} />
-    else return <File file={d} key={idx} />
+    if (d.type === "folder") return <Folder folder={d} path={path} uuid={uuid} key={idx} />
+    else return <File file={d} uuid={uuid} key={idx} />
   })
 }
 

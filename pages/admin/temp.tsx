@@ -83,7 +83,7 @@ const Temp = () => {
   return (
     <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)}>
       <Settings data={data} />
-      <Plate />
+      <Plate data={data} />
     </div>
   );
 }

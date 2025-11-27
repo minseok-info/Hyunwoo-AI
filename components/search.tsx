@@ -3,6 +3,7 @@ import { DataType } from "@/types/dataParms";
 import clsx from "clsx";
 import Explorer from "./explorer";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { traverseTree } from "@/utils";
 
 const Search = ({ data }: { data: DataType }) => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -11,32 +12,6 @@ const Search = ({ data }: { data: DataType }) => {
   const [keyword, setkeyword] = useState<string | null>(null);
 
   const [result, setResult] = useState<DataType>([]);
-
-  const searchByName = (objectList: DataType) => {
-    if (!keyword) return [];
-
-    const result: DataType = [];
-
-    const dfs = (objects: DataType) => {
-      for (const obj of objects) {
-        if (obj.name.includes(keyword)) {
-          result.push(obj);
-        }
-
-        if (obj.type === "file") {
-          if (obj.desc.includes(keyword)) {
-            result.push(obj);
-          }
-        }
-        else if (obj.type === "folder") {
-          dfs(obj.children);
-        }
-      }
-    }
-
-    dfs(objectList);
-    return result;
-  }
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
@@ -55,8 +30,14 @@ const Search = ({ data }: { data: DataType }) => {
   }, [tempword]);
 
   useEffect(() => {
-    const result = searchByName(data);
-    setResult(result);
+    const filteredNodes: DataType = [];
+    traverseTree(data, node => {
+      if (!keyword) return;
+      
+      if (node.name.includes(keyword)) filteredNodes.push(node);
+      else if (node.type === "file" && node.desc.includes(keyword)) filteredNodes.push(node);
+    });
+    setResult(filteredNodes);
   }, [keyword]);
 
   return (
