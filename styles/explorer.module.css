@@ -13,8 +13,6 @@
 
 .folder {
   padding-left: 7.5px;
-  user-select: none;
-  -webkit-user-drag: none;
 }
 
 .folderLine {
@@ -30,6 +28,8 @@
   font-size: 14px;
   padding-top: 1px;
   padding-bottom: 1px;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .selectedFile {
