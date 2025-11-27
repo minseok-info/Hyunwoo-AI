@@ -1,4 +1,4 @@
-import { DataType, FileType, FolderType } from "@/types/dataParms";
+import { DataType } from "@/types/dataParms";
 
 const traverseTree = <R = any>(
   data: DataType,

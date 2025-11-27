@@ -1,5 +1,5 @@
 import styles from "@/styles/plate.module.css";
-import { DataType, FileType, FolderType } from "@/types/dataParms";
+import { DataType } from "@/types/dataParms";
 import { getUuid, traverseTree } from "@/utils";
 import clsx from "clsx";
 import { useRouter } from "next/router";
@@ -15,7 +15,7 @@ const Plate = ({ data }: { data: DataType }) => {
     const uuid = getUuid(router.query);
     if (!uuid) return;
 
-    const resultNode = traverseTree<FolderType | FileType>(data, node => {
+    const resultNode = traverseTree<DataType[number]>(data, node => {
       if (node.id === uuid) return node;
     });
     if (!resultNode) return;
