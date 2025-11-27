@@ -1,4 +1,4 @@
-import { Settings } from "@/components";
+import { Options } from "@/components";
 import Plate from "@/components/plate";
 import styles from "@/styles/temp.module.css";
 import { DataType } from "@/types/dataParms";
@@ -82,7 +82,7 @@ const Temp = () => {
 
   return (
     <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)}>
-      <Settings data={data} />
+      <Options data={data} />
       <Plate data={data} />
     </div>
   );

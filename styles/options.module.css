@@ -1,19 +1,19 @@
-.settingList {
+.category {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--line);
-  background-color: var(--setting);
+  background-color: var(--option);
   user-select: none;
   -webkit-user-drag: none;
 }
-.settingList > div {
+.category > div {
   cursor: pointer;
   width: 20px;
   height: 20px;
   padding: 10px;
   border-left: 2px solid transparent;
 }
-.settingList > div > img {
+.category > div > img {
   width: 100%;
   height: auto;
   filter: invert(1) opacity(0.25);
@@ -27,21 +27,21 @@
   filter: invert(1) opacity(0.75) !important;
 }
 
-.setting {
+.option {
   width: 25%;
   max-width: 250px;
-  background-color: var(--setting);
+  background-color: var(--option);
   border-right: 1px solid var(--line);
 }
-.setting > div {
+.option > div {
   color: var(--text);
 }
-.setting h4 {
+.option h4 {
   padding: 3.75px;
 }
 
 @media (hover: hover) {
-  .settingList > div:hover > img {
+  .category > div:hover > img {
     filter: invert(1) opacity(0.75);
   }
 }

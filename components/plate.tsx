@@ -8,8 +8,7 @@ import { useEffect, useState } from "react";
 const Plate = ({ data }: { data: DataType }) => {
   const router = useRouter();
 
-  const [children, setChildren] = useState<DataType | null>(null);
-  const [desc, setDesc] = useState<string | null>(null);
+  const [node, setNode] = useState<DataType[number] | null>(null);
 
   useEffect(() => {
     const queryId = getUuid(router.query);
@@ -20,18 +19,13 @@ const Plate = ({ data }: { data: DataType }) => {
     });
     if (!resultNode) return;
 
-    if (resultNode.type === "folder") {
-      setChildren(resultNode.children);
-      setDesc(null);
-    }
-    else if (resultNode.type === "file") {
-      setChildren(null);
-      setDesc(resultNode.desc);
-    }
+    setNode(resultNode);
   }, [router.query]);
 
   return (
     <div className={clsx("flex justifyCenter alignCenter", styles.plate)}>
+      <div className={clsx(styles.canvas)}>
+      </div>
     </div>
   );
 }
