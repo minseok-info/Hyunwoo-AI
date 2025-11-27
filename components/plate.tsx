@@ -12,11 +12,11 @@ const Plate = ({ data }: { data: DataType }) => {
   const [desc, setDesc] = useState<string | null>(null);
 
   useEffect(() => {
-    const uuid = getUuid(router.query);
-    if (!uuid) return;
+    const queryId = getUuid(router.query);
+    if (!queryId) return;
 
     const resultNode = traverseTree<DataType[number]>(data, node => {
-      if (node.id === uuid) return node;
+      if (node.id === queryId) return node;
     });
     if (!resultNode) return;
 

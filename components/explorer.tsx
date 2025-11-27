@@ -29,7 +29,7 @@ const Explorer = ({ data }: { data: DataType }) => {
   return data.map((d, idx) => {
     if (d.type === "folder") return <Folder folder={d} path={path} uuid={uuid} key={idx} />
     else return <File file={d} uuid={uuid} key={idx} />
-  })
+  });
 }
 
 export default Explorer;

@@ -1,17 +1,23 @@
 import styles from "@/styles/search.module.css";
 import { DataType } from "@/types/dataParms";
 import clsx from "clsx";
-import Explorer from "./explorer";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
-import { traverseTree } from "@/utils";
+import { getUuid, traverseTree } from "@/utils";
+import Folder from "./folder";
+import File from "./file";
+import { useRouter } from "next/router";
 
 const Search = ({ data }: { data: DataType }) => {
+  const router = useRouter();
+
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [tempword, setTempword] = useState<string>("");
   const [keyword, setkeyword] = useState<string | null>(null);
 
   const [result, setResult] = useState<DataType>([]);
+
+  const [uuid, setUuid] = useState<string>("");
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
@@ -40,16 +46,25 @@ const Search = ({ data }: { data: DataType }) => {
     setResult(filteredNodes);
   }, [keyword]);
 
+  useEffect(() => {
+    getUuid(router.query, uuid => {
+      setUuid(uuid);
+    });
+  }, [router.query]);
+
   return (
     <>
       <div className={clsx("flex justifyCenter", styles.searchBox)}>
         <input type="text" placeholder="Search" value={tempword} onChange={(event: ChangeEvent<HTMLInputElement>) => handleChange(event)} />
       </div>
       {
-        result.length > 0 && <Explorer data={result} />
+        result.map((res, idx) => {
+          if (res.type === "folder") return <Folder folder={res} path={[]} uuid={uuid} key={idx} />
+          else return <File file={res} uuid={uuid} key={idx} />
+        })
       }
     </>
-  )
+  );
 }
 
 export default Search;
