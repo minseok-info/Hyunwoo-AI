@@ -12,8 +12,7 @@ const getUuid = (
   : query;
   
   if (callback) {
-    const result = callback(uuid);
-    if (result !== undefined) return result;
+    callback(uuid);
   }
 
   return uuid;

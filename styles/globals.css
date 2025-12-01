@@ -8,11 +8,6 @@ body {
   color: #ffffff;
 }
 
-input {
-  border-radius: 2.5px;
-  border: 1px solid dimgray;
-}
-
 .display {
   width: 100dvw;
   height: 100dvh;

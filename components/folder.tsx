@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import File from "./file";
 import { useRouter } from "next/router";
+import checkDoubleClick from "@/utils/checkDoubleClick";
 
 const arrowIcon = {
   src: require("@/public/icons/arrow.svg"),
@@ -26,16 +27,11 @@ const Folder = (props: { folder: FolderType, path: string[], uuid: string }) => 
   const [isSelected, setIsSelected] = useState<boolean>(false);
 
   const handleClick = () => {
-    if (doubleClickTimerRef.current) {
-      clearTimeout(doubleClickTimerRef.current);
-      doubleClickTimerRef.current = null;
+    const isDoubleClick = checkDoubleClick(doubleClickTimerRef);
+    if (isDoubleClick) {
       setIsActive(!isActive);
       return;
     }
-
-    doubleClickTimerRef.current = setTimeout(() => {
-      doubleClickTimerRef.current = null;
-    }, 200);
 
     if (folderId !== uuidRef.current) {
       router.push(

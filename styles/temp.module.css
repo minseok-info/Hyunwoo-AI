@@ -2,6 +2,20 @@
   background-color: var(--theme);
 }
 
+.board input, .board textarea {
+  border: 1px solid #3c3c3c;
+  border-radius: 2.5px;
+  outline: none;
+  background-color: #313131;
+  padding: 5px;
+  color: var(--text);
+}
+.board textarea {
+  resize: vertical;
+  min-height: 100px;
+  max-height: 400px;
+}
+
 .colorAttr {
   --theme: #1f1f1f;
   --option: #181818;

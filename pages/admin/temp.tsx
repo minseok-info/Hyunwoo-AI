@@ -1,4 +1,4 @@
-import { Options } from "@/components";
+import { Attribute, Options } from "@/components";
 import Plate from "@/components/plate";
 import styles from "@/styles/temp.module.css";
 import { DataType } from "@/types/dataParms";
@@ -7,6 +7,11 @@ import { useEffect, useState } from "react";
 
 const Temp = () => {
   const [data, setData] = useState<DataType>([]);
+  const [selected, setSelected] = useState<DataType[number] | null>(null);
+
+  useEffect(() => {
+    console.log("data changed");
+  }, [data]);
 
   useEffect(() => {
     setData([{
@@ -83,7 +88,8 @@ const Temp = () => {
   return (
     <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)}>
       <Options data={data} />
-      <Plate data={data} />
+      <Plate data={data} onItemClick={setSelected} />
+      <Attribute node={selected} data={data} setData={setData} />
     </div>
   );
 }
