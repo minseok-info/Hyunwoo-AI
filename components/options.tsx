@@ -5,6 +5,7 @@ import clsx from "clsx";
 import Explorer from "./explorer";
 import Search from "./search";
 import Image from "next/image";
+import { useRouter } from "next/router";
 
 const explorerIcon = {
   src: require("@/public/icons/file.svg"),
@@ -16,8 +17,15 @@ const searchIcon = {
   alt: "search"
 }
 
+const exitIcon = {
+  src: require("@/public/icons/door.svg"),
+  alt: "exit"
+}
+
 const Options = ({ data }: { data: DataType }) => {
   type OptionTypes = "explorer" | "search";
+
+  const router = useRouter();
 
   const [option, setOption] = useState<OptionTypes>("explorer");
   const options: Record<OptionTypes, React.ReactNode> = {
@@ -33,6 +41,9 @@ const Options = ({ data }: { data: DataType }) => {
         </div>
         <div className={clsx({ [styles.selected]: option === "search" })} onClick={() => setOption("search")}>
           <Image src={searchIcon.src} alt={searchIcon.alt} />
+        </div>
+        <div onClick={() => router.push("/")}>
+          <Image src={exitIcon.src} alt={exitIcon.alt} />
         </div>
       </div>
       <div className={clsx(styles.option)}>
