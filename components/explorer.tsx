@@ -13,7 +13,11 @@ const Explorer = ({ data }: { data: DataType }) => {
 
   useEffect(() => {
     const queryId = getUuid(router.query);
-    if (!queryId) return;
+    if (!queryId) {
+      setPath([])
+      setUuid("");
+      return;
+    }
 
     const resultPath = traverseTree<string[]>(data, (node, prevPath) => {
       if (node.id === queryId) {

@@ -3,14 +3,16 @@ import Plate from "@/components/plate";
 import styles from "@/styles/temp.module.css";
 import { DataType } from "@/types/dataParms";
 import clsx from "clsx";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const Temp = () => {
   const [data, setData] = useState<DataType>([]);
   const [selected, setSelected] = useState<DataType[number] | null>(null);
 
+  const count = useRef<number>(0);
   useEffect(() => {
-    console.log("data changed");
+    console.log(`Data Changed [${++count.current}]`)
+    console.log(data);
   }, [data]);
 
   useEffect(() => {
@@ -88,7 +90,7 @@ const Temp = () => {
   return (
     <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)}>
       <Options data={data} />
-      <Plate data={data} onItemClick={setSelected} />
+      <Plate data={data} setData={setData} selectedItem={selected} onItemClick={setSelected} />
       <Attribute node={selected} data={data} setData={setData} />
     </div>
   );

@@ -19,7 +19,10 @@ const File = (props: { file: FileType, uuid: string }) => {
   const [isSelected, setIsSelected] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!props.uuid) return;
+    if (!props.uuid) {
+      setIsSelected(false);
+      return;
+    }
     const uuid = props.uuid;
     
     if (fileId === uuid) setIsSelected(true);

@@ -1,5 +1,5 @@
 import styles from "@/styles/explorer.module.css";
-import { DataType, FolderType } from "@/types/dataParms";
+import { FolderType } from "@/types/dataParms";
 import clsx from "clsx";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -53,7 +53,10 @@ const Folder = (props: { folder: FolderType, path: string[], uuid: string }) => 
   }, [isActive]);
 
   useEffect(() => {
-    if (!props.uuid) return;
+    if (!props.uuid) {
+      setIsSelected(false);
+      return;
+    }
     const uuid = props.uuid;
 
     if (uuid === folderId) setIsSelected(true);

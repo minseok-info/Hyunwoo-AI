@@ -70,6 +70,7 @@ const Attribute = ({ node, data, setData }: { node: DataType[number] | null, dat
 
   useEffect(() => {
     if (!selectedNode) return;
+    if (node && node.name === name) return;
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);

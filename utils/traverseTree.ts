@@ -2,11 +2,11 @@ import { DataType } from "@/types/dataParms";
 
 const traverseTree = <R = any>(
   data: DataType,
-  callback: (node: DataType[number], path: string[]) => R | undefined
+  callback: (node: R, path: string[]) => R | undefined
 ): R | undefined => {
   const dfs = (nodes: DataType, prevPath: string[] = []): R | undefined => {
     for (const n of nodes) {
-      const result = callback(n, prevPath);
+      const result = callback((n as R), prevPath);
       if (result !== undefined) return result;
 
       if (n.type === "folder") {
