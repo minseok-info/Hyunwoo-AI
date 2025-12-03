@@ -1,17 +1,4 @@
-.explorer {
-  width: 25%;
-  max-width: 250px;
-  background-color: var(--tool);
-  border-right: 1px solid var(--line);
-}
-.explorer > div {
-  color: var(--text);
-}
-.explorer h4 {
-  padding: 3.75px;
-}
-
-.folder {
+.folder > div {
   padding-left: 7.5px;
 }
 
@@ -20,41 +7,50 @@
   transition: all 50ms;
 }
 .fileLine {
+  margin-left: 7.5px;
   padding-left: 10px;
   transition: all 50ms;
 }
+
 .folderLine, .fileLine {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 1px 0px;
   gap: 10px;
   font-size: 14px;
-  padding-top: 1px;
-  padding-bottom: 1px;
+  color: var(--text);
   user-select: none;
   -webkit-user-drag: none;
 }
 
-.selectedFile {
-  background-color: var(--selectedFile);
-}
-
-.arrowIcon {
+.folderLine img {
   width: auto;
   height: 7.5px;
   filter: invert(0.75);
 }
-.textIcon {
+.fileLine img {
   width: auto;
   height: 10px;
   filter: invert(0.75);
 }
 
+.selected {
+  background-color: var(--selected);
+}
+
+.rotatedIMG {
+  transform: rotate(-90deg);
+}
+
 @media (hover: hover) {
-  .folder:hover > .folderLine:not(.selectedFile) {
+  .folder:hover > .folderLine:not(.selected) {
     background-color: var(--hoveredFolder);
   }
-  .folderLine:hover:not(.selectedFile) {
+  .folderLine:hover:not(.selected) {
     background-color: var(--hoveredFile) !important;
   }
-  .fileLine:hover:not(.selectedFile) {
+  .fileLine:hover:not(.selected) {
     background-color: var(--hoveredFile);
   }
 }

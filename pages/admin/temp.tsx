@@ -1,97 +1,109 @@
-import { Attribute, Options } from "@/components";
-import Plate from "@/components/plate";
+import { ChildrenEditor, NodeEditor, SidebarNavigator } from "@/components";
+import TreeContext from "@/contexts/TreeContext";
 import styles from "@/styles/temp.module.css";
-import { DataType } from "@/types/dataParms";
+import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
+import { ontologyToTree, treeUtils } from "@/utils";
 import clsx from "clsx";
+import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 
 const Temp = () => {
-  const [data, setData] = useState<DataType>([]);
-  const [selected, setSelected] = useState<DataType[number] | null>(null);
+  const { query, pathname, push } = useRouter();
 
-  const count = useRef<number>(0);
-  useEffect(() => {
-    console.log(`Data Changed [${++count.current}]`)
-    console.log(data);
-  }, [data]);
+  const [treeId, setTreeId] = useState<Tree["treeId"]>("");
+  const [treePath, setTreePath] = useState<string[]>([]);
+  const [tree, setTree] = useState<Tree[]>([]);
+
+  const [nodeId, setNodeId] = useState<Tree["nodeId"]>("");
+
+  const idBrain = crypto.randomUUID();
+  const idLeft = crypto.randomUUID();
+  const idRight = crypto.randomUUID();
+  const idNeuron1 = crypto.randomUUID();
+  const idNeuron2 = crypto.randomUUID();
+  const idSynapse1 = crypto.randomUUID();
+  const idSynapse2 = crypto.randomUUID();
+
+  const nodes: Node[] = [
+    { id: idBrain, name: "Brain", desc: "first" },
+    { id: idLeft, name: "Left", desc: "second" },
+    { id: idRight, name: "Right", desc: "third" },
+    { id: idNeuron1, name: "Neuron1", desc: "fourth" },
+    { id: idNeuron2, name: "Neuron2", desc: "fifth" },
+    { id: idSynapse1, name: "Synapse1", desc: "sixth" },
+    { id: idSynapse2, name: "Synapse2", desc: "seventh" }
+  ];
+
+  const relations: Relation[] = [
+    { from: idBrain, to: idLeft, type: "parent" },
+    { from: idBrain, to: idRight, type: "parent" },
+    { from: idLeft, to: idNeuron1, type: "parent" },
+    { from: idRight, to: idNeuron1, type: "parent" },
+    { from: idRight, to: idNeuron2, type: "parent" },
+    { from: idNeuron1, to: idSynapse2, type: "parent" },
+    { from: idNeuron2, to: idSynapse1, type: "parent" },
+    { from: idNeuron2, to: idSynapse2, type: "parent" }
+  ];
+
+  const handleSetTree = (newTree: Tree[]) => {
+    setTree(newTree);
+  };
+
+  const handleSetTreeId = (newId: Tree["treeId"]) => {
+    setTreeId(newId);
+    push({
+      pathname: pathname,
+      query: { ...query, treeId: newId }
+    }, undefined, { shallow: true });
+  };
+
+  const handleSetNodeId = (newId: Tree["nodeId"] | null) => {
+    const newQuery = { ...query };
+
+    if (!newId) {
+      delete newQuery.nodeId;
+      setNodeId("");
+    }
+    else {
+      newQuery.nodeId = newId;
+      setNodeId(newId);
+    }
+
+    push({
+      pathname: pathname,
+      query: newQuery
+    }, undefined, { shallow: true });
+  };
 
   useEffect(() => {
-    setData([{
-      id: "f1",
-      type: "folder",
-      name: "brain",
-      children: [
-        {
-          id: "f2",
-          type: "folder",
-          name: "neuron1",
-          children: [
-            {
-              id: "f3",
-              type: "folder",
-              name: "sans",
-              children: [
-                {
-                  id: "f4",
-                  type: "file",
-                  name: "sansing",
-                  desc: "holly molly"
-                }
-              ]
-            },
-            {
-              id: "f5",
-              type: "file",
-              name: "tony moly",
-              desc: "chicks"
-            },
-            {
-              id: "f6",
-              type: "file",
-              name: "chicks",
-              desc: "yeah"
-            }
-          ]
-        },
-        {
-          id: "f7",
-          type: "folder",
-          name: "neuron2",
-          children: []
-        },
-        {
-          id: "f8",
-          type: "file",
-          name: "neuron3",
-          desc: "sans"
-        },
-        {
-          id: "f9",
-          type: "file",
-          name: "oh yeah",
-          desc: "temp"
-        },
-        {
-          id: "f10",
-          type: "file",
-          name: "chicks",
-          desc: "oops"
-        },
-        {
-          id: "f11",
-          type: "file",
-          name: "neuron2",
-          desc: "file?"
-        }
-      ]
-    }]);
+    if (typeof query.treeId === "string") setTreeId(query.treeId);
+
+    const treePath = treeUtils.traverseTree<string[]>(tree, (node, prevPath) => {
+      if (node.treeId === query.treeId) return prevPath;
+    }) || [];
+    setTreePath(treePath);
+  }, [query.treeId]);
+
+  useEffect(() => {
+    if (typeof query.nodeId === "string") setNodeId(query.nodeId);
+  }, [query.nodeId]);
+
+  useEffect(() => {
+    const ontology: Ontology = {
+      nodes: nodes,
+      relations: relations
+    };
+
+    setTree(ontologyToTree(ontology));
   }, []);
 
   return (
     <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)}>
-      <Options data={data} />
-      <Plate data={data} setData={setData} selectedItem={selected} onItemClick={setSelected} />
-      <Attribute node={selected} data={data} setData={setData} />
+      <TreeContext.Provider value={{ treeId: treeId, treePath: treePath, nodeId: nodeId, setTree: handleSetTree, setTreeId: handleSetTreeId, setNodeId: handleSetNodeId }}>
+        <SidebarNavigator tree={tree} />
+        <ChildrenEditor tree={tree} />
+        <NodeEditor tree={tree} />
+      </TreeContext.Provider>
     </div>
   );
 }

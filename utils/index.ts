@@ -1,2 +1,5 @@
-export { default as traverseTree } from "./traverseTree";
-export { default as getUuid } from "./getUuid";
+export { default as checkDoubleClick } from "./checkDoubleClick";
+export { default as debounceTimer } from "./debounceTimer";
+
+export { default as treeUtils } from "./treeUtils";
+export { default as ontologyToTree } from "./ontologyToTree";

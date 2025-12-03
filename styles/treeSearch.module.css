@@ -1,7 +1,8 @@
-.searchBox {
+.search {
+  display: flex;
   padding: 3.75px;
 }
-.searchBox > input {
+.search input {
   width: 100%;
   margin-bottom: 10px;
 }
