@@ -109,7 +109,7 @@ const ChildrenEditor = ({ tree }: { tree: Tree[] }) => {
     <div className={clsx(styles.editor)}>
       <div className={clsx(styles.toolbar)}>
         <div>
-          <p onClick={handleRouterBack}>{`< PREV`}</p>
+          <p onClick={handleRouterBack}>{`< BACK`}</p>
         </div>
         <div>
           <p onClick={handleDeleteNode}>{`- DELETE`}</p>
