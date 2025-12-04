@@ -52,7 +52,8 @@ const updateNode = (
 ): Tree[] => {
   return tree.map(n => {
     if (n.nodeId === nodeId) {
-      return updater(n);
+      const updated = updater(n);
+      return cloneWithNewTreeIds(updated);
     }
     if (n.children.length > 0) {
       return { ...n, children: updateNode(n.children, nodeId, updater) };
