@@ -60,6 +60,27 @@ body {
   cursor: not-allowed;
 }
 
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.75);
+}
+::-webkit-scrollbar-thumb {
+  background: #555555;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50m;
+}
+
+@media (hover: hover) {
+  ::-webkit-scrollbar-thumb:hover {
+    background: #333333;
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
+}
+
 @media (prefers-color-scheme: light) {
   body {
     background-color: #ffffff;
