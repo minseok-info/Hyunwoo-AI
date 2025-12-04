@@ -13,6 +13,28 @@
   flex-direction: column;
   padding: 3.75px;
   border-bottom: 1px solid var(--line);
+  gap: 5px;
+}
+.attribute > div:nth-child(3) input {
+  margin-bottom: 10px;
+}
+
+.list {
+  overflow-y: scroll;
+  display: flex;
+  flex-direction: column;
+  height: 100px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.list > div {
+  cursor: pointer;
+  padding: 3.75px;
+  font-size: 12px;
+}
+
+.selected {
+  background-color: var(--selected);
 }
 
 .nothing {
@@ -21,4 +43,10 @@
   align-items: center;
   width: 100%;
   height: 100%;
+}
+
+@media (hover: hover) {
+  .list > div:hover:not(.selected) {
+    background-color: var(--hoveredFile);
+  }
 }

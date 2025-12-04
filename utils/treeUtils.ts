@@ -61,9 +61,41 @@ const updateNode = (
   });
 };
 
+const updateParents = (
+  tree: Tree[],
+  nodeId: Tree["nodeId"],
+  newParentIds: Tree["nodeId"][]
+): Tree[] => {
+  let targetNode: Tree | undefined = undefined;
+  traverseTree(tree, n => {
+    if (n.nodeId === nodeId) {
+      targetNode = n;
+      return nodeId;
+    }
+  });
+  if (!targetNode) return tree;
+
+  let newTree = deleteNode(tree, nodeId);
+  for (const id of newParentIds) {
+    const cloned = cloneWithNewTreeIds(targetNode);
+    newTree = insertNode(newTree, id, cloned);
+  }
+
+  return newTree;
+};
+
+const cloneWithNewTreeIds = (node: Tree): Tree => {
+  return {
+    ...node,
+    treeId: crypto.randomUUID(),
+    children: node.children.map(c => cloneWithNewTreeIds(c))
+  };
+};
+
 export default {
   traverseTree,
   insertNode,
   deleteNode,
-  updateNode
+  updateNode,
+  updateParents
 };

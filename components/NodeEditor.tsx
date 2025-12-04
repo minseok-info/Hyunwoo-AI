@@ -5,6 +5,18 @@ import { debounceTimer, treeUtils } from "@/utils";
 import clsx from "clsx";
 import { ChangeEvent, useContext, useEffect, useRef, useState } from "react";
 
+const List = ({ nodes, parentIds, onClick }: { nodes: Tree[], parentIds: Tree["nodeId"][], onClick: (id: Tree["nodeId"]) => void }) => {
+  return (
+    <div className={clsx(styles.list)}>
+      {nodes.map((n, i) => (
+        <div className={clsx({ [styles.selected]: parentIds.includes(n.nodeId) })} onClick={() => onClick(n.nodeId)} key={i}>
+          <p>{ n.name }</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const EmptyState = () => {
   return (
     <div className={clsx(styles.nothing)}>
@@ -22,6 +34,10 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
 
   const [name, setName] = useState<Tree["name"]>("");
   const [desc, setDesc] = useState<Tree["desc"]>("");
+  const [parentIds, setParentIds] = useState<Tree["nodeId"][]>([]);
+
+  const [searchingByName, setSearchingByName] = useState<string>("");
+  const [searchedParents, setSearchedParents] = useState<Tree[]>([]);
 
   const handleChangeName = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
@@ -37,6 +53,39 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
     });
     setTree(newTree);
   };
+
+  const handleChangeSearchingByName = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setSearchingByName(value);
+  }
+  const handleSearchParents = () => {
+    const filteredParents: Tree[] = [];
+    const searchedParentIds: Tree["nodeId"][] = [];
+    
+    treeUtils.traverseTree(tree, n => {
+      const parentName = n.name.toLowerCase();
+      const searchingName = searchingByName.toLowerCase();
+      
+      if (searchedParentIds.includes(n.nodeId)) return;
+      else if (n.nodeId === nodeId) return;
+      
+      if (parentName.includes(searchingName)) {
+        filteredParents.push(n);
+        searchedParentIds.push(n.nodeId);
+      }
+    });
+    
+    setSearchedParents(filteredParents);
+  }
+  const handleUpdateParent = (id: Tree["nodeId"]) => {
+    let tempIds = [...parentIds];
+    if (parentIds.includes(id)) tempIds = tempIds.filter(ti => ti !== id);
+    else tempIds.push(id);
+    setParentIds(tempIds);
+
+    const newTree = treeUtils.updateParents(tree, nodeId, [...tempIds]);
+    setTree(newTree);
+  }
 
   useEffect(() => {
     if (nodeId === "") {
@@ -56,15 +105,27 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
     if (!node) return;
     setName(node.name);
     setDesc(node.desc);
-  }, [node]);
 
+    const tempParentIds: Tree["nodeId"][] = [];
+    treeUtils.traverseTree(tree, n => {
+      if (tempParentIds.includes(n.nodeId)) return;
+      if (n.children.some(c => c.nodeId === nodeId)) tempParentIds.push(n.nodeId);
+    });
+    setParentIds(tempParentIds);
+    handleSearchParents();
+  }, [node]);
+  
   useEffect(() => {
     if (!node) return;
     if (node.name === name && node.desc === desc) return;
-
     debounceTimer(timerRef, handleChangeTree);
   }, [name, desc]);
-
+  
+  useEffect(() => {
+    if (!node) return;
+    debounceTimer(timerRef, handleSearchParents);
+  }, [searchingByName]);
+  
   return (
     <div className={clsx(styles.editor)}>
       {!node ? <EmptyState /> : (
@@ -76,6 +137,11 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
           <div>
             <p>DESCRIPTION</p>
             <textarea rows={7} placeholder="Write Desc" value={desc} onChange={handleChangeDesc} />
+          </div>
+          <div>
+            <p>PARENTS</p>
+            <input type="text" placeholder="Search by Name" value={searchingByName} onChange={handleChangeSearchingByName} />
+            <List nodes={searchedParents} parentIds={parentIds} onClick={handleUpdateParent} />
           </div>
         </div>
       )}
