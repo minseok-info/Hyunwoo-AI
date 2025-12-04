@@ -35,6 +35,18 @@
   font-size: 12px;
   transition: all 50ms;
 }
+.list::-webkit-scrollbar {
+  width: 10px;
+}
+.list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.75);
+}
+.list::-webkit-scrollbar-thumb {
+  background: #555555;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50m;
+}
 
 .selected {
   background-color: var(--selected);
@@ -51,5 +63,10 @@
 @media (hover: hover) {
   .list > div:hover:not(.selected) {
     background-color: var(--hoveredFile);
+  }
+  .list::-webkit-scrollbar-thumb:hover {
+    background: #333333;
+    border: 1px solid transparent;
+    background-clip: content-box;
   }
 }
