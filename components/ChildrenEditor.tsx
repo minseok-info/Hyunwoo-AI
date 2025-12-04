@@ -1,5 +1,5 @@
 import TreeContext from "@/contexts/TreeContext";
-import styles from "@/styles/treeEditor.module.css";
+import styles from "@/styles/childrenEditor.module.css";
 import { Tree } from "@/types/ontologyTypes";
 import { checkDoubleClick, treeUtils } from "@/utils";
 import clsx from "clsx";

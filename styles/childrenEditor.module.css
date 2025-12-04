@@ -5,6 +5,12 @@
   height: 100%;
   color: var(--text);
 }
+.editor > div:not(.toolbar) {
+  overflow-y: auto;
+}
+.editor > div::-webkit-scrollbar {
+  width: 0px;
+}
 
 .toolbar {
   display: flex;
