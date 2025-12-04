@@ -27,7 +27,7 @@ const insertNode = (
 ): Tree[] => {
   return tree.map(n => {
     if (n.nodeId === parentId) {
-      return { ...n, children: [...n.children, childNode] };
+      return { ...n, children: [...n.children, cloneWithNewTreeIds(childNode)] };
     }
     if (n.children.length > 0) {
       return { ...n, children: insertNode(n.children, parentId, childNode) };
@@ -78,8 +78,7 @@ const updateParents = (
 
   let newTree = deleteNode(tree, nodeId);
   for (const id of newParentIds) {
-    const cloned = cloneWithNewTreeIds(targetNode);
-    newTree = insertNode(newTree, id, cloned);
+    newTree = insertNode(newTree, id, targetNode);
   }
 
   return newTree;
