@@ -27,18 +27,15 @@ const TreeSearch = ({ tree }: { tree: Tree[] }) => {
     const word = keyword.toLowerCase();
 
     const filteredTree: Tree[] = [];
-    const searchedIds: Tree["nodeId"][] = [];
-
     if (keyword !== "") {
       treeUtils.traverseTree(tree, n => {
-        if (searchedIds.includes(n.nodeId)) return;
+        if (filteredTree.some(t => t.nodeId === n.nodeId)) return;
   
         const name = n.name.toLowerCase();
         const desc = n.desc.toLowerCase();
   
         if (name.includes(word) || desc.includes(word)) {
           filteredTree.push(n);
-          searchedIds.push(n.nodeId);
         }
       });
     }

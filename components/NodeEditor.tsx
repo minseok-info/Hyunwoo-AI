@@ -59,19 +59,22 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
     setSearchingByName(value);
   }
   const handleSearchParents = () => {
+    const childrenIds: Tree["nodeId"][] = [];
+    treeUtils.traverseTree(node!.children, n => {
+      if (!childrenIds.includes(n.nodeId)) childrenIds.push(n.nodeId);
+    });
+
     const filteredParents: Tree[] = [];
-    const searchedParentIds: Tree["nodeId"][] = [];
-    
     treeUtils.traverseTree(tree, n => {
       const parentName = n.name.toLowerCase();
       const searchingName = searchingByName.toLowerCase();
       
-      if (searchedParentIds.includes(n.nodeId)) return;
+      if (filteredParents.some(p => p.nodeId === n.nodeId)) return;
       else if (n.nodeId === nodeId) return;
+      else if (childrenIds.includes(n.nodeId)) return;
       
       if (parentName.includes(searchingName)) {
         filteredParents.push(n);
-        searchedParentIds.push(n.nodeId);
       }
     });
     
