@@ -139,7 +139,7 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
           </div>
           <div>
             <p>DESCRIPTION</p>
-            <textarea rows={7} placeholder="Write Desc" value={desc} onChange={handleChangeDesc} />
+            <textarea placeholder="Write Desc" value={desc} onChange={handleChangeDesc} />
           </div>
           <div>
             <p>PARENTS</p>
