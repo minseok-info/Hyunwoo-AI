@@ -1,32 +1,24 @@
-.folder > div {
-  padding-left: 7.5px;
-}
-
-.folderLine {
-  padding-left: 2.5px;
-  transition: all 50ms;
-}
-.fileLine {
-  margin-left: 7.5px;
-  padding-left: 10px;
-  transition: all 50ms;
-}
-
-.folderLine, .fileLine {
+.line {
   cursor: pointer;
   display: flex;
   align-items: center;
-  padding: 1px 0px;
-  gap: 10px;
+  padding-left: calc(var(--depth) * 7.5px + 7.5px);
   font-size: 14px;
+  gap: 10px;
   color: var(--text);
+  transition: all 50ms;
   user-select: none;
   -webkit-user-drag: none;
+}
+.line > div:nth-child(1) {
+  display: flex;
+  height: 100%;
+  border-radius: 2.5px;
 }
 
 .folderLine img {
   width: auto;
-  height: 7.5px;
+  height: 15px;
   filter: invert(0.75);
 }
 .fileLine img {
@@ -52,5 +44,9 @@
   }
   .fileLine:hover:not(.selected) {
     background-color: var(--hoveredFile);
+  }
+
+  .folderLine > div:nth-child(1):hover {
+    background-color: rgba(255, 255, 255, 0.15);
   }
 }

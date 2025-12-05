@@ -10,7 +10,7 @@ const fileIcon = {
   alt: "file"
 };
 
-const TreeFile = ({ node }: { node: Tree }) => {
+const TreeFile = ({ node, depth }: { node: Tree, depth: number }) => {
   const { treeId, setTreeId } = useContext(TreeContext);
 
   const [isSelected, setIsSelected] = useState<boolean>(false);
@@ -25,9 +25,13 @@ const TreeFile = ({ node }: { node: Tree }) => {
   }, [treeId]);
 
   return (
-    <div className={clsx(styles.fileLine, { [styles.selected]: isSelected })} onClick={handleClick}>
-      <Image src={fileIcon.src} alt={fileIcon.alt} />
-      <p>{ node.name }</p>
+    <div className={clsx(styles.line, styles.fileLine, { [styles.selected]: isSelected })} onClick={handleClick} style={{ "--depth": depth } as React.CSSProperties}>
+      <div>
+        <Image src={fileIcon.src} alt={fileIcon.alt} />
+      </div>
+      <div>
+        <p>{ node.name }</p>
+      </div>
     </div>
   );
 };
