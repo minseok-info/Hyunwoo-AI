@@ -49,8 +49,8 @@ const TreeSearch = ({ tree }: { tree: Tree[] }) => {
         <input type="text" placeholder="Search" value={tempword} onChange={handleChange} />
       </div>
       {resultTree.length > 0 && resultTree.map((n, i) => {
-        if (n.children.length > 0) return <TreeFolder node={n} close key={i} />
-        else return <TreeFile node={n} key={i} />
+        if (n.children.length > 0) return <TreeFolder node={n} depth={0} close key={i} />
+        else return <TreeFile node={n} depth={0} key={i} />
       })}
     </>
   );
