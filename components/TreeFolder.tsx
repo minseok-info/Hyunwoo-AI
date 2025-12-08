@@ -12,13 +12,13 @@ const folderIcon = {
 }
 
 const TreeFolder = ({ node, depth, close }: { node: Tree, depth: number, close?: boolean }) => {
-  const { treeId, treePath, setTreeId } = useContext(TreeContext);
+  const { treeId, nodePath, setId } = useContext(TreeContext);
 
   const [isOpened, setIsOpened] = useState<boolean>(false);
   const [isSelected, setIsSelected] = useState<boolean>(false);
 
   const handleTreeIdSet = () => {
-    setTreeId(node.treeId);
+    setId(node.treeId, node.nodeId);
   }
 
   const handleFolderOpen = (event: MouseEvent<HTMLDivElement>) => {
@@ -33,8 +33,8 @@ const TreeFolder = ({ node, depth, close }: { node: Tree, depth: number, close?:
 
   useEffect(() => {
     if (close === false) setIsOpened(false);
-    else if (treePath.includes(node.treeId)) setIsOpened(true);
-  }, [treePath, close]);
+    else if (nodePath.some(n => n.treeId === node.treeId)) setIsOpened(true);
+  }, [nodePath, close]);
 
   return (
     <div className={clsx(styles.folder)}>

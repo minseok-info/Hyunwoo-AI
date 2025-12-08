@@ -2,15 +2,15 @@ import { Tree } from "@/types/ontologyTypes";
 
 const traverseTree = <R = any>(
   tree: Tree[],
-  callback: (node: Tree, path: string[]) => R | undefined
+  callback: (node: Tree, path: Tree[]) => R | undefined
 ): R | undefined => {
-  const dfs = (nodes: Tree[], prevPath: string[] = []): R | undefined => {
+  const dfs = (nodes: Tree[], prevNodes: Tree[] = []): R | undefined => {
     for (const n of nodes) {
-      const nodeResult = callback((n as Tree), prevPath);
+      const nodeResult = callback((n as Tree), prevNodes);
       if (nodeResult !== undefined) return nodeResult;
 
       if (n.children.length > 0) {
-        const childResult = dfs(n.children, [...prevPath, n.treeId]);
+        const childResult = dfs(n.children, [...prevNodes, n]);
         if (childResult !== undefined) return childResult;
       }
     }

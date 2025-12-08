@@ -2,23 +2,23 @@ import { Tree } from "@/types/ontologyTypes";
 import { createContext } from "react";
 
 interface TreeContext {
-  treeId: Tree["treeId"]
-  treePath: string[]
   setTree: (tree: Tree[]) => void
-  setTreeId: (id: Tree["treeId"]) => void
+
+  nodePath: Tree[]
 
   nodeId: Tree["nodeId"]
-  setNodeId: (id: Tree["nodeId"] | null) => void
+  treeId: Tree["treeId"]
+  setId: (newTreeId: Tree["treeId"], newNodeId: Tree["nodeId"]) => void
 }
 
 const TreeContext = createContext<TreeContext>({
-  treeId: "",
-  treePath: [],
-  setTree: () => {},
-  setTreeId: () => {},
+  nodePath: [],
   
+  setTree: () => {},
+  
+  treeId: "",
   nodeId: "",
-  setNodeId: () => {}
+  setId: () => {},
 });
 
 export default TreeContext;

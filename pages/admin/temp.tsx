@@ -1,4 +1,4 @@
-import { ChildrenEditor, NodeEditor, SidebarNavigator } from "@/components";
+import { TempChildrenEditor, NodeEditor, SidebarNavigator, TempNodeEditor } from "@/components";
 import TreeContext from "@/contexts/TreeContext";
 import styles from "@/styles/temp.module.css";
 import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
@@ -11,7 +11,7 @@ const Temp = () => {
   const { query, pathname, push } = useRouter();
 
   const [treeId, setTreeId] = useState<Tree["treeId"]>("");
-  const [treePath, setTreePath] = useState<string[]>([]);
+  const [nodePath, setNodePath] = useState<Tree[]>([]);
   const [tree, setTree] = useState<Tree[]>([]);
 
   const [nodeId, setNodeId] = useState<Tree["nodeId"]>("");
@@ -49,39 +49,23 @@ const Temp = () => {
     setTree(newTree);
   };
 
-  const handleSetTreeId = (newId: Tree["treeId"]) => {
-    setTreeId(newId);
-    push({
-      pathname: pathname,
-      query: { ...query, treeId: newId }
-    }, undefined, { shallow: true });
-  };
-
-  const handleSetNodeId = (newId: Tree["nodeId"] | null) => {
-    const newQuery = { ...query };
-
-    if (!newId) {
-      delete newQuery.nodeId;
-      setNodeId("");
-    }
-    else {
-      newQuery.nodeId = newId;
-      setNodeId(newId);
-    }
+  const handleSetId = (newTreeId: Tree["treeId"], newNodeId: Tree["nodeId"]) => {
+    setTreeId(newTreeId);
+    setNodeId(newNodeId);
 
     push({
       pathname: pathname,
-      query: newQuery
+      query: { ...query, treeId: newTreeId, nodeId: newNodeId }
     }, undefined, { shallow: true });
   };
 
   useEffect(() => {
     if (typeof query.treeId === "string") setTreeId(query.treeId);
 
-    const treePath = treeUtils.traverseTree<string[]>(tree, (node, prevPath) => {
-      if (node.treeId === query.treeId) return prevPath;
+    const tempPath = treeUtils.traverseTree<Tree[]>(tree, (node, prevNode) => {
+      if (node.treeId === query.treeId) return prevNode;
     }) || [];
-    setTreePath(treePath);
+    setNodePath(tempPath);
   }, [query.treeId]);
 
   useEffect(() => {
@@ -99,9 +83,10 @@ const Temp = () => {
 
   return (
     <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)}>
-      <TreeContext.Provider value={{ treeId: treeId, treePath: treePath, nodeId: nodeId, setTree: handleSetTree, setTreeId: handleSetTreeId, setNodeId: handleSetNodeId }}>
+      <TreeContext.Provider value={{ treeId: treeId, nodePath: nodePath, nodeId: nodeId, setTree: handleSetTree, setId: handleSetId }}>
         <SidebarNavigator tree={tree} />
-        <ChildrenEditor tree={tree} />
+        {/* <ChildrenEditor tree={tree} />
+        <TempNodeEditor tree={tree} /> */}
         <NodeEditor tree={tree} />
       </TreeContext.Provider>
     </div>

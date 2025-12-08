@@ -11,12 +11,12 @@ const fileIcon = {
 };
 
 const TreeFile = ({ node, depth }: { node: Tree, depth: number }) => {
-  const { treeId, setTreeId } = useContext(TreeContext);
+  const { treeId, setId } = useContext(TreeContext);
 
   const [isSelected, setIsSelected] = useState<boolean>(false);
 
   const handleClick = () => {
-    setTreeId(node.treeId);
+    setId(node.treeId, node.nodeId);
   };
 
   useEffect(() => {

@@ -1,58 +1,176 @@
 .editor {
   display: flex;
   flex-direction: column;
-  min-width: 250px;
-  max-width: 250px;
-  border-left: 1px solid var(--line);
   color: var(--text);
-  background-color: var(--darkTheme);
+  width: 100%;
+  overflow-y: auto;
+}
+.wrapper {
+  max-width: 720px;
+  width: 100%;
+  margin: 0px auto;
 }
 
-.attribute > div {
+.path {
+  position: sticky;
+  top: 0;
+  display: flex;
+  gap: 5px;
+  padding: 10px;
+  background-color: var(--theme);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.path > p {
+  padding: 2.5px;
+  font-size: 14px;
+}
+.path > p:nth-child(2n - 1) {
+  cursor: pointer;
+  border-radius: 2.5px;
+  transition: all 50ms;
+}
+
+.name {
+  border-bottom: 1px solid var(--line);
+  margin: 75px 25px 0px;
+  padding-bottom: 2.5px;
+  display: flex;
+}
+.name input {
+  width: 100%;
+  font-size: 32px;
+  border: 0px;
+  color: var(--text);
+  background-color: transparent;
+  outline: none;
+}
+
+.meta {
+  display: flex;
+  margin: 25px;
+  gap: 10px;
+}
+.meta > div {
+  flex: 1;
+  max-width: 250px;
+  height: 250px;
+  padding: 5px;
+  border-radius: 2.5px;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.children {
+  display: flex;
+  margin: 0px 25px;
+}
+
+.parentEditor {
   display: flex;
   flex-direction: column;
-  padding: 3.75px;
-  border-bottom: 1px solid var(--line);
   gap: 5px;
 }
-.attribute > div:nth-child(3) input {
-  margin-bottom: 10px;
+.parentEditor input {
+  padding: 2.5px;
+  border-radius: 2.5px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--text);
+  background-color: var(--darkTheme);
+  outline: none;
 }
 
-.list {
+.parentsList {
   overflow-y: scroll;
   display: flex;
   flex-direction: column;
-  height: 100px;
+  height: 100%;
   padding: 5px;
   box-shadow: inset -2px 0px 5px 3px rgba(0, 0, 0, 0.75);
   user-select: none;
   -webkit-user-drag: none;
 }
-.list > div {
+.parentsList > div {
   cursor: pointer;
+  min-height: 17px;
   padding: 3.75px;
   font-size: 12px;
   transition: all 50ms;
 }
-.list::-webkit-scrollbar {
+.parentsList::-webkit-scrollbar {
   width: 10px;
 }
-.list::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.75);
+.parentsList::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
 }
-.list::-webkit-scrollbar-thumb {
+.parentsList::-webkit-scrollbar-thumb {
   background: #555555;
   border: 1px solid transparent;
   background-clip: content-box;
   transition: all 50m;
 }
 
-.selected {
+.selectedParent {
   background-color: var(--selected);
 }
 
-.nothing {
+.childrenEditor {
+  width: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.childrenEditor > div  {
+  display: flex;
+}
+
+.childrenToolbar {
+  display: flex;
+  margin-left: auto;
+  gap: 25px;
+}
+.childrenToolbar p {
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.35;
+  transition: all 50ms;
+}
+
+.childrenList {
+  display: flex;
+  flex-direction: column;
+  margin-top: 5px;
+  gap: 2.5px;
+}
+.childrenList > div {
+  cursor: pointer;
+  display: flex;
+  border-radius: 5px;
+  transition: all 50ms;
+}
+.childrenList > div > div {
+  cursor: alias;
+  display: flex;
+  align-items: center;
+  padding: 5px 7.5px;
+  gap: 5px;
+}
+.childrenList p {
+  font-size: 12px;
+  text-decoration: solid;
+  text-decoration-line: underline;
+  text-underline-offset: 2px;
+}
+.childrenList img {
+  width: auto;
+  height: 17px;
+  filter: invert(0.75);
+}
+.selectedChild {
+  background-color: var(--selected);
+}
+
+.nothingWrapper {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -61,12 +179,24 @@
 }
 
 @media (hover: hover) {
-  .list > div:hover:not(.selected) {
+  .path > p:nth-child(2n - 1):hover {
     background-color: var(--hoveredFile);
   }
-  .list::-webkit-scrollbar-thumb:hover {
+
+  .parentsList > div:hover:not(.selectedParent) {
+    background-color: var(--hoveredFile);
+  }
+  .parentsList::-webkit-scrollbar-thumb:hover {
     background: #333333;
     border: 1px solid transparent;
     background-clip: content-box;
+  }
+
+  .childrenToolbar p:hover {
+    opacity: 1;
+  }
+
+  .childrenList > div:hover:not(.nothingWrapper, .selectedChild) {
+    background-color: var(--hoveredFile);
   }
 }
