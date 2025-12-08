@@ -1,4 +1,4 @@
-import { TempChildrenEditor, NodeEditor, SidebarNavigator, TempNodeEditor } from "@/components";
+import { NodeEditor, SidebarNavigator } from "@/components";
 import TreeContext from "@/contexts/TreeContext";
 import styles from "@/styles/temp.module.css";
 import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
@@ -85,8 +85,6 @@ const Temp = () => {
     <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)}>
       <TreeContext.Provider value={{ treeId: treeId, nodePath: nodePath, nodeId: nodeId, setTree: handleSetTree, setId: handleSetId }}>
         <SidebarNavigator tree={tree} />
-        {/* <ChildrenEditor tree={tree} />
-        <TempNodeEditor tree={tree} /> */}
         <NodeEditor tree={tree} />
       </TreeContext.Provider>
     </div>

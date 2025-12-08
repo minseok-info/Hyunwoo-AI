@@ -9,7 +9,3 @@ export { default as TreeFolder } from "./TreeFolder";
 export { default as TreeFile } from "./TreeFile";
 
 export { default as NodeEditor } from "./NodeEditor";
-
-export { default as TempChildrenEditor } from "./TempChildrenEditor";
-
-export { default as TempNodeEditor } from "./TempNodeEditor";
