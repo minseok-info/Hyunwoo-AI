@@ -53,7 +53,8 @@
   gap: 10px;
 }
 .meta > div {
-  flex: 1;
+  flex: 1 0;
+  min-width: 0px;
   max-height: 250px;
   padding: 5px;
   border-radius: 2.5px;
