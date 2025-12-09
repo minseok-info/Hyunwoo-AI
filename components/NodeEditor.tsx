@@ -29,6 +29,7 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
   };
 
   const handleChangeTree = () => {
+    console.log("changed");
     const newTree = treeUtils.updateNode(tree, nodeId, n => {
       return { ...n, name, desc };
     });
@@ -38,7 +39,7 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
   useEffect(() => {
     if (!node) return;
     else if (node.name === name && node.desc === desc) return;
-    debounceTimer(timerRef, handleChangeTree, 150);
+    debounceTimer(timerRef, handleChangeTree, 250);
   }, [name, desc]);
 
   useEffect(() => {
