@@ -1,6 +1,8 @@
 export { default as ZoomProgressBar } from "./zoomProgressBar";
 export { default as SplashScreen } from "./splashScreen";
 
+export { default as Modal } from "./Modal";
+
 export { default as SidebarNavigator } from "./SidebarNavigator";
 export { default as TreeExplorer } from "./TreeExplorer";
 export { default as TreeSearch } from "./TreeSearch";

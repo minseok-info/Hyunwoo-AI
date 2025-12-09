@@ -59,7 +59,7 @@ const ParentEditor = ({ tree, node }: { tree: Tree[], node: Tree | null }) => {
     else tempIds.push(id);
     setParentIds(tempIds);
 
-    const newTree = treeUtils.updateParents(tree, nodeId, [...tempIds]);
+    const newTree = treeUtils.updateParents(tree, node!, nodeId, [...tempIds]);
     setTree(newTree);
   };
 

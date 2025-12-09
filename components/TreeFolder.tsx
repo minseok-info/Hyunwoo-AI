@@ -29,7 +29,7 @@ const TreeFolder = ({ node, depth, close }: { node: Tree, depth: number, close?:
   useEffect(() => {
     if (treeId === node.treeId) setIsSelected(true);
     else setIsSelected(false);
-  }, [treeId]);
+  }, [node, treeId]);
 
   useEffect(() => {
     if (close === false) setIsOpened(false);

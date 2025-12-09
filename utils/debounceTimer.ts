@@ -1,6 +1,7 @@
 const debounceTimer = (
   timerRef: React.MutableRefObject<NodeJS.Timeout | null>,
-  callback: () => void
+  callback: () => void,
+  delay?: number
 ) => {
   if (timerRef.current) {
     clearTimeout(timerRef.current);
@@ -9,7 +10,7 @@ const debounceTimer = (
 
   timerRef.current = setTimeout(() => {
     callback();
-  }, 500);
+  }, delay ?? 500);
 }
 
 export default debounceTimer;

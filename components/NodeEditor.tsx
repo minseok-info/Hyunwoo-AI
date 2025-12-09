@@ -38,7 +38,7 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
   useEffect(() => {
     if (!node) return;
     else if (node.name === name && node.desc === desc) return;
-    debounceTimer(timerRef, handleChangeTree);
+    debounceTimer(timerRef, handleChangeTree, 150);
   }, [name, desc]);
 
   useEffect(() => {

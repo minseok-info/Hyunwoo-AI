@@ -16,6 +16,18 @@ export type Relation = {
   type: "parent"
 }
 
+export type OntologyDifference = {
+  nodes: {
+    inserted: Node[]
+    deleted: Node[]
+    updated: Node[]
+  }
+  relations: {
+    inserted: Relation[]
+    deleted: Relation[]
+  }
+}
+
 export type Tree = {
   treeId: string
   nodeId: Node["id"]

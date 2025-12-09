@@ -21,8 +21,7 @@ const ontologyToTree = (ontology: Ontology): Tree[] => {
 
     return {
       ...rest,
-      // treeId: crypto.randomUUID(),
-      treeId: `${++count}`,
+      treeId: crypto.randomUUID(),
       nodeId: id,
       children: childrenNodes.map(buildTree)
     };

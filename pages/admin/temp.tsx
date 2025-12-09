@@ -1,8 +1,8 @@
-import { NodeEditor, SidebarNavigator } from "@/components";
+import { Modal, NodeEditor, SidebarNavigator } from "@/components";
 import TreeContext from "@/contexts/TreeContext";
 import styles from "@/styles/temp.module.css";
 import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
-import { ontologyToTree, treeToOntology, treeUtils } from "@/utils";
+import { ontologyCompare, ontologyToTree, treeToOntology, treeUtils } from "@/utils";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
@@ -11,47 +11,96 @@ const Temp = () => {
   const { query, pathname, push } = useRouter();
   const treeRef = useRef<Tree[]>([]);
 
+  const serverUrlRef = useRef<string>("");
+  const isUsingServerRef = useRef<boolean>(false);
+
+  const initialOntologyRef = useRef<Ontology | null>(null);
+  const [ontology, setOntology] = useState<Ontology | null>(null);
+
   const [treeId, setTreeId] = useState<Tree["treeId"]>("");
   const [nodePath, setNodePath] = useState<Tree[]>([]);
   const [tree, setTree] = useState<Tree[]>([]);
 
   const [nodeId, setNodeId] = useState<Tree["nodeId"]>("");
 
-  const idBrain = crypto.randomUUID();
-  const idLeft = crypto.randomUUID();
-  const idRight = crypto.randomUUID();
-  const idNeuron1 = crypto.randomUUID();
-  const idNeuron2 = crypto.randomUUID();
-  const idSynapse1 = crypto.randomUUID();
-  const idSynapse2 = crypto.randomUUID();
+  const [modalTrigger, setModalTrigger] = useState<number>(0);
+  const [modalData, setModalData] = useState<{ message: string; status: boolean }>({ message: "", status: false });
 
-  const nodes: Node[] = [
-    { id: idBrain, name: "Brain", desc: "first", tags: [] },
-    { id: idLeft, name: "Left", desc: "second", tags: [] },
-    { id: idRight, name: "Right", desc: "third", tags: [] },
-    { id: idNeuron1, name: "Neuron1", desc: "fourth", tags: ["cute", "sans"] },
-    { id: idNeuron2, name: "Neuron2", desc: "fifth", tags: ["cute"] },
-    { id: idSynapse1, name: "Synapse1", desc: "sixth", tags: ["midori"] },
-    { id: idSynapse2, name: "Synapse2", desc: "seventh", tags: ["sans", "duck", "momoi"] }
-  ];
+  const getOntology = async () => {
+    if (isUsingServerRef.current) return;
+    isUsingServerRef.current = true;
 
-  const relations: Relation[] = [
-    { from: idBrain, to: idLeft, type: "parent" },
-    { from: idBrain, to: idRight, type: "parent" },
-    { from: idLeft, to: idNeuron1, type: "parent" },
-    { from: idRight, to: idNeuron1, type: "parent" },
-    { from: idRight, to: idNeuron2, type: "parent" },
-    { from: idNeuron1, to: idSynapse2, type: "parent" },
-    { from: idNeuron2, to: idSynapse1, type: "parent" },
-    { from: idNeuron2, to: idSynapse2, type: "parent" }
-  ];
+    let newOntology: Ontology | null = null;
 
-  const saveOntology = () => {
+    try {
+      const serverUrl = serverUrlRef.current;
+      const res = await fetch(`${serverUrl}ontology`, {
+        method: "GET",
+      });
+      if (!res.ok) return;
+
+      await res.json().then(j => {
+        const resOnt = j["ontology"] as Ontology;
+
+        const resNodes: Node[] = resOnt["nodes"].map((r: any) => ({ ...r, desc: r.description }));
+        const resRels: Relation[] = resOnt["relations"].map((r: any) => ({ ...r, from: r.from_, to: r.to_ }));
+
+        newOntology = { nodes: resNodes, relations: resRels };
+      });
+    }
+    catch (error) {
+      console.error(error);
+      setModalData({ message: "Failed to get ontology", status: false });
+      setModalTrigger(prev => prev + 1);
+    }
+    finally {
+      setOntology(newOntology);
+      initialOntologyRef.current = newOntology;
+
+      isUsingServerRef.current = false;
+    }
+  };
+
+  const saveOntology = async () => {
+    if (isUsingServerRef.current || !initialOntologyRef.current) return;
+    isUsingServerRef.current = true;
+
     const treeCopied = treeRef.current;
-
     if (treeCopied.length < 1) return;
+
+    const oldOntology = initialOntologyRef.current;
     const newOntology = treeToOntology(treeCopied);
-    console.log(newOntology);
+
+    const ontologyDifference = ontologyCompare(oldOntology, newOntology);
+
+    let status: boolean = false;
+
+    try {
+      const serverUrl = serverUrlRef.current;
+      const res = await fetch(`${serverUrl}ontology`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(ontologyDifference)
+      });
+      if (!res.ok) return;
+
+      await res.json().then(j => {
+        status = j["status"];
+      });
+    }
+    catch (error) {
+      console.error(error);
+    }
+    finally {
+      if (status) setModalData({ message: "Successful", status: true });
+      else setModalData({ message: "Failed", status: false });
+      setModalTrigger(prev => prev + 1);
+
+      initialOntologyRef.current = newOntology;
+      isUsingServerRef.current = false;
+    }
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -97,11 +146,17 @@ const Temp = () => {
   }, [tree]);
 
   useEffect(() => {
-    const ontology: Ontology = {
-      nodes: nodes,
-      relations: relations
-    };
+    if (!ontology) return;
     setTree(ontologyToTree(ontology));
+  }, [ontology]);
+
+  useEffect(() => {
+    const isDev = process.env.NODE_ENV === "development";
+    serverUrlRef.current = isDev
+      ? "http://127.0.0.1:8000/"
+      : "https://hyunwoo-ai-backend.fly.dev/";
+    serverUrlRef.current = "https://hyunwoo-ai-backend.fly.dev/";
+    getOntology();
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -117,6 +172,7 @@ const Temp = () => {
         <SidebarNavigator tree={tree} />
         <NodeEditor tree={tree} />
       </TreeContext.Provider>
+      <Modal data={modalData} trigger={modalTrigger} duration={2000} />
     </div>
   );
 }

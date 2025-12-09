@@ -22,7 +22,7 @@ const TreeFile = ({ node, depth }: { node: Tree, depth: number }) => {
   useEffect(() => {
     if (treeId === node.treeId) setIsSelected(true);
     else setIsSelected(false);
-  }, [treeId]);
+  }, [node, treeId]);
 
   return (
     <div className={clsx(styles.line, styles.fileLine, { [styles.selected]: isSelected })} onClick={handleClick} style={{ "--depth": depth } as React.CSSProperties}>
