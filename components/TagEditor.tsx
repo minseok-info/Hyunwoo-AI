@@ -134,7 +134,7 @@ const TagEditor = ({ tree, node }: { tree: Tree[], node: Tree }) => {
           </div>
           {filteredTags.length > 0 && <TagExplorer tags={filteredTags} upsertTag={upsertTag} />}
           {inputValue !== "" && !allTags.some(t => t === inputValue) && (
-            <div className={clsx(styles.generateTag)}>
+            <div className={clsx(styles.generateTag)} onClick={() => upsertTag(inputValue)}>
               <p>생성</p>
               <p>{ inputValue }</p>
             </div>

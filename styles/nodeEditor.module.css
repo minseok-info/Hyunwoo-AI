@@ -13,6 +13,7 @@
 
 .path {
   position: sticky;
+  z-index: 10;
   top: 0;
   display: flex;
   gap: 5px;
@@ -57,11 +58,6 @@
   padding: 5px;
   border-radius: 2.5px;
   background-color: rgba(255, 255, 255, 0.05);
-}
-
-.children {
-  display: flex;
-  margin: 0px 25px;
 }
 
 .parentEditor {
@@ -160,18 +156,24 @@
   left: 0;
   display: flex;
   flex-direction: column;
-  width: calc(100% - 10px);
+  width: calc(100% - 10px - 2px);
   max-height: 200px;
   padding: 5px;
+  border: 1px solid var(--line);
   border-radius: 2.5px;
   background-color: var(--darkTheme);
   gap: 7.5px;
+}
+.tagInputPanel > div:not(:nth-child(1)) {
+  padding: 5px;
+}
+.tagInputPanel > div:nth-child(1) {
+  padding: 0px 5px;
 }
 
 .tagExplorer {
   display: flex;
   flex-direction: column;
-  padding: 5px;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   gap: 5px;
@@ -182,8 +184,10 @@
 }
 
 .generateTag {
+  cursor: pointer;
   display: flex;
   gap: 7.5px;
+  transition: all 50ms;
 }
 .generateTag p {
   word-break: keep-all;
@@ -192,6 +196,28 @@
 .generateTag p:nth-child(2) {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.desc {
+  display: flex;
+  margin: 25px;
+}
+.desc textarea {
+  width: 100%;
+  min-height: 250px;
+  max-height: 500px;
+  padding: 15px;
+  border: 0px;
+  border-radius: 2.5px;
+  color: var(--text);
+  background-color: var(--darkTheme);
+  resize: vertical;
+  outline: none;
+}
+
+.children {
+  display: flex;
+  margin: 25px;
 }
 
 .childrenEditor {
@@ -286,6 +312,9 @@
   }
   
   .tag:hover {
+    background-color: var(--hoveredFile);
+  }
+  .generateTag:hover {
     background-color: var(--hoveredFile);
   }
   

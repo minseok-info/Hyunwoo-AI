@@ -15,25 +15,31 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
 
   const [node, setNode] = useState<Tree | null>(null);
 
-  const [name, setName] = useState<string>("");
+  const [name, setName] = useState<Tree["name"]>("");
+  const [desc, setDesc] = useState<Tree["desc"]>("");
 
   const handleChangeName = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setName(value);
   };
 
+  const handleChangeDesc = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const value = event.target.value;
+    setDesc(value);
+  };
+
   const handleChangeTree = () => {
     const newTree = treeUtils.updateNode(tree, nodeId, n => {
-      return { ...n, name };
+      return { ...n, name, desc };
     });
     setTree(newTree);
   };
 
   useEffect(() => {
     if (!node) return;
-    else if (node.name === name) return;
+    else if (node.name === name && node.desc === desc) return;
     debounceTimer(timerRef, handleChangeTree);
-  }, [name]);
+  }, [name, desc]);
 
   useEffect(() => {
     if (nodeId === "") return;
@@ -49,6 +55,7 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
   useEffect(() => {
     if (!node) return;
     setName(node.name);
+    setDesc(node.desc);
   }, [node]);
 
   if (!node) {
@@ -73,6 +80,9 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
         <div className={clsx(styles.meta)}>
           <ParentEditor tree={tree} node={node} />
           <TagEditor tree={tree} node={node} />
+        </div>
+        <div className={clsx(styles.desc)}>
+          <textarea placeholder="New Description" value={desc} onChange={handleChangeDesc} />
         </div>
         <div className={clsx(styles.children)}>
           <ChildrenEditor tree={tree} node={node} />
