@@ -35,6 +35,7 @@ const ChildrenEditor = ({ tree, node }: { tree: Tree[], node: Tree }) => {
       desc: "",
       treeId: crypto.randomUUID(),
       nodeId: crypto.randomUUID(),
+      tags: [],
       children: []
     };
 
