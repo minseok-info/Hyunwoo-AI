@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 
 const Temp = () => {
   const { query, pathname, push } = useRouter();
+  const treeRef = useRef<Tree[]>([]);
 
   const [treeId, setTreeId] = useState<Tree["treeId"]>("");
   const [nodePath, setNodePath] = useState<Tree[]>([]);
@@ -46,8 +47,10 @@ const Temp = () => {
   ];
 
   const saveOntology = () => {
-    if (tree.length < 1) return;
-    const newOntology = treeToOntology(tree);
+    const treeCopied = treeRef.current;
+
+    if (treeCopied.length < 1) return;
+    const newOntology = treeToOntology(treeCopied);
     console.log(newOntology);
   };
 
@@ -89,11 +92,14 @@ const Temp = () => {
   }, [query.nodeId]);
 
   useEffect(() => {
+    treeRef.current = tree;
+  }, [tree]);
+
+  useEffect(() => {
     const ontology: Ontology = {
       nodes: nodes,
       relations: relations
     };
-
     setTree(ontologyToTree(ontology));
 
     window.addEventListener("keydown", handleKeyDown);
