@@ -1,7 +1,9 @@
-from typing import List, Optional
+from typing import List, Optional, Literal
 from fastapi import FastAPI, HTTPException, Form, Body
+from fastapi.responses import JSONResponse
+from fastapi.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import asyncpg
 import os
@@ -21,11 +23,39 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 ID = os.getenv("ID")
 PWD = os.getenv("PWD")
 
-class Thought(BaseModel):
-  id: Optional[int] = None
-  type: str
-  title: str
-  content: str
+class Node(BaseModel):
+  id: str
+  name: str
+  description: str = Field(..., alias="desc")
+  tags: List[str]
+
+  class Config:
+    allow_population_by_field_name = True
+
+class Relation(BaseModel):
+  from_: str = Field(..., alias="from")
+  to_: str = Field(..., alias="to")
+  type: Literal["parent"]
+
+  class Config:
+    allow_population_by_field_name = True
+
+class Ontology(BaseModel):
+  nodes: List[Node]
+  relations: List[Relation]
+
+class NodesDiff(BaseModel):
+  inserted: List[Node]
+  deleted: List[Node]
+  updated: List[Node]
+
+class RelationsDiff(BaseModel):
+  inserted: List[Relation]
+  deleted: List[Relation]
+
+class OntologyDifference(BaseModel):
+  nodes: NodesDiff
+  relations: RelationsDiff
 
 @app.on_event("startup")
 async def startup():
@@ -41,6 +71,13 @@ async def shutdown():
   if getattr(app.state, "db", None):
     await app.state.db.close()
     print("Close DB")
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+  return JSONResponse(
+    status_code=exc.status_code,
+    content={"detail": exc.detail}
+  )
 
 @app.get("/")
 async def home():
@@ -65,66 +102,90 @@ async def sign_in(
 
   return { "status": "success" }
 
-@app.get("/thoughts")
-async def read_thoughts():
-  if app.state.db is None:
+@app.get("/ontology")
+async def read_ontology():
+  if not hasattr(app.state, "db") or app.state.db is None:
     raise HTTPException(status_code=500, detail="Cannot Connect DB")
 
-  async with app.state.db.acquire() as connection:
-    rows = await connection.fetch("select * from thoughts")
-    thoughts = [dict(row) for row in rows]
-    return thoughts
+  async with app.state.db.acquire() as conn:
+    rows = await conn.fetch("select * from nodes")
+    nodes = [dict(r) for r in rows]
+    rows = await conn.fetch("select * from relations")
+    relations = [dict(r) for r in rows]
 
-@app.post("/thoughts")
-async def add_thought(thoughts: List[Thought] = Body(...)):
-  if app.state.db is None:
-    raise HTTPException(status_code=500, detail="Cannot Connect DB")
+  print("Success get Nodes & Relations")
 
-  to_insert = [t for t in thoughts if t.id is None]
-  to_change = [t for t in thoughts if t.id is not None]
-
-  async with app.state.db.acquire() as connection:
-    try:
-      if to_insert:
-        insert_values = [(t.type, t.title, t.content) for t in to_insert]
-        await connection.executemany(
-          """
-          insert into thoughts (type, title, content)
-          values ($1, $2, $3)
-          """,
-          insert_values
-        )
-
-      if to_change:
-        update_values = [(t.type, t.title, t.content, t.id) for t in to_change]
-        await connection.executemany(
-          """
-          update thoughts
-          set type = $1, title = $2, content = $3
-          where id = $4
-          """,
-          update_values
-        )
-    except Exception as e:
-      raise HTTPException(status_code=500, detail=str(e))
-
-  return {
-    "updated_count": len(thoughts),
-    "status": "updated"
+  ontology = {
+    "nodes": nodes,
+    "relations": relations
   }
 
-@app.delete("/thoughts")
-async def delete_thought(thought_ids: List[int] = Body(...)):
-  if app.state.db is None:
+  return {
+    "ontology": ontology
+  }
+
+@app.post("/ontology")
+async def write_ontology(ont_diff: OntologyDifference = Body(...)):
+  if not hasattr(app.state, "db") or app.state.db is None:
     raise HTTPException(status_code=500, detail="Cannot Connect DB")
 
-  async with app.state.db.acquire() as connection:
-    result = await connection.execute(
-      "delete from thoughts where id = ANY($1)",
-      thought_ids
-    )
-  
+  nodes_diff = ont_diff.nodes
+  relations_diff = ont_diff.relations
+
+  async with app.state.db.acquire() as conn:
+    async with conn.transaction():
+      try:
+        if nodes_diff.inserted:
+          insert_values = [(n.id, n.name, n.description, n.tags) for n in nodes_diff.inserted]
+          await conn.executemany(
+            "INSERT INTO nodes (id, name, description, tags) VALUES ($1, $2, $3, $4)",
+            insert_values
+          )
+        
+        if nodes_diff.deleted:
+          delete_ids = [n.id for n in nodes_diff.deleted]
+          await conn.execute(
+            "DELETE FROM nodes WHERE id = ANY($1)",
+            delete_ids
+          )
+
+        if nodes_diff.updated:
+          update_values = [(n.name, n.description, n.tags, n.id) for n in nodes_diff.updated]
+          await conn.executemany(
+            "UPDATE nodes SET name=$1, description=$2, tags=$3 WHERE id=$4",
+            update_values
+          )
+
+        if relations_diff.inserted:
+          insert_values = [(r.from_, r.to_, r.type) for r in relations_diff.inserted]
+          await conn.executemany(
+            "INSERT INTO relations (from_, to_, type) VALUES ($1, $2, $3)",
+            insert_values
+          )
+
+        if relations_diff.deleted:
+          from_ids = [r.from_ for r in relations_diff.deleted]
+          to_ids = [r.to_ for r in relations_diff.deleted]
+
+          await conn.execute(
+            """
+            WITH del_relations(from_, to_) AS (
+                SELECT UNNEST($1::text[]), UNNEST($2::text[])
+            )
+            DELETE FROM relations r
+            USING del_relations d
+            WHERE r.from_ = d.from_ AND r.to_ = d.to_;
+            """,
+            from_ids,
+            to_ids
+          )
+
+      except Exception as e:
+        print(f"DB Operation Failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"DB Operation Failed: {str(e)}")
+
   return {
-    "ids": thought_ids,
-    "status": "deleted"
+    "nodes": nodes_diff.dict(),
+    "relations": relations_diff.dict(),
+    "status": True
   }
