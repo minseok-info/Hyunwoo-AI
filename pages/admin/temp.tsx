@@ -2,7 +2,7 @@ import { NodeEditor, SidebarNavigator } from "@/components";
 import TreeContext from "@/contexts/TreeContext";
 import styles from "@/styles/temp.module.css";
 import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
-import { ontologyToTree, treeUtils } from "@/utils";
+import { ontologyToTree, treeToOntology, treeUtils } from "@/utils";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
@@ -45,6 +45,22 @@ const Temp = () => {
     { from: idNeuron2, to: idSynapse2, type: "parent" }
   ];
 
+  const saveOntology = () => {
+    if (tree.length < 1) return;
+    const newOntology = treeToOntology(tree);
+    console.log(newOntology);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (!((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s")) return;
+    event.preventDefault();
+    saveOntology();
+  };
+
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    event.preventDefault();
+  };
+
   const handleSetTree = (newTree: Tree[]) => {
     setTree(newTree);
   };
@@ -79,6 +95,13 @@ const Temp = () => {
     };
 
     setTree(ontologyToTree(ontology));
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    }
   }, []);
 
   return (

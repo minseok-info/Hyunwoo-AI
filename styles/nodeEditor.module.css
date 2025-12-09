@@ -114,8 +114,9 @@
   flex-wrap: wrap;
   padding: 5px;
   border-radius: 2.5px;
-  border: 2px solid var(--darkTheme);
+  border: 1px solid var(--darkTheme);
   margin-top: 5px;
+  background-color: var(--darkTheme);
   gap: 7.5px;
   overflow-y: auto;
 }
@@ -143,9 +144,11 @@
 }
 .tagInput input {
   width: 100%;
+  padding: 5px 0px;
   border: 0px;
   color: var(--text);
   background-color: transparent;
+  font-size: 12px;
   outline: none;
 }
 

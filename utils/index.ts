@@ -3,3 +3,4 @@ export { default as debounceTimer } from "./debounceTimer";
 
 export { default as treeUtils } from "./treeUtils";
 export { default as ontologyToTree } from "./ontologyToTree";
+export { default as treeToOntology } from "./treeToOntology";
