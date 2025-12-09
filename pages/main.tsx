@@ -3,7 +3,7 @@ import styles from "@/styles/main.module.css";
 import { ModelNames, ModelTransformParams, ModelType, SectionConfigParams, SectionNames, SectionType } from "@/types/modelParams";
 import clsx from "clsx";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/Addons.js";
 
@@ -475,7 +475,7 @@ const Main = () => {
   }, []);
 
   return (
-    <>
+    <React.Fragment>
       <div className={clsx(styles.titleContainer)}>
         <p>{ title }</p>
       </div>
@@ -485,7 +485,7 @@ const Main = () => {
         </div>
       </div>
       <div ref={mountRef} className={clsx(styles.fullScreen)} />
-    </>
+    </React.Fragment>
   );
 }
 

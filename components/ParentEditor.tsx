@@ -7,7 +7,7 @@ import { ChangeEvent, useContext, useEffect, useRef, useState } from "react";
 
 const List = ({ nodes, parentIds, onClick }: { nodes: Tree[], parentIds: Tree["nodeId"][], onClick: (id: Tree["nodeId"]) => void }) => {
   return (
-    <div className={clsx(styles.parentsList)}>
+    <div className={clsx(styles.list, styles.parentList)}>
       {nodes.map((n, i) => (
         <div className={clsx({ [styles.selectedParent]: parentIds.includes(n.nodeId) })} onClick={() => onClick(n.nodeId)} key={i}>
           <p>{ n.name }</p>

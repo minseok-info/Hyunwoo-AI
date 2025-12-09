@@ -21,6 +21,7 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
     const value = event.target.value;
     setName(value);
   };
+
   const handleChangeTree = () => {
     const newTree = treeUtils.updateNode(tree, nodeId, n => {
       return { ...n, name };
@@ -71,7 +72,7 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
         </div>
         <div className={clsx(styles.meta)}>
           <ParentEditor tree={tree} node={node} />
-          <TagEditor />
+          <TagEditor tree={tree} node={node} />
         </div>
         <div className={clsx(styles.children)}>
           <ChildrenEditor tree={tree} node={node} />

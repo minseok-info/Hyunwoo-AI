@@ -7,12 +7,13 @@ export type Node = {
   id: string
   name: string
   desc: string
+  tags: string[]
 }
 
 export type Relation = {
   from: Node["id"]
   to: Node["id"]
-  type: "parent" | "tag"
+  type: "parent"
 }
 
 export type Tree = {
@@ -20,5 +21,6 @@ export type Tree = {
   nodeId: Node["id"]
   name: Node["name"]
   desc: Node["desc"]
+  tags: Node["tags"]
   children: Tree[]
 }

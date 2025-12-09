@@ -53,8 +53,7 @@
 }
 .meta > div {
   flex: 1;
-  max-width: 250px;
-  height: 250px;
+  max-height: 250px;
   padding: 5px;
   border-radius: 2.5px;
   background-color: rgba(255, 255, 255, 0.05);
@@ -68,6 +67,8 @@
 .parentEditor {
   display: flex;
   flex-direction: column;
+  max-width: 250px;
+  height: 250px;
   gap: 5px;
 }
 .parentEditor input {
@@ -81,7 +82,7 @@
   outline: none;
 }
 
-.parentsList {
+.parentList {
   overflow-y: scroll;
   display: flex;
   flex-direction: column;
@@ -91,28 +92,106 @@
   user-select: none;
   -webkit-user-drag: none;
 }
-.parentsList > div {
+.parentList > div {
   cursor: pointer;
   min-height: 17px;
   padding: 3.75px;
   font-size: 12px;
   transition: all 50ms;
 }
-.parentsList::-webkit-scrollbar {
-  width: 10px;
-}
-.parentsList::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-}
-.parentsList::-webkit-scrollbar-thumb {
-  background: #555555;
-  border: 1px solid transparent;
-  background-clip: content-box;
-  transition: all 50m;
-}
 
 .selectedParent {
   background-color: var(--selected);
+}
+
+.tagEditor {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: 400px;
+  height: 100%;
+  gap: 5px;
+}
+.tagList {
+  cursor: text;
+  display: flex;
+  flex-wrap: wrap;
+  padding: 5px;
+  border-radius: 2.5px;
+  border: 2px solid var(--darkTheme);
+  margin-top: 5px;
+  gap: 7.5px;
+  overflow-y: auto;
+}
+
+.tag {
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  max-width: calc(100% - 20px);
+  padding: 3.5px 10px;
+  border-radius: 2.5px;
+  background-color: var(--theme);
+  transition: all 50ms;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.tag p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tagInput {
+  flex: 1 1 50px;
+  display: flex;
+}
+.tagInput input {
+  width: 100%;
+  border: 0px;
+  color: var(--text);
+  background-color: transparent;
+  outline: none;
+}
+
+.tagInputPanel {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 5px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - 10px);
+  max-height: 200px;
+  padding: 5px;
+  border-radius: 2.5px;
+  background-color: var(--darkTheme);
+  gap: 7.5px;
+}
+
+.tagExplorer {
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  gap: 5px;
+  overflow-y: scroll;
+}
+.tagExplorer > div {
+  display: flex;
+}
+
+.generateTag {
+  display: flex;
+  gap: 7.5px;
+}
+.generateTag p {
+  word-break: keep-all;
+  font-size: 14px;
+}
+.generateTag p:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .childrenEditor {
@@ -170,6 +249,25 @@
   background-color: var(--selected);
 }
 
+.additionalText > p {
+  font-size: 12px;
+}
+
+.list::-webkit-scrollbar {
+  width: 10px;
+}
+.list::-webkit-scrollbar-track {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.05);
+}
+.list::-webkit-scrollbar-thumb {
+  cursor: default;
+  background: #555555;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50m;
+}
+
 .nothingWrapper {
   display: flex;
   justify-content: center;
@@ -183,20 +281,25 @@
     background-color: var(--hoveredFile);
   }
 
-  .parentsList > div:hover:not(.selectedParent) {
+  .parentList > div:hover:not(.selectedParent) {
     background-color: var(--hoveredFile);
   }
-  .parentsList::-webkit-scrollbar-thumb:hover {
-    background: #333333;
-    border: 1px solid transparent;
-    background-clip: content-box;
+  
+  .tag:hover {
+    background-color: var(--hoveredFile);
   }
-
+  
   .childrenToolbar p:hover {
     opacity: 1;
   }
-
+  
   .childrenList > div:hover:not(.nothingWrapper, .selectedChild) {
     background-color: var(--hoveredFile);
+  }
+
+  .list::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid transparent;
+    background-clip: content-box;
   }
 }

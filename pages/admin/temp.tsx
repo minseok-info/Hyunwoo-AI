@@ -25,13 +25,13 @@ const Temp = () => {
   const idSynapse2 = crypto.randomUUID();
 
   const nodes: Node[] = [
-    { id: idBrain, name: "Brain", desc: "first" },
-    { id: idLeft, name: "Left", desc: "second" },
-    { id: idRight, name: "Right", desc: "third" },
-    { id: idNeuron1, name: "Neuron1", desc: "fourth" },
-    { id: idNeuron2, name: "Neuron2", desc: "fifth" },
-    { id: idSynapse1, name: "Synapse1", desc: "sixth" },
-    { id: idSynapse2, name: "Synapse2", desc: "seventh" }
+    { id: idBrain, name: "Brain", desc: "first", tags: [] },
+    { id: idLeft, name: "Left", desc: "second", tags: [] },
+    { id: idRight, name: "Right", desc: "third", tags: [] },
+    { id: idNeuron1, name: "Neuron1", desc: "fourth", tags: ["cute", "sans"] },
+    { id: idNeuron2, name: "Neuron2", desc: "fifth", tags: ["cute"] },
+    { id: idSynapse1, name: "Synapse1", desc: "sixth", tags: ["midori"] },
+    { id: idSynapse2, name: "Synapse2", desc: "seventh", tags: ["sans", "duck", "momoi"] }
   ];
 
   const relations: Relation[] = [

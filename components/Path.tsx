@@ -1,6 +1,6 @@
 import TreeContext from "@/contexts/TreeContext";
 import { Tree } from "@/types/ontologyTypes";
-import { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 
 const Path = ({ node }: { node: Tree }) => {
   const { nodePath, setId } = useContext(TreeContext);
@@ -17,10 +17,10 @@ const Path = ({ node }: { node: Tree }) => {
   }, [nodePath]);
 
   return path.map((n, i) => (
-    <>
-      <p onClick={() => handleChangeNode(n)} key={i}>{ n.name }</p>
+    <React.Fragment key={i}>
+      <p onClick={() => handleChangeNode(n)}>{ n.name }</p>
       {i !== path.length - 1 && <p>/</p>}
-    </>
+    </React.Fragment>
   ));
 };
 

@@ -12,9 +12,9 @@ interface TreeContext {
 }
 
 const TreeContext = createContext<TreeContext>({
-  nodePath: [],
-  
   setTree: () => {},
+  
+  nodePath: [],
   
   treeId: "",
   nodeId: "",
