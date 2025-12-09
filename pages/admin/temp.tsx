@@ -62,6 +62,7 @@ const Temp = () => {
 
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {
     event.preventDefault();
+    event.returnValue = "";
   };
 
   const handleSetTree = (newTree: Tree[]) => {
