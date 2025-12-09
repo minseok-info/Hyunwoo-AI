@@ -11,7 +11,7 @@ const folderIcon = {
   alt: "folder"
 }
 
-const TreeFolder = ({ node, depth, close }: { node: Tree, depth: number, close?: boolean }) => {
+const TreeFolder = ({ node, depth, closeForce }: { node: Tree, depth: number, closeForce?: boolean }) => {
   const { treeId, nodePath, setId } = useContext(TreeContext);
 
   const [isOpened, setIsOpened] = useState<boolean>(false);
@@ -32,9 +32,8 @@ const TreeFolder = ({ node, depth, close }: { node: Tree, depth: number, close?:
   }, [node, treeId]);
 
   useEffect(() => {
-    if (close === false) setIsOpened(false);
-    else if (nodePath.some(n => n.treeId === node.treeId)) setIsOpened(true);
-  }, [nodePath, close]);
+    if (nodePath.some(n => n.treeId === node.treeId)) setIsOpened(closeForce ? false : true);
+  }, [nodePath, closeForce]);
 
   return (
     <div className={clsx(styles.folder)}>
