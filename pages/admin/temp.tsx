@@ -98,6 +98,7 @@ const Temp = () => {
       else setModalData({ message: "Failed", status: false });
       setModalTrigger(prev => prev + 1);
 
+      setOntology(newOntology);
       initialOntologyRef.current = newOntology;
       isUsingServerRef.current = false;
     }
@@ -168,7 +169,7 @@ const Temp = () => {
 
   return (
     <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)}>
-      <TreeContext.Provider value={{ treeId: treeId, nodePath: nodePath, nodeId: nodeId, setTree: handleSetTree, setId: handleSetId }}>
+      <TreeContext.Provider value={{ treeId: treeId, nodePath: nodePath, nodeId: nodeId, oldOntology: ontology!, setTree: handleSetTree, setId: handleSetId, saveOntology: saveOntology }}>
         <SidebarNavigator tree={tree} />
         <NodeEditor tree={tree} />
       </TreeContext.Provider>

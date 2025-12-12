@@ -1,4 +1,4 @@
-import { Tree } from "@/types/ontologyTypes";
+import { Ontology, Tree } from "@/types/ontologyTypes";
 import { createContext } from "react";
 
 interface TreeContext {
@@ -9,6 +9,9 @@ interface TreeContext {
   nodeId: Tree["nodeId"]
   treeId: Tree["treeId"]
   setId: (newTreeId: Tree["treeId"], newNodeId: Tree["nodeId"]) => void
+
+  oldOntology: Ontology;
+  saveOntology: () => void
 }
 
 const TreeContext = createContext<TreeContext>({
@@ -19,6 +22,9 @@ const TreeContext = createContext<TreeContext>({
   treeId: "",
   nodeId: "",
   setId: () => {},
+
+  oldOntology: { nodes: [], relations: [] },
+  saveOntology: () => {}
 });
 
 export default TreeContext;

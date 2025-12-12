@@ -6,36 +6,43 @@ import TreeExplorer from "./TreeExplorer";
 import clsx from "clsx";
 import TreeSearch from "./TreeSearch";
 import Image from "next/image";
+import TreeStatus from "./TreeStatus";
 
 const explorerIcon = {
   src: require("@/public/icons/file.svg"),
   alt: "explorer"
-}
+};
 
 const searchIcon = {
   src: require("@/public/icons/search.svg"),
   alt: "search"
-}
+};
+
+const statusIcon = {
+  src: require("@/public/icons/status.svg"),
+  alt: "status"
+};
 
 const exitIcon = {
   src: require("@/public/icons/door.svg"),
   alt: "exit"
-}
+};
 
 const SidebarNavigator = ({ tree }: { tree: Tree[] }) => {
   const router = useRouter();
 
-  type Navigator = "explorer" | "search" | "exit";
+  type Navigator = "explorer" | "search" | "status" | "exit";
   const [navigator, setNavigator] = useState<Navigator>("explorer");
   const navigatorRecord: Record<Navigator, React.ReactNode> = {
     explorer: <TreeExplorer tree={tree} />,
     search: <TreeSearch tree={tree} />,
+    status: <TreeStatus tree={tree} />,
     exit: ""
-  }
+  };
 
   const handleClick = (navigator: Navigator) => {
     setNavigator(navigator);
-  }
+  };
 
   return (
     <div className={clsx(styles.container)}>
@@ -45,6 +52,9 @@ const SidebarNavigator = ({ tree }: { tree: Tree[] }) => {
         </div>
         <div className={clsx({ [styles.selected]: navigator === "search" })} onClick={() => handleClick("search")}>
           <Image src={searchIcon.src} alt={searchIcon.alt} />
+        </div>
+        <div className={clsx({ [styles.selected]: navigator === "status" })} onClick={() => handleClick("status")}>
+          <Image src={statusIcon.src} alt={statusIcon.alt} />
         </div>
         <div onClick={() => router.push("/")}>
           <Image src={exitIcon.src} alt={exitIcon.alt} />

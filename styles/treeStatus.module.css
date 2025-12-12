@@ -1,0 +1,64 @@
+.save {
+  display: flex;
+  padding: 3.75px
+}
+.save button {
+  cursor: pointer;
+  width: 100%;
+  padding: 5px 15px;
+  border: 0px;
+  border-radius: 2.5px;
+  color: white;
+  background-color: #0078D4;
+  transition: all 50ms;
+}
+
+.changes {
+  display: flex;
+  flex-direction: column;
+  padding: 3.75px;
+  margin-top: 5px;
+  gap: 20px;
+}
+.changes h5 {
+  font-size: 14px;
+}
+
+.list {
+  margin-top: 7.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.list > div {
+  display: flex;
+  max-width: 100%;
+  white-space: nowrap;
+  padding: 1px 7.5px;
+  border-radius: 2.5px;
+  gap: 5px;
+}
+.list p {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inserted {
+  border: 1px solid #3f6d4f;
+  background-color: #57946C;
+}
+.deleted {
+  border: 1px solid #5c261d;
+  background-color: #8E3C2E;
+}
+.updated {
+  border: 1px solid #75644b;
+  background-color: #A68E6A;
+}
+
+@media (hover: hover) {
+  .save button:hover {
+    background-color: #0066b4;
+  }
+}
