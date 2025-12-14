@@ -38,6 +38,8 @@
   border-radius: 2.5px;
   gap: 5px;
   transition: all 50ms;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .list p {
   font-size: 12px;
@@ -86,5 +88,14 @@
   .updated:has(.undo:hover) {
     background-color: #75644b;
     transform: scale(0.975);
+  }
+
+  .inserted:not(:has(.undo)):hover {
+    cursor: pointer;
+    background-color: #3f6d4f;
+  }
+  .deleted:not(:has(.undo)):hover {
+    cursor: pointer;
+    background-color: #5c261d;
   }
 }

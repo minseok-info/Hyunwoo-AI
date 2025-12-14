@@ -42,7 +42,10 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
   }, [name, desc]);
 
   useEffect(() => {
-    if (nodeId === "") return;
+    if (nodeId === "") {
+      setNode(null);
+      return;
+    }
     
     treeUtils.traverseTree(tree, n => {
       if (n.nodeId === nodeId) {

@@ -43,7 +43,7 @@ const Temp = () => {
         const resOnt = j["ontology"] as Ontology;
 
         const resNodes: Node[] = resOnt["nodes"].map((r: any) => ({ ...r, desc: r.description }));
-        const resRels: Relation[] = resOnt["relations"].map((r: any) => ({ ...r, from: r.from_, to: r.to_ }));
+        const resRels: Relation[] = resOnt["relations"].map((r: any) => ({ from: r.from_, to: r.to_, type: r.type }));
 
         newOntology = { nodes: resNodes, relations: resRels };
       });
@@ -122,9 +122,25 @@ const Temp = () => {
     setTreeId(newTreeId);
     setNodeId(newNodeId);
 
+    const nextQuery = { ...query };
+
+    if (newTreeId === "") {
+      delete nextQuery.treeId;
+    }
+    else {
+      nextQuery.treeId = newTreeId;
+    }
+
+    if (newNodeId === "") {
+      delete nextQuery.nodeId;
+    }
+    else {
+      nextQuery.nodeId = newNodeId;
+    }
+
     push({
       pathname: pathname,
-      query: { ...query, treeId: newTreeId, nodeId: newNodeId }
+      query: nextQuery
     }, undefined, { shallow: true });
   };
 

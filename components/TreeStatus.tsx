@@ -12,13 +12,17 @@ const undoIcon = {
 };
 
 const TreeStatus = ({ tree }: { tree: Tree[] }) => {
-  const { oldOntology, saveOntology, setTree } = useContext(TreeContext);
+  const { nodeId, oldOntology, saveOntology, setTree, setId } = useContext(TreeContext);
 
   type NodeStatus = keyof OntologyDifference["nodes"];
-  type RelationStatus = keyof OntologyDifference["relations"];
-  
   type NodeEntry = [Node, NodeStatus];
-  type RelationEntry = [Relation, RelationStatus];
+
+  type RelationWithNames = Relation & {
+    fromName: string;
+    toName: string;
+  };
+  type RelationStatus = keyof OntologyDifference["relations"];
+  type RelationEntry = [RelationWithNames, RelationStatus];
   
   const [nodeEntries, setNodeEntries] = useState<NodeEntry[]>([]);
   const [relationEntries, setRelationEntries] = useState<RelationEntry[]>([]);
@@ -38,6 +42,7 @@ const TreeStatus = ({ tree }: { tree: Tree[] }) => {
     let newTree = [ ...tree ];
     if (status === "inserted") {
       newTree = treeUtils.deleteNode(newTree, node.id);
+      if (nodeId === node.id) setId("", "");
     }
     else if (status === "deleted") {
       const nodeRelations = oldOntology.relations.filter(rel => {
@@ -61,6 +66,21 @@ const TreeStatus = ({ tree }: { tree: Tree[] }) => {
       newTree = treeUtils.updateParents(newTree, prevInform.id, prevParents);
     }
     setTree(newTree);
+  };
+
+  const handleChangeNodeId = (index: number) => {
+    const rel = relationEntries[index][0];
+
+    let treeId: Tree["treeId"] | null = null;
+    treeUtils.traverseTree(tree, n => {
+      if (n.nodeId === rel.to) {
+        treeId = n.treeId;
+        return true;
+      }
+    });
+    if (!treeId) return;
+
+    setId(treeId, rel.to);
   };
   
   useEffect(() => {
@@ -90,7 +110,7 @@ const TreeStatus = ({ tree }: { tree: Tree[] }) => {
     });
     const relMap = Object.entries(relsDiff).flatMap(([status, relations]) => {
       return Object.values(relations).map(v => {
-        return [{ ...v, from: nameMap[v.from], to: nameMap[v.to] }, status] as [Relation, RelationStatus]
+        return [{ ...v, from: v.from, to: v.to, fromName: nameMap[v.from], toName: nameMap[v.to] }, status] as [RelationWithNames, RelationStatus]
       });
     });
 
@@ -121,10 +141,10 @@ const TreeStatus = ({ tree }: { tree: Tree[] }) => {
           <h5>Relations</h5>
           <div className={styles.list}>
             {relationEntries.map(([r, s], i) => (
-              <div className={clsx(statusColorMap[s])} key={i}>
-                <p>{r.to}</p>
+              <div className={clsx(statusColorMap[s])} onClick={() => handleChangeNodeId(i)} key={i}>
+                <p>{ r.toName }</p>
                 <p>into</p>
-                <p>{ r.from }</p>
+                <p>{ r.fromName }</p>
               </div>
             ))}
           </div>
