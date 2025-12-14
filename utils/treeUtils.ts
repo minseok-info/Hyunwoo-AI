@@ -64,17 +64,19 @@ const updateNode = (
 
 const updateParents = (
   tree: Tree[],
-  node: Tree,
   nodeId: Tree["nodeId"],
   newParentIds: Tree["nodeId"][]
 ): Tree[] => {
+  let node: Tree | null = null;
   let isExist = false;
   traverseTree(tree, n => {
     if (n.nodeId === nodeId) {
+      node = n;
       isExist = true;
       return nodeId;
     }
   });
+  if (!node) return tree;
 
   let newTree: Tree[] = tree;
   if (isExist) newTree = deleteNode(tree, nodeId);

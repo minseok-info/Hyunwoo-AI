@@ -4,9 +4,9 @@ const ontologyToTree = (ontology: Ontology): Tree[] => {
   const nodes = ontology.nodes;
   const relations = ontology.relations;
 
-  const nodeMap = new Map<string, Node>(nodes.map(n => [n.id, n]));
+  const nodeMap = new Map<Node["id"], Node>(nodes.map(n => [n.id, n]));
 
-  const childrenMap = new Map<string, Node[]>();
+  const childrenMap = new Map<Node["id"], Node[]>();
   relations.forEach(rel => {
     if (!childrenMap.has(rel.from)) childrenMap.set(rel.from, []);
     childrenMap.get(rel.from)!.push(nodeMap.get(rel.to)!);

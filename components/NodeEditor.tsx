@@ -29,7 +29,6 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
   };
 
   const handleChangeTree = () => {
-    console.log("changed");
     const newTree = treeUtils.updateNode(tree, nodeId, n => {
       return { ...n, name, desc };
     });

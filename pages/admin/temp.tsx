@@ -98,7 +98,6 @@ const Temp = () => {
       else setModalData({ message: "Failed", status: false });
       setModalTrigger(prev => prev + 1);
 
-      setOntology(newOntology);
       initialOntologyRef.current = newOntology;
       isUsingServerRef.current = false;
     }

@@ -37,11 +37,24 @@
   padding: 1px 7.5px;
   border-radius: 2.5px;
   gap: 5px;
+  transition: all 50ms;
 }
 .list p {
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.undo {
+  cursor: pointer;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+.undo img {
+  width: auto;
+  height: 15px;
+  filter: invert(0.75);
 }
 
 .inserted {
@@ -60,5 +73,18 @@
 @media (hover: hover) {
   .save button:hover {
     background-color: #0066b4;
+  }
+  
+  .inserted:has(.undo:hover) {
+    background-color: #3f6d4f;
+    transform: scale(0.975);
+  }
+  .deleted:has(.undo:hover) {
+    background-color: #5c261d;
+    transform: scale(0.975);
+  }
+  .updated:has(.undo:hover) {
+    background-color: #75644b;
+    transform: scale(0.975);
   }
 }
