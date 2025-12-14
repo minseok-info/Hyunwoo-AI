@@ -58,12 +58,13 @@ const TreeStatus = ({ tree }: { tree: Tree[] }) => {
     else if (status === "updated") {
       const prevInform = oldOntology.nodes.filter(n => n.id === node.id)[0];
       const prevRels = oldOntology.relations.filter(r => r.to === node.id);
-      const prevParents = prevRels.map(r => r.from);
+      const prevParentIds = prevRels.map(r => r.from);
       
       newTree = treeUtils.updateNode(newTree, prevInform.id, n => {
         return { ...n, name: prevInform.name, desc: prevInform.desc, tags: prevInform.tags };
       });
-      newTree = treeUtils.updateParents(newTree, prevInform.id, prevParents);
+      
+      if (prevInform.id !== "idBrain") newTree = treeUtils.updateParents(newTree, prevInform.id, [...prevParentIds]);
     }
     setTree(newTree);
   };
