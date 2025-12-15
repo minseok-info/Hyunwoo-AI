@@ -35,7 +35,7 @@ const Temp = () => {
     try {
       const serverUrl = serverUrlRef.current;
       const res = await fetch(`${serverUrl}ontology`, {
-        method: "GET",
+        method: "GET"
       });
       if (!res.ok) return;
 

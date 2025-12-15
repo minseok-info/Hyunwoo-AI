@@ -1,6 +1,8 @@
 import { loadBrainModel, loadHumanModel, loadSpaceModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { ModelNames, ModelTransformParams, ModelType, SectionConfigParams, SectionNames, SectionType } from "@/types/modelParams";
+import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
+import { ontologyToTree } from "@/utils";
 import clsx from "clsx";
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
@@ -18,6 +20,8 @@ const Main = () => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+
+  const cameraTargetRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
 
   const modelsRef = useRef<Record<ModelNames, ModelType>>({
     space: null,
@@ -105,6 +109,35 @@ const Main = () => {
   const tempVec = new THREE.Vector3();
 
   const [title, setTitle] = useState<string>("Hyunwoo.ai");
+  const [tree, setTree] = useState<Tree[]>([]);
+
+  const getOntology = async ()  => {
+    let newOntology: Ontology = { nodes: [], relations: [] };
+
+    try {
+      const serverUrl = "https://hyunwoo-ai-backend.fly.dev/";
+      const response = await fetch(`${serverUrl}ontology`, {
+        method: "GET"
+      });
+      if (!response.ok) return;
+
+      await response.json().then(j => {
+        const resOnt = j["ontology"] as Ontology;
+
+        const resNodes: Node[] = resOnt["nodes"].map((r: any) => ({ ...r, desc: r.description }));
+        const resRels: Relation[] = resOnt["relations"].map((r: any) => ({ from: r.from_, to: r.to_, type: r.type }));
+
+        newOntology = { nodes: resNodes, relations: resRels };
+      });
+    }
+    catch (error) {
+      console.error(error);
+      setTitle("Error");
+    }
+    finally {
+      setTree(ontologyToTree(newOntology));
+    }
+  }
 
   const updateOpacityByDistance = (
     section: ModelType,
@@ -339,6 +372,8 @@ const Main = () => {
     if (!mountRef.current) return;
     let isMounted = true;
 
+    getOntology();
+
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
 
@@ -446,10 +481,16 @@ const Main = () => {
       
       const radius = cameraZoom.current.current;
       const { theta, phi } = cameraRotation.current.current;
-      camera.position.x = radius * Math.sin(theta) * Math.cos(phi);
-      camera.position.y = radius * Math.sin(phi);
-      camera.position.z = radius * Math.cos(theta) * Math.cos(phi);
-      camera.lookAt(0, 0, 0);
+
+      const offsetX = radius * Math.sin(theta) * Math.cos(phi);
+      const offsetY = radius * Math.sin(phi);
+      const offsetZ = radius * Math.cos(theta) * Math.cos(phi);
+      camera.position.set(
+        cameraTargetRef.current.x + offsetX,
+        cameraTargetRef.current.y + offsetY,
+        cameraTargetRef.current.z + offsetZ
+      );
+      camera.lookAt(cameraTargetRef.current);
 
       renderer.render(scene, camera);
     }
