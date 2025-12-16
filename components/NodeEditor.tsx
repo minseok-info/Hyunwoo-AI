@@ -8,6 +8,39 @@ import ParentEditor from "./ParentEditor";
 import TagEditor from "./TagEditor";
 import ChildrenEditor from "./ChildrenEditor";
 import Path from "./Path";
+import ReactMarkDown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+
+const katexSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    "math",
+    "annotation",
+    "semantics",
+    "mrow",
+    "mi",
+    "mn",
+    "mo",
+    "msup",
+    "msub",
+    "mfrac",
+    "sqrt",
+    "span",
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    span: [
+      ...(defaultSchema.attributes?.span || []),
+      ["className"],
+      ["style"],
+    ],
+    math: [["xmlns"]],
+  },
+};
 
 const NodeEditor = ({ tree }: { tree: Tree[] }) => {
   const { nodeId, setTree } = useContext(TreeContext);
@@ -17,6 +50,12 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
 
   const [name, setName] = useState<Tree["name"]>("");
   const [desc, setDesc] = useState<Tree["desc"]>("");
+
+  const [descMode, setDescMode] = useState<"md" | "viewer">("md");
+
+  const handleChangeDescMode = (mode: "md" | "viewer") => {
+    setDescMode(mode);
+  };
 
   const handleChangeName = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
@@ -85,7 +124,20 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
           <TagEditor tree={tree} node={node} />
         </div>
         <div className={clsx(styles.desc)}>
-          <textarea placeholder="New Description" value={desc} onChange={handleChangeDesc} />
+          <div className={clsx(styles.descTool)}>
+            <p className={clsx({ [styles.descToolSelected]: descMode === "md" })} onClick={() => handleChangeDescMode("md")}>MD</p>
+            <p className={clsx({ [styles.descToolSelected]: descMode === "viewer" })} onClick={() => handleChangeDescMode("viewer")}>VIEWER</p>
+          </div>
+          {descMode === "md" && (
+            <textarea placeholder="New Description" value={desc} onChange={handleChangeDesc} />
+          )}
+          {descMode === "viewer" && (
+            <div className={clsx(styles.descViewer)}>
+              <ReactMarkDown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex, [rehypeSanitize, katexSchema]]}>
+                { desc }
+              </ReactMarkDown>
+            </div>
+          )}
         </div>
         <div className={clsx(styles.children)}>
           <ChildrenEditor tree={tree} node={node} />

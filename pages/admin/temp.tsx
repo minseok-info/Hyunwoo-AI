@@ -6,6 +6,7 @@ import { ontologyCompare, ontologyToTree, treeToOntology, treeUtils } from "@/ut
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
+import "katex/dist/katex.min.css"
 
 const Temp = () => {
   const { query, pathname, push } = useRouter();
