@@ -13,6 +13,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import remarkBreaks from "remark-breaks";
 
 const katexSchema = {
   ...defaultSchema,
@@ -133,7 +134,7 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
           )}
           {descMode === "viewer" && (
             <div className={clsx(styles.descViewer)}>
-              <ReactMarkDown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex, [rehypeSanitize, katexSchema]]}>
+              <ReactMarkDown remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]} rehypePlugins={[rehypeKatex, [rehypeSanitize, katexSchema]]}>
                 { desc }
               </ReactMarkDown>
             </div>
