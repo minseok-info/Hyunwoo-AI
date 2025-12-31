@@ -1,8 +1,8 @@
 import { loadBrainModel, loadHumanModel, loadSpaceModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
-import { ModelNames, ModelTransformParams, ModelType, SectionConfigParams, SectionNames, SectionType } from "@/types/modelParams";
+import { BaseSection, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, TransitionSection } from "@/types/modelParams";
 import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
-import { ontologyToTree } from "@/utils";
+import { ontologyToTree, treeUtils } from "@/utils";
 import clsx from "clsx";
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
@@ -23,28 +23,20 @@ const Main = () => {
 
   const cameraTargetRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
 
-  const modelsRef = useRef<Record<ModelNames, ModelType>>({
-    space: null,
-    human: null,
-    brain: null
-  });
-  const modelsTransformAttr: Record<ModelNames, ModelTransformParams> = {
-    space: {
-      posYRatio: 1,
-      posZRatio: 1,
-      visualSizeRatio: 1
-    },
+  const modelsTransformAttr: Record<ModelId, ModelTransformParams> = {
     human: {
+      sizeRatio: 0.01,
+      posXRatio: 0,
       posYRatio: 1.925,
       posZRatio: 7.5,
-      visualSizeRatio: 0.85
     },
     brain: {
-      posYRatio: 2,
+      sizeRatio: 0.145,
+      posXRatio: 0,
+      posYRatio: 2.25,
       posZRatio: 1,
-      visualSizeRatio: 1
     }
-  }
+  };
 
   const isZoomingRef = useRef<boolean>(false);
   const pointerData = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
@@ -57,39 +49,13 @@ const Main = () => {
     startZoom: 500,
     minZoom: 0.1,
     maxZoom: 1500,
-  }
+  };
 
   const MOBILE_CONSTANTS = {
     zoomSpeed: 1
-  }
+  };
 
-  const sectionsRef = useRef<Partial<Record<SectionNames, SectionType>>>({});
-  const sectionsConfig: SectionConfigParams = {
-    human: {
-      minDistance: 10,
-      maxDistance: CAMERA_CONSTANTS.maxZoom,
-      prev: null,
-      next: "brain"
-    },
-    brain: {
-      minDistance: 10,
-      maxDistance: 750,
-      prev: "human",
-      next: null
-    },
-    temp: {
-      minDistance: 0,
-      maxDistance: 0,
-      prev: null,
-      next: null
-    }
-  }
-
-  const prevDistanceRef = useRef<number>(0);
-  const prevSectionRef = useRef<ModelType>(null);
-  const currentSectionNameRef = useRef<SectionNames>("human");
-
-  const cameraZoom = useRef<{
+  const cameraZoomRef = useRef<{
     current: number;
     target: number
   }>({
@@ -107,6 +73,9 @@ const Main = () => {
 
   const tempBox = new THREE.Box3();
   const tempVec = new THREE.Vector3();
+
+  const sectionsRef = useRef<Map<SectionId, Section>>(new Map());
+  const currentSectionIdRef = useRef<SectionId>("");
 
   const [title, setTitle] = useState<string>("Hyunwoo.ai");
   const [tree, setTree] = useState<Tree[]>([]);
@@ -137,22 +106,100 @@ const Main = () => {
     finally {
       setTree(ontologyToTree(newOntology));
     }
-  }
+  };
 
-  const updateOpacityByDistance = (
-    section: ModelType,
-    dist: number,
-    maxDist: number,
-    minDist: number
+  const createModelSection = (
+    id: ModelId,
+    model: THREE.Group,
+    transform: ModelTransformParams,
+  ): ModelSection => {
+    sceneRef.current!.add(model);
+    model.visible = false;
+
+    if (transform.sizeRatio !== undefined) {
+      const baseScale = CAMERA_CONSTANTS.startZoom * transform.sizeRatio;
+      model.scale.setScalar(baseScale);
+    }
+
+    tempBox.setFromObject(model);
+    tempBox.getCenter(tempVec);
+
+    const position = tempVec.clone();
+    position.x *= transform.posXRatio;
+    position.y *= transform.posYRatio;
+    position.z *= transform.posZRatio;
+
+    const { x, y, z } = position;
+    model.position.set(x, -y, z);
+
+    const section: ModelSection = {
+      id: id,
+      kind: "model",
+      group: model,
+      transform: transform
+    };
+
+    sectionsRef.current.set(id, section);
+    return section;
+  };
+
+  const createNodeSection = (node: Tree) => {
+    if (!sceneRef.current) return;
+
+    const children = node.children;
+    const group = new THREE.Group();
+
+    const randomColor = (max = 0.8): THREE.Color => {
+      return new THREE.Color(
+        Math.random() * max,
+        Math.random() * max,
+        Math.random() * max
+      );
+    };
+
+    for (const c of children) {
+      const geometry = new THREE.SphereGeometry(500, 32, 32);
+      const material = new THREE.MeshStandardMaterial({
+        color: randomColor()
+      });
+
+      const u = Math.random();
+      const v = Math.random();
+      const theta = 2 * Math.PI * u;
+      const phi = Math.acos(2 * v - 1);
+      const r = Math.cbrt(Math.random()) * 2500;
+
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = r * Math.sin(phi) * Math.sin(theta);
+      const z = r * Math.cos(phi);
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.name = c.nodeId;
+      mesh.position.set(x, y, z);
+
+      group.add(mesh);
+    };
+
+    const id = node.nodeId;
+    const section: NodeSection = {
+      id: id,
+      kind: "node",
+      group: group
+    };
+    sectionsRef.current.set(id, section);
+    group.scale.setScalar(0.01);
+
+    sceneRef.current.add(section.group);
+  };
+
+  const setSectionOpacity = (
+    section: Section,
+    opacity: number
   ) => {
-    if (!section) return;
-    if (dist <= minDist && section.visible === false) return;
+    if (opacity > 1 || opacity < 0) return;
 
-    const t = THREE.MathUtils.clamp((dist - maxDist) / (minDist - maxDist), 0, 1);
-    const opacity = 1 - t;
-
-    section.visible = opacity > 0;
-    section.traverse((child) => {
+    section.group.visible = opacity > 0;
+    section.group.traverse(child => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
         const materials = Array.isArray(mesh.material)
@@ -160,10 +207,11 @@ const Main = () => {
           : [mesh.material];
 
         materials.forEach(mat => {
-          const m = mat as THREE.MeshStandardMaterial & { opacity?: number; transparent?: boolean };
-          m.opacity = opacity;
-          m.transparent = opacity < 1;
-          m.needsUpdate = true;
+          if (!("opacity" in mat)) return;
+
+          mat.opacity = opacity;
+          mat.transparent = opacity < 1;
+          mat.needsUpdate = true;
         });
       }
       else if ((child as THREE.LineSegments).isLineSegments) {
@@ -173,122 +221,58 @@ const Main = () => {
         if (mat) {
           mat.opacity = opacity;
           mat.transparent = opacity < 1;
-          mat.needsupdate = true;
+          mat.needsUpdate = true;
         }
       }
     });
+  };
+
+  const getOpacity = (distance: number, section: TransitionSection): number => {
+    if (!section) return 1;
+
+    const min = section.range[0];
+    const max = section.range[1];
+
+    const t = THREE.MathUtils.inverseLerp(min, max, distance);
+    return t;
   }
 
-  const updateSections = () => {
-    const sectionName = currentSectionNameRef.current;
-    if (!cameraRef.current || !sectionsRef.current[sectionName]) return;
+  const updateSection = () => {
+    const currentZoom = cameraZoomRef.current.current;
+    const targetZoom = cameraZoomRef.current.target;
+    const zoomOffset = 1;
 
-    const camera = cameraRef.current;
+    const currentSectionId = currentSectionIdRef.current;
+    const currentSection = sectionsRef.current.get(currentSectionId);
+    if (!currentSection) return;
 
-    const section = sectionsRef.current[sectionName];
-    const isModel = section instanceof THREE.Group;
+    const next = currentSection.next;
+    const prev = currentSection.prev;
 
-    const attr = isModel
-      ? modelsTransformAttr[sectionName as ModelNames]
-      : null;
-    const config = sectionsConfig[sectionName];
+    if ((currentZoom > targetZoom + zoomOffset) || (currentZoom < targetZoom - zoomOffset)) {
+      if (next) {
+        const t = getOpacity(currentZoom, next);
+        setSectionOpacity(currentSection, t);
 
-    tempBox.setFromObject(section);
-    const closestPoint = tempBox.clampPoint(camera.position, tempVec);
-    const adjustedPoint = attr
-      ? closestPoint.clone().multiplyScalar(attr.visualSizeRatio)
-      : closestPoint;
-
-    const modelDistance = camera.position.distanceTo(adjustedPoint);
-    const currentDistance = cameraZoom.current.current;
-
-    if (prevSectionRef.current) {
-      const maxDist = config.maxDistance;
-      const minDist = maxDist - (maxDist / 7.5);
-      updateOpacityByDistance(prevSectionRef.current, currentDistance, maxDist, minDist);
-    }
-
-    if (modelDistance < config.minDistance) {
-      if (!config.next) return;
-      const nextConfig = sectionsConfig[config.next];
-      console.log("next");
-
-      const zoomScaleFactor = nextConfig.maxDistance / currentDistance;
-      const currentScale = section.scale.x;
-      const adjustedScale = zoomScaleFactor * currentScale;
-      section.scale.setScalar(adjustedScale);
-
-      tempBox.setFromObject(section);
-      tempBox.getCenter(tempVec);
-
-      const position = tempVec.clone().sub(section.position);
-      position.y *= attr?.posYRatio ?? 1;
-      position.z *= attr?.posZRatio ?? 1;
-      
-      const { x, y, z } = position;
-      section.position.set(x, -y, z);
-
-      const nextSection = sectionsRef.current[config.next];
-      if (nextSection) {
-        nextSection.visible = true;
-        currentSectionNameRef.current = config.next;
+        console.log(t);
       }
-
-      prevDistanceRef.current = currentDistance;
-      prevSectionRef.current = section;
-
-      const remainDistance = (currentDistance - cameraZoom.current.target) * 2;
-      cameraZoom.current.current = nextConfig.maxDistance;
-      cameraZoom.current.target = nextConfig.maxDistance - remainDistance;
+      if (prev) {
+        const t = getOpacity(currentZoom, prev);
+        setSectionOpacity(prev.section, t);
+      }
     }
-    else if (currentDistance > config.maxDistance) {
-      if (!config.prev || !prevSectionRef.current) return;
-      const prevSection = prevSectionRef.current;
-      const prevIsModel = prevSection instanceof THREE.Group;
-      const prevAttr = prevIsModel
-        ? modelsTransformAttr[config.prev as ModelNames]
-        : null;
-      const prevConfig = sectionsConfig[config.prev];
-      const prevDistance = prevDistanceRef.current;
-      console.log("prev");
-
-      const zoomScaleFactor = prevDistance / currentDistance;
-      const currentScale = prevSection.scale.x;
-      const adjustedScale = zoomScaleFactor * currentScale;
-      prevSection.scale.setScalar(adjustedScale);
-
-      tempBox.setFromObject(prevSection);
-      tempBox.getCenter(tempVec);
-
-      const position = tempVec.clone().sub(prevSection.position);
-      position.y *= prevAttr?.posYRatio ?? 1;
-      position.z *= prevAttr?.posZRatio ?? 1;
-
-      const { x, y, z } = position;
-      prevSection.position.set(x, -y , z);
-
-      section.visible = false;
-      prevSectionRef.current = prevConfig.prev
-        ? sectionsRef.current[prevConfig.prev] ?? null
-        : null;
-      currentSectionNameRef.current = config.prev;
-
-      const remainDistance = (currentDistance - cameraZoom.current.target) / 4;
-      cameraZoom.current.current = prevDistance;
-      cameraZoom.current.target = prevDistance - remainDistance;
-    }
-  }
+  };
 
   const handleWheel = (event: WheelEvent) => {
     if (!cameraRef.current) return;
     event.preventDefault();
 
-    const factor = cameraZoom.current.current / CAMERA_CONSTANTS.startZoom;
+    const factor = cameraZoomRef.current.current / CAMERA_CONSTANTS.startZoom;
     const delta = event.deltaY;
     const normalizedDelta = delta * factor * CAMERA_CONSTANTS.zoomSpeed;
 
-    cameraZoom.current.target = THREE.MathUtils.clamp(
-      cameraZoom.current.target + normalizedDelta,
+    cameraZoomRef.current.target = THREE.MathUtils.clamp(
+      cameraZoomRef.current.target + normalizedDelta,
       CAMERA_CONSTANTS.minZoom,
       CAMERA_CONSTANTS.maxZoom
     );
@@ -299,7 +283,7 @@ const Main = () => {
     event.preventDefault();
 
     pointerData.current = { x: event.clientX, y: event.clientY };
-  }
+  };
 
   const handlePointerMove = (event: PointerEvent) => {
     if (isZoomingRef.current) return;
@@ -318,11 +302,11 @@ const Main = () => {
     );
 
     pointerData.current = { x: event.clientX, y: event.clientY };
-  }
+  };
 
   const handlePointerUp = () => {
     pointerData.current = { x: null, y: null };
-  }
+  };
 
   const handleTouchStart = (event: TouchEvent) => {
     event.preventDefault();
@@ -335,7 +319,7 @@ const Main = () => {
       const dy = touches[0].clientY - touches[1].clientY;
       touchData.current.prevDistance = Math.hypot(dx, dy);
     }
-  }
+  };
 
   const handleTouchMove = (event: TouchEvent) => {
     event.preventDefault();
@@ -346,19 +330,19 @@ const Main = () => {
       const dy = touches[0].clientY - touches[1].clientY;
       const distance = Math.hypot(dx, dy);
 
-      const factor = cameraZoom.current.current / CAMERA_CONSTANTS.startZoom;
+      const factor = cameraZoomRef.current.current / CAMERA_CONSTANTS.startZoom;
       const delta = (touchData.current.prevDistance - distance);
       const normalizedDelta = delta * factor * MOBILE_CONSTANTS.zoomSpeed;
 
-      cameraZoom.current.target = THREE.MathUtils.clamp(
-        cameraZoom.current.target + normalizedDelta,
+      cameraZoomRef.current.target = THREE.MathUtils.clamp(
+        cameraZoomRef.current.target + normalizedDelta,
         CAMERA_CONSTANTS.minZoom,
         CAMERA_CONSTANTS.maxZoom
       );
 
       touchData.current.prevDistance = distance;
     }
-  }
+  };
 
   const handleTouchEnd = (event: TouchEvent) => {
     const touches = event.touches;
@@ -366,7 +350,16 @@ const Main = () => {
       isZoomingRef.current = false;
       touchData.current.prevDistance = null;
     }
-  }
+  };
+
+  useEffect(() => {
+    if (tree.length < 1) return;
+
+    const left = treeUtils.getNode(tree, "idLeft");
+    if (!left) return;
+
+    createNodeSection(left);
+  }, [tree]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -402,38 +395,58 @@ const Main = () => {
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 3);
     scene.add(ambientLight);
-    
+
+    const createIntialSections = ({
+      spaceModel,
+      humanModel,
+      brainModel
+    }: {
+      spaceModel: THREE.Group,
+      humanModel: THREE.Group,
+      brainModel: THREE.Group
+    }) => {
+      scene.add(spaceModel);
+
+      const humanSection = createModelSection("human", humanModel, modelsTransformAttr.human);
+      const brainSection = createModelSection("brain", brainModel, modelsTransformAttr.brain);
+
+      humanSection.next = {
+        section: brainSection,
+        range: [70, 90]
+      };
+      brainSection.prev = {
+        section: humanSection,
+        range: [700, 800]
+      };
+
+      brainModel.visible = true;
+      humanModel.visible = true;
+      currentSectionIdRef.current = "human";
+
+      setSectionOpacity(humanSection, 1);
+      setSectionOpacity(brainSection, 1);
+    };
+
     const loadModels = async () => {
       try {
         const loader = new GLTFLoader();
         const [spaceModel, humanModel, brainModel] = await Promise.all([
-          loadSpaceModel({ loader: loader, scene: scene, distance: CAMERA_CONSTANTS.startZoom }),
-          loadHumanModel({ loader: loader, scene: scene, distance: CAMERA_CONSTANTS.startZoom }),
-          loadBrainModel({ loader: loader, scene: scene, distance: CAMERA_CONSTANTS.startZoom })
+          loadSpaceModel({ loader }),
+          loadHumanModel({ loader }),
+          loadBrainModel({ loader })
         ]);
-  
-        modelsRef.current = {
-          space: spaceModel,
-          human: humanModel,
-          brain: brainModel
-        };
 
-        sectionsRef.current = {
-          human: humanModel,
-          brain: brainModel
-        };
-
-        const boundingBox = tempBox.setFromObject(spaceModel!);
+        const boundingBox = tempBox.setFromObject(spaceModel);
         boundingBox.getSize(tempVec);
-
-        const maxSize = Math.max(tempVec.x, tempVec.y, tempVec.z);
-        camera.far = maxSize;
+        camera.far = Math.max(tempVec.x, tempVec.y, tempVec.z);
         camera.updateProjectionMatrix();
+
+        createIntialSections({ spaceModel, humanModel, brainModel });
       }
       catch (error) {
         console.error(error);
       }
-    }
+    };
     loadModels();
 
     mountRef.current.addEventListener("wheel", handleWheel, { passive: false });
@@ -458,12 +471,12 @@ const Main = () => {
     const animate = () => {
       if (!isMounted) return;
       requestAnimationFrame(animate);
-      updateSections();
+      updateSection();
       
       const zoomDampingFactor = 0.075;
-      cameraZoom.current.current = THREE.MathUtils.lerp(
-        cameraZoom.current.current,
-        cameraZoom.current.target,
+      cameraZoomRef.current.current = THREE.MathUtils.lerp(
+        cameraZoomRef.current.current,
+        cameraZoomRef.current.target,
         zoomDampingFactor
       );
 
@@ -479,7 +492,7 @@ const Main = () => {
         rotateDampingFactor
       );
       
-      const radius = cameraZoom.current.current;
+      const radius = cameraZoomRef.current.current;
       const { theta, phi } = cameraRotation.current.current;
 
       const offsetX = radius * Math.sin(theta) * Math.cos(phi);
@@ -528,6 +541,6 @@ const Main = () => {
       <div ref={mountRef} className={clsx(styles.fullScreen)} />
     </React.Fragment>
   );
-}
+};
 
 export default Main;

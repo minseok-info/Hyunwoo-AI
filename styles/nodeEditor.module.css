@@ -250,9 +250,22 @@
   background-color: var(--darkTheme);
   overflow-y: auto;
 }
+.descViewer h1 {
+  font-size: 24px;
+  color: var(--text);
+  margin: 5px 0px;
+}
 .descViewer p {
   font-size: 14px;
   color: var(--text);
+  margin: 5px 0px;
+}
+.descViewer p:has(img) {
+  display: flex;
+  flex-direction: column;
+}
+.descViewer img {
+  margin: 10px 0px;
 }
 
 .descToolSelected {

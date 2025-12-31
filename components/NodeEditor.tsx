@@ -31,15 +31,21 @@ const katexSchema = {
     "mfrac",
     "sqrt",
     "span",
+    "img"
   ],
   attributes: {
     ...defaultSchema.attributes,
     span: [
       ...(defaultSchema.attributes?.span || []),
       ["className"],
-      ["style"],
+      ["style"]
     ],
     math: [["xmlns"]],
+    img: [
+      ["src"],
+      ["alt"],
+      ["title"]
+    ]
   },
 };
 
@@ -47,12 +53,33 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
   const { nodeId, setTree } = useContext(TreeContext);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const [node, setNode] = useState<Tree | null>(null);
 
   const [name, setName] = useState<Tree["name"]>("");
   const [desc, setDesc] = useState<Tree["desc"]>("");
 
   const [descMode, setDescMode] = useState<"md" | "viewer">("md");
+
+  const insertAtCursor = (text: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const { selectionStart, selectionEnd } = textarea;
+
+    setDesc(prev =>
+      prev.slice(0, selectionStart)
+      + text
+      + prev.slice(selectionEnd)
+    );
+
+    requestAnimationFrame(() => {
+      textarea.selectionStart =
+        textarea.selectionEnd =
+          selectionStart + text.length;
+    });
+  };
 
   const handleChangeDescMode = (mode: "md" | "viewer") => {
     setDescMode(mode);
@@ -73,6 +100,25 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
       return { ...n, name, desc };
     });
     setTree(newTree);
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const text = event.clipboardData.getData("text/plain");
+    const driveRegex = /https:\/\/drive\.google\.com\/file\/d\/([^/]+)/;
+
+    if (text.includes("drive.google.com/file/d/")) {
+      const match = text.match(driveRegex);
+      const fileId = match?.[1];
+
+      if (fileId) {
+        event.preventDefault();
+
+        const  markdownIMG = "![image name]";
+        const googleDrvieCDN = "https://lh3.googleusercontent.com/d/";
+        const normalizedText = `${markdownIMG}(${googleDrvieCDN}${fileId}=w1200)`;
+        insertAtCursor(normalizedText);
+      }
+    }
   };
 
   useEffect(() => {
@@ -130,7 +176,7 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
             <p className={clsx({ [styles.descToolSelected]: descMode === "viewer" })} onClick={() => handleChangeDescMode("viewer")}>VIEWER</p>
           </div>
           {descMode === "md" && (
-            <textarea placeholder="New Description" value={desc} onChange={handleChangeDesc} />
+            <textarea ref={textareaRef} placeholder="New Description" value={desc} onChange={handleChangeDesc} onPaste={handlePaste} />
           )}
           {descMode === "viewer" && (
             <div className={clsx(styles.descViewer)}>

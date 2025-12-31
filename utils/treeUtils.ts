@@ -20,6 +20,16 @@ const traverseTree = <R = any>(
   return dfs(tree);
 };
 
+const getNode = (
+  tree: Tree[],
+  targetNodeId: Tree["nodeId"]
+): Tree | undefined => {
+  const targetNode = traverseTree(tree, n => {
+    if (n.nodeId === targetNodeId) return n;
+  });
+  return targetNode;
+};
+
 const insertNode = (
   tree: Tree[],
   parentId: Tree["nodeId"],
@@ -97,6 +107,7 @@ const cloneWithNewTreeIds = (node: Tree): Tree => {
 
 export default {
   traverseTree,
+  getNode,
   insertNode,
   deleteNode,
   updateNode,

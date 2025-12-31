@@ -1,28 +1,10 @@
-import { LoadModelParams, ModelType } from "@/types/modelParams";
+import { LoadModelParams } from "@/types/modelParams";
 import * as THREE from "three";
 
-const loadHumanModel = ({
-  loader,
-  scene,
-  distance,
-  ratio = 0.01
-}: LoadModelParams): Promise<ModelType> => {
+const loadHumanModel = ({ loader }: LoadModelParams): Promise<THREE.Group> => {
   return new Promise((resolve, reject) => {
     loader.load("/three/models/human.glb", gltf => {
       const model = gltf.scene;
-      model.name = "human";
-      model.scale.setScalar(distance * ratio);
-  
-      const boundingBox = new THREE.Box3().setFromObject(model);
-      const centerVector = new THREE.Vector3();
-      boundingBox.getCenter(centerVector);
-  
-      const position = centerVector.clone();
-      position.y *= 1.925;
-      position.z *= 7.5;
-  
-      const { x, y, z } = position;
-      model.position.set(x, -y, z);
   
       model.traverse(child => {
         if (!(child as THREE.Mesh).isMesh) return;
@@ -51,7 +33,6 @@ const loadHumanModel = ({
         });
       });
   
-      scene.add(model);
       resolve(model);
     }, undefined, error => reject(error));
   });

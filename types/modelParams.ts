@@ -1,29 +1,43 @@
 import { GLTFLoader } from "three/examples/jsm/Addons.js"
 import * as THREE from "three";
 
-export type ModelNames = "space" | "human" | "brain"
-export type ModelType = THREE.Object3D | null
-export type ModelTransformParams = {
-  posYRatio: number
-  posZRatio: number
-  visualSizeRatio: number
-}
-
 export type LoadModelParams = {
   loader: GLTFLoader
-  scene: THREE.Scene
-  distance: number
-  ratio?: number
 }
 
-export type SectionNames = Exclude<ModelNames, "space"> | "temp"
-export type SectionType = ModelType
-export type SectionConfigParams = Record<
-  SectionNames,
-  {
-    minDistance: number
-    maxDistance: number
-    prev: SectionNames | null
-    next: SectionNames | null
-  }
->
+export type ModelId = "human" | "brain"
+export type ModelTransformParams = {
+  sizeRatio?: number
+  posXRatio: number
+  posYRatio: number
+  posZRatio: number
+}
+
+export type SectionId = string
+export type SectionKind = "model" | "tree" | "node"
+export interface TransitionSection {
+  section: BaseSection
+  range: number[]
+}
+export interface BaseSection {
+  id: SectionId
+  kind: SectionKind
+  group: THREE.Group
+  next?: TransitionSection
+  prev?: TransitionSection
+}
+
+export interface ModelSection extends BaseSection {
+  id: ModelId
+  kind: "model"
+  transform: ModelTransformParams
+}
+
+export interface NodeSection extends BaseSection {
+  kind: "node"
+}
+
+export type Section =
+  | BaseSection
+  | ModelSection
+  | NodeSection
