@@ -31,7 +31,9 @@ const katexSchema = {
     "mfrac",
     "sqrt",
     "span",
-    "img"
+    "img",
+    "ol",
+    "li"
   ],
   attributes: {
     ...defaultSchema.attributes,
@@ -45,6 +47,10 @@ const katexSchema = {
       ["src"],
       ["alt"],
       ["title"]
+    ],
+    ol: [
+      ...(defaultSchema.attributes?.ol || []),
+      ["start"]
     ]
   },
 };

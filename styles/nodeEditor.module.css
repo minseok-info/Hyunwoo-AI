@@ -267,6 +267,15 @@
 .descViewer img {
   margin: 10px 0px;
 }
+.descViewer ol, .descViewer ul {
+  margin-left: 1.25em;
+}
+.descViewer ol:not(:nth-child(1)) {
+  margin-top: 15px;
+}
+.descViewer ul {
+  list-style-position: inside;
+}
 
 .descToolSelected {
   background-color: var(--selected);
