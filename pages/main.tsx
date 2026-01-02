@@ -227,7 +227,7 @@ const Main = () => {
     });
   };
 
-  const getOpacity = (distance: number, section: TransitionSection): number => {
+  const calcOpacity = (distance: number, section: TransitionSection): number => {
     if (!section) return 1;
 
     const min = section.range[0];
@@ -251,13 +251,15 @@ const Main = () => {
 
     if ((currentZoom > targetZoom + zoomOffset) || (currentZoom < targetZoom - zoomOffset)) {
       if (next) {
-        const t = getOpacity(currentZoom, next);
+        const t = calcOpacity(currentZoom, next);
         setSectionOpacity(currentSection, t);
 
-        console.log(t);
+        if (t <= 0) {
+          console.log("reset");
+        }
       }
       if (prev) {
-        const t = getOpacity(currentZoom, prev);
+        const t = calcOpacity(currentZoom, prev);
         setSectionOpacity(prev.section, t);
       }
     }

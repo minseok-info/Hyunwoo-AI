@@ -21,6 +21,7 @@ const Temp = () => {
   const [treeId, setTreeId] = useState<Tree["treeId"]>("");
   const [nodePath, setNodePath] = useState<Tree[]>([]);
   const [tree, setTree] = useState<Tree[]>([]);
+  const [sortedTree, setSortedTree] = useState<Tree[]>([]);
 
   const [nodeId, setNodeId] = useState<Tree["nodeId"]>("");
 
@@ -159,7 +160,11 @@ const Temp = () => {
   }, [query.nodeId]);
 
   useEffect(() => {
-    treeRef.current = tree;
+    if (tree.length < 1) return;
+
+    const sorted = treeUtils.sortTree(tree);
+    treeRef.current = sorted;
+    setSortedTree(sorted);
   }, [tree]);
 
   useEffect(() => {
@@ -186,8 +191,8 @@ const Temp = () => {
   return (
     <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)}>
       <TreeContext.Provider value={{ treeId: treeId, nodePath: nodePath, nodeId: nodeId, oldOntology: ontology!, setTree: handleSetTree, setId: handleSetId, saveOntology: saveOntology }}>
-        <SidebarNavigator tree={tree} />
-        <NodeEditor tree={tree} />
+        <SidebarNavigator tree={sortedTree} />
+        <NodeEditor tree={sortedTree} />
       </TreeContext.Provider>
       <Modal data={modalData} trigger={modalTrigger} duration={2000} />
     </div>

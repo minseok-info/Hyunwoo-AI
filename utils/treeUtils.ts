@@ -14,10 +14,45 @@ const traverseTree = <R = any>(
         if (childResult !== undefined) return childResult;
       }
     }
-    return undefined
-  }
+    return undefined;
+  };
 
   return dfs(tree);
+};
+
+const sortTree = (
+  tree: Tree[]
+): Tree[] => {
+  if (tree.length === 0) return tree;
+
+  const compareNodes = (a: Tree, b: Tree) => {
+    const aHasChildren = a.children && a.children.length > 0;
+    const bHasChildren = b.children && b.children.length > 0;
+
+    if (aHasChildren !== bHasChildren) {
+      return aHasChildren ? -1 : 1;
+    }
+
+    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  };
+
+  const dfs = (node: Tree): Tree => {
+    if (!node.children || node.children.length === 0) {
+      return { ...node };
+    }
+
+    const sortedChildren = node.children
+      .map(dfs)
+      .slice()
+      .sort(compareNodes);
+
+    return {
+      ...node,
+      children: sortedChildren
+    };
+  };
+
+  return [dfs(tree[0])];
 };
 
 const getNode = (
@@ -107,6 +142,7 @@ const cloneWithNewTreeIds = (node: Tree): Tree => {
 
 export default {
   traverseTree,
+  sortTree,
   getNode,
   insertNode,
   deleteNode,
