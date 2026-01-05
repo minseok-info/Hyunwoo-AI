@@ -29,6 +29,15 @@
   filter: invert(0.75);
 }
 
+.name {
+  overflow: hidden;
+}
+.name > p {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .selected {
   background-color: var(--selected);
 }
