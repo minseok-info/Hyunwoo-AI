@@ -29,7 +29,7 @@ const TreeFile = ({ node, depth }: { node: Tree, depth: number }) => {
       <div>
         <Image src={fileIcon.src} alt={fileIcon.alt} />
       </div>
-      <div>
+      <div className={clsx(styles.name)}>
         <p>{ node.name }</p>
       </div>
     </div>
