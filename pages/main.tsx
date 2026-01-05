@@ -8,6 +8,7 @@ import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/Addons.js";
+import RAGChatContainer from "@/components/RAGChatContainer";
 
 const githubIcon = {
   src: require("@/public/icons/github.svg"),
@@ -641,6 +642,7 @@ const Main = () => {
         </div>
       </div>
       <div ref={mountRef} className={clsx(styles.fullScreen)} />
+      <RAGChatContainer />
     </React.Fragment>
   );
 };
