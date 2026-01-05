@@ -16,6 +16,7 @@ const loadBrainModel = ({ loader }: LoadModelParams): Promise<THREE.Group> => {
         if (!(child as THREE.Mesh).isMesh) return;
 
         const mesh = child as THREE.Mesh;
+        mesh.renderOrder = 99;
         mesh.material = new THREE.MeshStandardMaterial({
           vertexColors: true,
           roughness: 0.25,

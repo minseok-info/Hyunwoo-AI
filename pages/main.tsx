@@ -174,6 +174,7 @@ const Main = () => {
       const z = r * Math.cos(phi);
 
       const mesh = new THREE.Mesh(geometry, material);
+      mesh.renderOrder = 100;
       mesh.name = c.nodeId;
       mesh.position.set(x, y, z);
 
@@ -187,8 +188,8 @@ const Main = () => {
       group: group
     };
     sectionsRef.current.set(id, section);
-    group.scale.setScalar(0.01);
 
+    group.visible = false;
     sceneRef.current.add(section.group);
   };
 
@@ -196,7 +197,7 @@ const Main = () => {
     section: Section,
     opacity: number
   ) => {
-    if (opacity > 1 || opacity < 0) return;
+    if (opacity > 1.5 || opacity < -0.5) return;
 
     section.group.visible = opacity > 0;
     section.group.traverse(child => {
@@ -235,32 +236,130 @@ const Main = () => {
 
     const t = THREE.MathUtils.inverseLerp(min, max, distance);
     return t;
-  }
+  };
+
+  const setCameraZoom = (
+    zoom: number
+  ) => {
+    const cameraZoom = cameraZoomRef.current;
+    cameraZoom.current = zoom;
+    cameraZoom.target = zoom;
+  };
+
+  const setSectionSizeByZoom = (
+    section: Section,
+    currentZoom: number,
+    targetZoom: number
+  ) => {
+    const ratio = targetZoom / currentZoom;
+    section.group.scale.multiplyScalar(ratio);
+
+    if (section.kind === "model") {
+      const transform = (section as ModelSection).transform;
+      tempBox.setFromObject(section.group);
+      tempBox.getCenter(tempVec);
+
+      const position = tempVec.clone().sub(section.group.position);
+      position.x *= transform.posXRatio;
+      position.y *= transform.posYRatio;
+      position.z *= transform.posZRatio;
+
+      const { x, y, z } = position;
+      section.group.position.set(x, -y, z);
+    }
+  };
+
+  const setSectionToTarget = (section: Section, direction: "prev" | "next") => {
+    const target = section[direction]!;
+
+    const cameraZoom = cameraZoomRef.current;
+    const currentZoom = cameraZoom.current;
+    
+    const resetZoom = direction === "next"
+      ? target.section.prev!.range[0]
+      : target.section.next!.range[1];
+
+    setCameraZoom(resetZoom);
+
+    setSectionSizeByZoom(section, currentZoom, resetZoom);
+    setSectionSizeByZoom(target.section, currentZoom, resetZoom);
+
+    currentSectionIdRef.current = target.section.id;
+  };
+
+  const getZoomDirection = (
+    current: number,
+    target: number,
+    offset: number
+  ): "in" | "out" | "idle" => {
+    if (current > target + offset) return "in";
+    if (current < target - offset) return "out";
+    return "idle";
+  };
+
+  const getAngle = (): "left" | "right" => {
+    const camera = cameraRef.current!;
+    const target = new THREE.Vector3(0, 0, 0);
+    const direction = new THREE.Vector3().subVectors(camera.position, target);
+
+    direction.y = 0;
+    direction.normalize();
+
+    const angle = Math.atan2(direction.x, direction.z);
+    return angle < 0 ? "left" : "right";
+  };
 
   const updateSection = () => {
-    const currentZoom = cameraZoomRef.current.current;
-    const targetZoom = cameraZoomRef.current.target;
+    const { current, target } = cameraZoomRef.current;
     const zoomOffset = 1;
+
+    const direction = getZoomDirection(current, target, zoomOffset);
+    if (direction === "idle") return;
 
     const currentSectionId = currentSectionIdRef.current;
     const currentSection = sectionsRef.current.get(currentSectionId);
     if (!currentSection) return;
 
+    const isEnteringBrain = direction === "in"
+      && currentSectionId === "brain"
+      && current > (currentSection.next?.range[1] ?? 0);
+
+    if (isEnteringBrain) {
+      const angle = getAngle();
+      const nextSectionId = angle === "left"
+        ? "idLeft"
+        : "idRight";
+      
+      const nextSection = sectionsRef.current.get(nextSectionId)!;
+      nextSection.prev = {
+        section: currentSection,
+        range: [600, 800]
+      };
+      currentSection.next = {
+        section: nextSection,
+        range: [300, 400]
+      };
+    }
+
     const next = currentSection.next;
     const prev = currentSection.prev;
 
-    if ((currentZoom > targetZoom + zoomOffset) || (currentZoom < targetZoom - zoomOffset)) {
-      if (next) {
-        const t = calcOpacity(currentZoom, next);
-        setSectionOpacity(currentSection, t);
+    if (next) {
+      const t = calcOpacity(current, next);
+      setSectionOpacity(currentSection, t);
+      setSectionOpacity(next.section, 1 - t);
 
-        if (t <= 0) {
-          console.log("reset");
-        }
+      if (t <= 0) {
+        setSectionToTarget(currentSection, "next");
       }
-      if (prev) {
-        const t = calcOpacity(currentZoom, prev);
-        setSectionOpacity(prev.section, t);
+    }
+    if (prev) {
+      const t = calcOpacity(current, prev);
+      setSectionOpacity(currentSection, 1 - t);
+      setSectionOpacity(prev.section, t);
+
+      if (t >= 1) {
+        setSectionToTarget(currentSection, "prev");
       }
     }
   };
@@ -358,9 +457,10 @@ const Main = () => {
     if (tree.length < 1) return;
 
     const left = treeUtils.getNode(tree, "idLeft");
-    if (!left) return;
+    if (left) createNodeSection(left);
 
-    createNodeSection(left);
+    const right = treeUtils.getNode(tree, "idRight");
+    if (right) createNodeSection(right);
   }, [tree]);
 
   useEffect(() => {
@@ -418,7 +518,7 @@ const Main = () => {
       };
       brainSection.prev = {
         section: humanSection,
-        range: [700, 800]
+        range: [600, 800]
       };
 
       brainModel.visible = true;

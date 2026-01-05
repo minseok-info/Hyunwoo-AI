@@ -10,8 +10,9 @@ const loadHumanModel = ({ loader }: LoadModelParams): Promise<THREE.Group> => {
         if (!(child as THREE.Mesh).isMesh) return;
         
         const mesh = child as THREE.Mesh;
-        const geometry = mesh.geometry;
+        mesh.renderOrder = 100;
 
+        const geometry = mesh.geometry;
         const edgesGeometry = new THREE.EdgesGeometry(geometry, 15);
         const lineMaterial = new THREE.LineBasicMaterial({
           color: 0xcccccc,
