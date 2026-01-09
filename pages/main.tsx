@@ -1,6 +1,7 @@
+import { OntologyNavigator } from "@/components";
 import { loadBrainModel, loadHumanModel, loadSpaceModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
-import { BaseSection, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, TransitionSection } from "@/types/modelParams";
+import { BaseSection, BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
 import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
 import { ontologyToTree, treeUtils } from "@/utils";
 import clsx from "clsx";
@@ -12,7 +13,35 @@ import { GLTFLoader } from "three/examples/jsm/Addons.js";
 const githubIcon = {
   src: require("@/public/icons/github.svg"),
   alt: "github"
-}
+};
+
+const modelsTransformAttr: Record<ModelId, ModelTransformParams> = {
+  idHuman: {
+    sizeRatio: 0.01,
+    posXRatio: 0,
+    posYRatio: 1.925,
+    posZRatio: 7.5,
+  },
+  idBrain: {
+    sizeRatio: 0.145,
+    posXRatio: 0,
+    posYRatio: 2.25,
+    posZRatio: 1,
+  }
+};
+
+const CAEMRA_POSITION = 500;
+
+const ZOOM_SENSITIVITY = 0.035;
+const ROTATE_SENSITIVITY = 0.005;
+
+const ZOOM_SPEED = 0.05;
+const ROTATE_SPEED = 0.05;
+const MOVE_SPEED = 0.05;
+
+const START_SCALE = 1;
+const MIN_SCALE = 0.1;
+const MAX_SCALE = 1500;
 
 const Main = () => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -21,30 +50,16 @@ const Main = () => {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
-  const cameraTargetRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
-
-  const modelsTransformAttr: Record<ModelId, ModelTransformParams> = {
-    human: {
-      sizeRatio: 0.01,
-      posXRatio: 0,
-      posYRatio: 1.925,
-      posZRatio: 7.5,
-    },
-    brain: {
-      sizeRatio: 0.145,
-      posXRatio: 0,
-      posYRatio: 2.25,
-      posZRatio: 1,
-    }
-  };
-
   const isZoomingRef = useRef<boolean>(false);
   const pointerData = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
   const touchData = useRef<{ prevDistance: number | null }>({ prevDistance: null });
 
+  const centerVector = new THREE.Vector3(0, 0, 0);
+
   const CAMERA_CONSTANTS = {
     fov: 75,
     rotateSpeed: 0.005,
+    minDelta: 3.5,
     zoomSpeed: 0.15,
     startZoom: 500,
     minZoom: 0.1,
@@ -52,18 +67,11 @@ const Main = () => {
   };
 
   const MOBILE_CONSTANTS = {
+    minDelta: 3.5,
     zoomSpeed: 1
   };
 
-  const cameraZoomRef = useRef<{
-    current: number;
-    target: number
-  }>({
-    current: CAMERA_CONSTANTS.startZoom,
-    target: CAMERA_CONSTANTS.startZoom
-  });
-
-  const cameraRotation = useRef<{
+  const cameraRotationRef = useRef<{
     current: { theta: number; phi: number }
     target: { theta: number; phi: number }
   }>({
@@ -71,14 +79,52 @@ const Main = () => {
     target: { theta: 0, phi: 0 }
   });
 
+  const worldGroupScaleRef = useRef<{
+    current: number;
+    target: number
+  }>({
+    current: 1,
+    target: 1
+  });
+
+  const worldGroupPositionRef = useRef<{
+    current: THREE.Vector3,
+    target: THREE.Vector3
+  }>({
+    current: centerVector.clone(),
+    target: centerVector.clone()
+  });
+
   const tempBox = new THREE.Box3();
   const tempVec = new THREE.Vector3();
+  
+  // const transitionIntentRef = useRef<"left" | "right" | "auto">("auto");
 
-  const sectionsRef = useRef<Map<SectionId, Section>>(new Map());
-  const currentSectionIdRef = useRef<SectionId>("");
+  const worldGroupRef = useRef<THREE.Group>(new THREE.Group()); // 크기 보정을 위한 Group
+  const sectionsRootRef = useRef<THREE.Group>(new THREE.Group()); // 섹션 보관을 위한 Group
+
+  const sectionIdMapRef = useRef<Map<SectionId, Section>>(new Map());
+  const sectionDepthMapRef = useRef<Map<Depth, Section>>(new Map());
+
+  const currentSectionRef = useRef<Section | undefined>(undefined);
+  const [normalizedSection, setNormalizedSection] = useState<Section | undefined>(undefined);
+
+  const targetPositionIdMapRef = useRef<Map<SectionId, THREE.Vector3>>(new Map());
+  const isChasingTarget = useRef<boolean>(false);
+
+  const prevDepthRef = useRef<number>(0);
+  const currentDepthRef = useRef<number>(0);
+  const normalizedDepthRef = useRef<number>(0);
+
+  const transitionRangeByDepthRef = useRef<Array<[number, number]>>([
+    [6, 7.5],
+    [11, 12.5]
+  ]);
 
   const [title, setTitle] = useState<string>("Hyunwoo.ai");
+
   const [tree, setTree] = useState<Tree[]>([]);
+  const treeRef = useRef<Tree[]>([]);
 
   const getOntology = async ()  => {
     let newOntology: Ontology = { nodes: [], relations: [] };
@@ -113,9 +159,6 @@ const Main = () => {
     model: THREE.Group,
     transform: ModelTransformParams,
   ): ModelSection => {
-    sceneRef.current!.add(model);
-    model.visible = false;
-
     if (transform.sizeRatio !== undefined) {
       const baseScale = CAMERA_CONSTANTS.startZoom * transform.sizeRatio;
       model.scale.setScalar(baseScale);
@@ -138,16 +181,39 @@ const Main = () => {
       group: model,
       transform: transform
     };
+    section.group.visible = false;
 
-    sectionsRef.current.set(id, section);
+    sectionIdMapRef.current.set(id, section);
+    sectionsRootRef.current.add(section.group);
     return section;
   };
 
-  const createNodeSection = (node: Tree) => {
+  const createNodeSection = (
+    node: Tree,
+    {
+      parent = undefined,
+      size = [1, 3],
+      distance = {},
+      scalar = 1
+    }: {
+      parent?: THREE.Object3D | undefined,
+      size?: [number, number],
+      distance?: { min?: number, max?: number },
+      scalar?: number
+    } = {}
+  ) => {
     if (!sceneRef.current) return;
 
     const children = node.children;
     const group = new THREE.Group();
+
+    const minSize = size[0];
+    const maxSize = size[1];
+    const minDistance = size[1] + (distance.min ?? 5);
+    const maxDistance = distance.max ?? 50;
+    const maxTries = 50;
+
+    const usedPositions: THREE.Vector3[] = [];
 
     const randomColor = (max = 0.8): THREE.Color => {
       return new THREE.Color(
@@ -157,27 +223,60 @@ const Main = () => {
       );
     };
 
+    const generatePosition = (
+      existing: THREE.Vector3[]
+    ): THREE.Vector3 => {
+      let bestCandidate: THREE.Vector3 | null = null;
+      let bestMinDistSq = -Infinity;
+
+      for (let attempt = 0; attempt < maxTries; attempt++) {
+        const u = Math.random();
+        const v = Math.random();
+        const theta = 2 * Math.PI * u;
+        const phi = Math.acos(2 * v - 1);
+        const r = Math.cbrt(Math.random()) * maxDistance;
+
+        const x = r * Math.sin(phi) * Math.cos(theta);
+        const y = r * Math.sin(phi) * Math.sin(theta);
+        const z = r * Math.cos(phi);
+
+        const position = new THREE.Vector3(x, y, z);
+
+        let minDistSq = Infinity;
+
+        for (const p of existing) {
+          const d = p.distanceToSquared(position);
+          if (d < minDistSq) minDistSq = d;
+        }
+
+        if (minDistSq >= minDistance * minDistance) {
+          return position;
+        }
+
+        if (minDistSq > bestMinDistSq) {
+          bestMinDistSq = minDistSq;
+          bestCandidate = position;
+        }
+      }
+
+      return bestCandidate ?? new THREE.Vector3();
+    };
+
     for (const c of children) {
-      const geometry = new THREE.SphereGeometry(500, 32, 32);
+      const computedSize = minSize + Math.random() * (maxSize - minSize);
+      const geometry = new THREE.SphereGeometry(computedSize, 32, 32);
       const material = new THREE.MeshStandardMaterial({
         color: randomColor()
       });
 
-      const u = Math.random();
-      const v = Math.random();
-      const theta = 2 * Math.PI * u;
-      const phi = Math.acos(2 * v - 1);
-      const r = Math.cbrt(Math.random()) * 2500;
-
-      const x = r * Math.sin(phi) * Math.cos(theta);
-      const y = r * Math.sin(phi) * Math.sin(theta);
-      const z = r * Math.cos(phi);
+      const position = generatePosition(usedPositions);
 
       const mesh = new THREE.Mesh(geometry, material);
       mesh.renderOrder = 100;
       mesh.name = c.nodeId;
-      mesh.position.set(x, y, z);
+      mesh.position.copy(position);
 
+      usedPositions.push(position);
       group.add(mesh);
     };
 
@@ -185,12 +284,59 @@ const Main = () => {
     const section: NodeSection = {
       id: id,
       kind: "node",
-      group: group
+      group: group,
     };
-    sectionsRef.current.set(id, section);
+    connectSimilarNode(node, section);
 
-    group.visible = false;
-    sceneRef.current.add(section.group);
+    section.group.scale.setScalar(scalar * 0.35);
+    section.group.visible = false;
+
+    if (parent) {
+      const position = parent.position.clone();
+      section.group.position.copy(position);
+    }
+
+    sectionIdMapRef.current.set(id, section);
+    sectionsRootRef.current.add(section.group);
+    
+    return section;
+  };
+
+  const connectSimilarNode = (node: Tree, section: NodeSection) => {
+    const similarPoints: THREE.Vector3[] = [];
+    for (let i = 0; i < node.children.length; i++) {
+      for (let j = i + 1; j < node.children.length; j++) {
+        const a = node.children[i];
+        const b = node.children[j];
+
+        const hasSameTag = a.tags.some(t => b.tags.includes(t));
+        if (!hasSameTag) continue;
+
+        const aMesh = section.group.getObjectByName(a.nodeId);
+        const bMesh = section.group.getObjectByName(b.nodeId);
+        if (!aMesh || !bMesh) return;
+
+        const aPosition = aMesh.position.clone();
+        const bPosition = bMesh.position.clone();
+        similarPoints.push(aPosition, bPosition)
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry().setFromPoints(similarPoints);
+    const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
+    const lines = new THREE.LineSegments(geometry, material);
+    section.group.add(lines);
+  };
+
+  const computeOpacity = (
+    range: TransitionRange
+  ): number => {
+    const currentScale = worldGroupScaleRef.current.current;
+
+    const min = Math.min(...range);
+    const max = Math.max(...range);
+
+    return THREE.MathUtils.inverseLerp(min, max, currentScale);
   };
 
   const setSectionOpacity = (
@@ -228,79 +374,70 @@ const Main = () => {
     });
   };
 
-  const calcOpacity = (distance: number, section: TransitionSection): number => {
-    if (!section) return 1;
+  const backToPrevSection = () => {
+    // const prevTransition = prevTransitionMapRef.current.get(currentSectionIdRef.current);
+    // if (!prevTransition) return;
 
-    const min = section.range[0];
-    const max = section.range[1];
-
-    const t = THREE.MathUtils.inverseLerp(min, max, distance);
-    return t;
+    // const requireZoom = Math.max(...prevTransition.range) + 20;
+    // cameraZoomRef.current.target = requireZoom;
   };
 
-  const setCameraZoom = (
-    zoom: number
-  ) => {
-    const cameraZoom = cameraZoomRef.current;
-    cameraZoom.current = zoom;
-    cameraZoom.target = zoom;
-  };
-
-  const setSectionSizeByZoom = (
-    section: Section,
-    currentZoom: number,
-    targetZoom: number
-  ) => {
-    const ratio = targetZoom / currentZoom;
-    section.group.scale.multiplyScalar(ratio);
-
-    if (section.kind === "model") {
-      const transform = (section as ModelSection).transform;
-      tempBox.setFromObject(section.group);
-      tempBox.getCenter(tempVec);
-
-      const position = tempVec.clone().sub(section.group.position);
-      position.x *= transform.posXRatio;
-      position.y *= transform.posYRatio;
-      position.z *= transform.posZRatio;
-
-      const { x, y, z } = position;
-      section.group.position.set(x, -y, z);
-    }
-  };
-
-  const setSectionToTarget = (section: Section, direction: "prev" | "next") => {
-    const target = section[direction]!;
-
-    const cameraZoom = cameraZoomRef.current;
-    const currentZoom = cameraZoom.current;
+  const pushToClickedSection = (clickedSectionId: SectionId) => {
+    // const currentSection = sectionMapRef.current.get(currentSectionIdRef.current);
+    // if (!currentSection) return;
     
-    const resetZoom = direction === "next"
-      ? target.section.prev!.range[0]
-      : target.section.next!.range[1];
+    // const SECTION_IDS = [...Object.values(MODEL_IDS), ...Object.values(BRAIN_AREA_IDS)] as SectionId[];
+    // const isNodeSection = !SECTION_IDS.includes(clickedSectionId);
 
-    setCameraZoom(resetZoom);
+    // if (isNodeSection) {
+    //   const clickedMesh = currentSection.group.getObjectByName(clickedSectionId);
+    //   if (!clickedMesh) return;
 
-    setSectionSizeByZoom(section, currentZoom, resetZoom);
-    setSectionSizeByZoom(target.section, currentZoom, resetZoom);
+    //   clickedMesh.getWorldPosition(tempVec);
+    //   setTargetPosition(tempVec);
+    // }
 
-    currentSectionIdRef.current = target.section.id;
+    // let clickedSection = sectionMapRef.current.get(clickedSectionId);
+    // if (!clickedSection) return;
+    
+    // const prevTransition = prevTransitionMapRef.current.get(clickedSection.id);
+    // if (!prevTransition) return;
+
+    // const prevSectionId = prevTransition.section.id;
+    // const prevSection = sectionMapRef.current.get(prevSectionId);
+
+    // if (prevSection?.id === MODEL_IDS.brain) {
+    //   const isLeft = clickedSectionId === BRAIN_AREA_IDS.left;
+    //   transitionIntentRef.current = isLeft
+    //     ? "left"
+    //     : "right";
+
+    //   const yawOffset = Math.PI / 7.5;
+    //   cameraRotationRef.current.target.theta = isLeft
+    //     ? -yawOffset
+    //     : yawOffset;
+    // }
+
+    // const nextTransitionWithPrevSection = nextTransitionMapRef.current.get(prevSectionId);
+    // if (!nextTransitionWithPrevSection) return;
+
+    // const requireZoom = Math.min(...nextTransitionWithPrevSection.range) - 2;
+    // cameraZoomRef.current.target = requireZoom;
   };
 
-  const getZoomDirection = (
-    current: number,
-    target: number,
-    offset: number
+  const getDirection = (
+    offset = ZOOM_SENSITIVITY
   ): "in" | "out" | "idle" => {
-    if (current > target + offset) return "in";
-    if (current < target - offset) return "out";
+    const current = worldGroupScaleRef.current.current;
+    const target = worldGroupScaleRef.current.target;
+
+    if (current < target - offset) return "in";
+    if (current > target + offset) return "out";
     return "idle";
   };
 
   const getAngle = (): "left" | "right" => {
-    const camera = cameraRef.current!;
-    const target = new THREE.Vector3(0, 0, 0);
-    const direction = new THREE.Vector3().subVectors(camera.position, target);
+    const direction = new THREE.Vector3().subVectors(cameraRef.current!.position, centerVector);
 
     direction.y = 0;
     direction.normalize();
@@ -309,73 +446,136 @@ const Main = () => {
     return angle < 0 ? "left" : "right";
   };
 
-  const updateSection = () => {
-    const { current, target } = cameraZoomRef.current;
-    const zoomOffset = 1;
+  const onSectionEnter = (depth: Depth) => {
+    const enteredSection = sectionDepthMapRef.current.get(depth)!;
+    currentSectionRef.current = enteredSection;
+  };
 
-    const direction = getZoomDirection(current, target, zoomOffset);
+  const updateSection = () => {
+    const direction = getDirection();
     if (direction === "idle") return;
 
-    const currentSectionId = currentSectionIdRef.current;
-    const currentSection = sectionsRef.current.get(currentSectionId);
+    const currentScale = worldGroupScaleRef.current.current;
+    const currentDepth = currentDepthRef.current;
+    const currentSection = currentSectionRef.current;
     if (!currentSection) return;
 
-    const isEnteringBrain = direction === "in"
-      && currentSectionId === "brain"
-      && current > (currentSection.next?.range[1] ?? 0);
+    const transitionRange = transitionRangeByDepthRef.current[currentDepth] ?? undefined;
+    if (transitionRange) {
+      const min = Math.min(...transitionRange);
+      const max = Math.max(...transitionRange);
+      const t = computeOpacity(transitionRange);
 
-    if (isEnteringBrain) {
-      const angle = getAngle();
-      const nextSectionId = angle === "left"
-        ? "idLeft"
-        : "idRight";
+      let normalizedDepth = currentDepth;
+      if (currentScale >= max) normalizedDepth += 1;
+
+      if (normalizedDepthRef.current !== normalizedDepth) {
+        normalizedDepthRef.current = normalizedDepth;
+
+        const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+        setNormalizedSection(normalizedSection);
+      }
+  
+      if (direction === "in") {
+        if (currentScale > max) {
+          currentDepthRef.current = Math.min(
+            currentDepth + 1,
+            sectionDepthMapRef.current.size - 1
+          );
+        }
+      }
+      else if (direction === "out") {
+        if (currentScale < min) {
+          currentDepthRef.current = Math.max(
+            currentDepth - 1,
+            0
+          );
+        }
+      }
+
+      setSectionOpacity(currentSection, 1 - t);
       
-      const nextSection = sectionsRef.current.get(nextSectionId)!;
-      nextSection.prev = {
-        section: currentSection,
-        range: [600, 800]
-      };
-      currentSection.next = {
-        section: nextSection,
-        range: [300, 400]
-      };
-    }
-
-    const next = currentSection.next;
-    const prev = currentSection.prev;
-
-    if (next) {
-      const t = calcOpacity(current, next);
-      setSectionOpacity(currentSection, t);
-      setSectionOpacity(next.section, 1 - t);
-
-      if (t <= 0) {
-        setSectionToTarget(currentSection, "next");
+      const nextSection = sectionDepthMapRef.current.get(currentDepth + 1);
+      if (nextSection) {
+        setSectionOpacity(nextSection, t);
       }
     }
-    if (prev) {
-      const t = calcOpacity(current, prev);
-      setSectionOpacity(currentSection, 1 - t);
-      setSectionOpacity(prev.section, t);
 
-      if (t >= 1) {
-        setSectionToTarget(currentSection, "prev");
+    const prevDepth = prevDepthRef.current;
+    const nextDepth = currentDepthRef.current;
+    
+    if (prevDepth !== nextDepth) {
+      onSectionEnter(nextDepth);
+      prevDepthRef.current = nextDepth;
+      
+      return;
+    }
+
+    if (currentSection.id === MODEL_IDS.brain) {
+      if (currentScale < Math.min(...transitionRange)) {
+        const angle = getAngle();
+
+        const leftOrRightId = angle === "left"
+          ? BRAIN_AREA_IDS.left
+          : BRAIN_AREA_IDS.right;
+        const leftOrRightSection = sectionIdMapRef.current.get(leftOrRightId);
+        if (!leftOrRightSection) {
+          const node = treeUtils.getNode(treeRef.current, leftOrRightId);
+          if (!node) return;
+
+          createNodeSection(node);
+        }
+        else {
+          sectionDepthMapRef.current.set(currentDepth + 1, leftOrRightSection);
+          transitionRangeByDepthRef.current.push([50, 70]);
+        }
       }
     }
   };
 
+  const updateWorldGroupPosition = () => {
+    const normalizedDepth = normalizedDepthRef.current;
+
+    const prevSection = sectionDepthMapRef.current.get(normalizedDepth - 1)
+    const currentSection = sectionDepthMapRef.current.get(normalizedDepth);
+    if (!prevSection || !currentSection) return;
+
+    const prevTransitionRange = transitionRangeByDepthRef.current[normalizedDepth - 1];
+    const currentTransitionRange = transitionRangeByDepthRef.current[normalizedDepth];
+
+    const targetPosition = targetPositionIdMapRef.current.get(currentSection.id);
+    if (!targetPosition) return;
+
+    const currentScale = worldGroupScaleRef.current.current;
+
+    const minProcessScale = Math.max(...prevTransitionRange);
+    const maxProcessScale = Math.min(...currentTransitionRange) * 0.75;
+    const process = (currentScale - minProcessScale) / (maxProcessScale - minProcessScale);
+
+    const from = centerVector.clone();
+    const to = targetPosition.clone().multiplyScalar(-currentScale);
+
+    const t = THREE.MathUtils.clamp(process, 0, 1);
+    worldGroupPositionRef.current.target.copy(
+      from.clone().lerp(to, t)
+    );
+  };
+
   const handleWheel = (event: WheelEvent) => {
-    if (!cameraRef.current) return;
+    const worldGroup = worldGroupRef.current;
+    if (!worldGroup) return;
     event.preventDefault();
 
-    const factor = cameraZoomRef.current.current / CAMERA_CONSTANTS.startZoom;
-    const delta = event.deltaY;
-    const normalizedDelta = delta * factor * CAMERA_CONSTANTS.zoomSpeed;
+    const delta = -event.deltaY / 100;
+    
+    const currentScale = worldGroupScaleRef.current.current;
+    const scaleFactor = currentScale / START_SCALE;
 
-    cameraZoomRef.current.target = THREE.MathUtils.clamp(
-      cameraZoomRef.current.target + normalizedDelta,
-      CAMERA_CONSTANTS.minZoom,
-      CAMERA_CONSTANTS.maxZoom
+    const normalizedDelta = delta * scaleFactor * ZOOM_SENSITIVITY;
+    worldGroupScaleRef.current.target = THREE.MathUtils.clamp(
+      worldGroupScaleRef.current.target + normalizedDelta,
+      MIN_SCALE,
+      MAX_SCALE
     );
   }
 
@@ -394,10 +594,10 @@ const Main = () => {
     const dx = (event.clientX - pointerData.current.x) * window.devicePixelRatio;
     const dy = (event.clientY - pointerData.current.y) * window.devicePixelRatio;
 
-    cameraRotation.current.target.theta -= dx * CAMERA_CONSTANTS.rotateSpeed;
-    cameraRotation.current.target.phi += dy * CAMERA_CONSTANTS.rotateSpeed;
-    cameraRotation.current.target.phi = THREE.MathUtils.clamp(
-      cameraRotation.current.target.phi,
+    cameraRotationRef.current.target.theta -= dx * ROTATE_SENSITIVITY;
+    cameraRotationRef.current.target.phi += dy * ROTATE_SENSITIVITY;
+    cameraRotationRef.current.target.phi = THREE.MathUtils.clamp(
+      cameraRotationRef.current.target.phi,
       -Math.PI / 2 + 0.01,
       Math.PI / 2 - 0.01
     );
@@ -409,64 +609,63 @@ const Main = () => {
     pointerData.current = { x: null, y: null };
   };
 
-  const handleTouchStart = (event: TouchEvent) => {
-    event.preventDefault();
+  // const handleTouchStart = (event: TouchEvent) => {
+  //   event.preventDefault();
 
-    const touches = event.touches;
-    if (touches.length === 2) {
-      isZoomingRef.current = true;
+  //   const touches = event.touches;
+  //   if (touches.length === 2) {
+  //     isZoomingRef.current = true;
 
-      const dx = touches[0].clientX - touches[1].clientX;
-      const dy = touches[0].clientY - touches[1].clientY;
-      touchData.current.prevDistance = Math.hypot(dx, dy);
-    }
-  };
+  //     const dx = touches[0].clientX - touches[1].clientX;
+  //     const dy = touches[0].clientY - touches[1].clientY;
+  //     touchData.current.prevDistance = Math.hypot(dx, dy);
+  //   }
+  // };
 
-  const handleTouchMove = (event: TouchEvent) => {
-    event.preventDefault();
+  // const handleTouchMove = (event: TouchEvent) => {
+  //   event.preventDefault();
 
-    const touches = event.touches;
-    if (event.touches.length === 2 && touchData.current.prevDistance) {
-      const dx = touches[0].clientX - touches[1].clientX;
-      const dy = touches[0].clientY - touches[1].clientY;
-      const distance = Math.hypot(dx, dy);
+  //   const touches = event.touches;
+  //   if (event.touches.length === 2 && touchData.current.prevDistance) {
+  //     const dx = touches[0].clientX - touches[1].clientX;
+  //     const dy = touches[0].clientY - touches[1].clientY;
+  //     const distance = Math.hypot(dx, dy);
 
-      const factor = cameraZoomRef.current.current / CAMERA_CONSTANTS.startZoom;
-      const delta = (touchData.current.prevDistance - distance);
-      const normalizedDelta = delta * factor * MOBILE_CONSTANTS.zoomSpeed;
+  //     const factor = cameraZoomRef.current.current / CAMERA_CONSTANTS.startZoom;
+  //     const delta = (touchData.current.prevDistance - distance);
+  //     let normalizedDelta = delta * factor * MOBILE_CONSTANTS.zoomSpeed;
 
-      cameraZoomRef.current.target = THREE.MathUtils.clamp(
-        cameraZoomRef.current.target + normalizedDelta,
-        CAMERA_CONSTANTS.minZoom,
-        CAMERA_CONSTANTS.maxZoom
-      );
+  //     const minDelta = MOBILE_CONSTANTS.minDelta;
+  //     if (Math.abs(normalizedDelta) < minDelta) {
+  //       normalizedDelta = Math.sign(normalizedDelta) * minDelta;
+  //     }
 
-      touchData.current.prevDistance = distance;
-    }
-  };
+  //     cameraZoomRef.current.target = THREE.MathUtils.clamp(
+  //       cameraZoomRef.current.target + normalizedDelta,
+  //       CAMERA_CONSTANTS.minZoom,
+  //       CAMERA_CONSTANTS.maxZoom
+  //     );
 
-  const handleTouchEnd = (event: TouchEvent) => {
-    const touches = event.touches;
-    if (touches.length < 2) {
-      isZoomingRef.current = false;
-      touchData.current.prevDistance = null;
-    }
-  };
+  //     touchData.current.prevDistance = distance;
+  //   }
+  // };
+
+  // const handleTouchEnd = (event: TouchEvent) => {
+  //   const touches = event.touches;
+  //   if (touches.length < 2) {
+  //     isZoomingRef.current = false;
+  //     touchData.current.prevDistance = null;
+  //   }
+  // };
 
   useEffect(() => {
-    if (tree.length < 1) return;
-
-    const left = treeUtils.getNode(tree, "idLeft");
-    if (left) createNodeSection(left);
-
-    const right = treeUtils.getNode(tree, "idRight");
-    if (right) createNodeSection(right);
+    treeRef.current = tree;
   }, [tree]);
 
   useEffect(() => {
     if (!mountRef.current) return;
     let isMounted = true;
-
+    
     getOntology();
 
     const width = mountRef.current.clientWidth;
@@ -480,7 +679,7 @@ const Main = () => {
       CAMERA_CONSTANTS.minZoom,
       CAMERA_CONSTANTS.maxZoom
     );
-    camera.position.z = CAMERA_CONSTANTS.startZoom;
+    camera.position.z = CAEMRA_POSITION;
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -498,7 +697,7 @@ const Main = () => {
     const ambientLight = new THREE.AmbientLight(0xffffff, 3);
     scene.add(ambientLight);
 
-    const createIntialSections = ({
+    const setInitialSections = ({
       spaceModel,
       humanModel,
       brainModel
@@ -509,24 +708,16 @@ const Main = () => {
     }) => {
       scene.add(spaceModel);
 
-      const humanSection = createModelSection("human", humanModel, modelsTransformAttr.human);
-      const brainSection = createModelSection("brain", brainModel, modelsTransformAttr.brain);
+      const humanSection = createModelSection(MODEL_IDS.human, humanModel, modelsTransformAttr.idHuman);
+      const brainSection = createModelSection(MODEL_IDS.brain, brainModel, modelsTransformAttr.idBrain);
 
-      humanSection.next = {
-        section: brainSection,
-        range: [70, 90]
-      };
-      brainSection.prev = {
-        section: humanSection,
-        range: [600, 800]
-      };
+      sectionDepthMapRef.current.set(0, humanSection);
+      sectionDepthMapRef.current.set(1, brainSection);
 
-      brainModel.visible = true;
-      humanModel.visible = true;
-      currentSectionIdRef.current = "human";
+      currentSectionRef.current = humanSection;
+      setNormalizedSection(humanSection);
 
       setSectionOpacity(humanSection, 1);
-      setSectionOpacity(brainSection, 1);
     };
 
     const loadModels = async () => {
@@ -538,12 +729,14 @@ const Main = () => {
           loadBrainModel({ loader })
         ]);
 
-        const boundingBox = tempBox.setFromObject(spaceModel);
-        boundingBox.getSize(tempVec);
+        // 배경이 모두 보이도록 카메라 최대 시야 확장
+        tempBox.setFromObject(spaceModel);
+        tempBox.getSize(tempVec);
+
         camera.far = Math.max(tempVec.x, tempVec.y, tempVec.z);
         camera.updateProjectionMatrix();
 
-        createIntialSections({ spaceModel, humanModel, brainModel });
+        setInitialSections({ spaceModel, humanModel, brainModel });
       }
       catch (error) {
         console.error(error);
@@ -551,13 +744,19 @@ const Main = () => {
     };
     loadModels();
 
+    worldGroupRef.current.add(sectionsRootRef.current);
+    scene.add(worldGroupRef.current);
+
+    // Camera 사용을 위한 Event
     mountRef.current.addEventListener("wheel", handleWheel, { passive: false });
+
     mountRef.current.addEventListener("pointerdown", handlePointerDown, { passive: false });
     mountRef.current.addEventListener("pointermove", handlePointerMove, { passive: false });
     mountRef.current.addEventListener("pointerup", handlePointerUp);
-    mountRef.current.addEventListener("touchstart", handleTouchStart, { passive: false });
-    mountRef.current.addEventListener("touchmove", handleTouchMove, { passive: false });
-    mountRef.current.addEventListener("touchend", handleTouchEnd);
+
+    // mountRef.current.addEventListener("touchstart", handleTouchStart, { passive: false });
+    // mountRef.current.addEventListener("touchmove", handleTouchMove, { passive: false });
+    // mountRef.current.addEventListener("touchend", handleTouchEnd);
 
     const handleResize = () => {
       if (!mountRef.current) return;
@@ -567,48 +766,70 @@ const Main = () => {
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
-    }
+    };
     window.addEventListener("resize", handleResize);
     
     const animate = () => {
       if (!isMounted) return;
       requestAnimationFrame(animate);
+
+      cameraRotationRef.current.current.theta = THREE.MathUtils.lerp(
+        cameraRotationRef.current.current.theta,
+        cameraRotationRef.current.target.theta,
+        ROTATE_SPEED
+      );
+      cameraRotationRef.current.current.phi = THREE.MathUtils.lerp(
+        cameraRotationRef.current.current.phi,
+        cameraRotationRef.current.target.phi,
+        ROTATE_SPEED
+      );
+
+      const radius = CAEMRA_POSITION;
+      const { theta, phi } = cameraRotationRef.current.current;
+
+      const offset = new THREE.Vector3(
+        radius * Math.sin(theta) * Math.cos(phi),
+        radius * Math.sin(phi),
+        radius * Math.cos(theta) * Math.cos(phi)
+      );
+      camera.position.copy(offset);
+      camera.lookAt(centerVector);
+
+      worldGroupScaleRef.current.current = THREE.MathUtils.lerp(
+        worldGroupScaleRef.current.current,
+        worldGroupScaleRef.current.target,
+        ZOOM_SPEED
+      );
+      worldGroupRef.current.scale.setScalar(worldGroupScaleRef.current.current);
+
       updateSection();
-      
-      const zoomDampingFactor = 0.075;
-      cameraZoomRef.current.current = THREE.MathUtils.lerp(
-        cameraZoomRef.current.current,
-        cameraZoomRef.current.target,
-        zoomDampingFactor
-      );
+      updateWorldGroupPosition();
 
-      const rotateDampingFactor = CAMERA_CONSTANTS.rotateSpeed * 10;
-      cameraRotation.current.current.theta = THREE.MathUtils.lerp(
-        cameraRotation.current.current.theta,
-        cameraRotation.current.target.theta,
-        rotateDampingFactor
-      );
-      cameraRotation.current.current.phi = THREE.MathUtils.lerp(
-        cameraRotation.current.current.phi,
-        cameraRotation.current.target.phi,
-        rotateDampingFactor
-      );
-      
-      const radius = cameraZoomRef.current.current;
-      const { theta, phi } = cameraRotation.current.current;
+      if (isChasingTarget.current) {
+        worldGroupPositionRef.current.current = worldGroupPositionRef.current.current.lerp(
+          worldGroupPositionRef.current.target,
+          MOVE_SPEED
+        );
 
-      const offsetX = radius * Math.sin(theta) * Math.cos(phi);
-      const offsetY = radius * Math.sin(phi);
-      const offsetZ = radius * Math.cos(theta) * Math.cos(phi);
-      camera.position.set(
-        cameraTargetRef.current.x + offsetX,
-        cameraTargetRef.current.y + offsetY,
-        cameraTargetRef.current.z + offsetZ
-      );
-      camera.lookAt(cameraTargetRef.current);
+        const offset = worldGroupPositionRef.current.current
+          .distanceTo(worldGroupPositionRef.current.target);
+
+        if (offset < 1) {
+          isChasingTarget.current = false;
+          worldGroupPositionRef.current.current.copy(
+            worldGroupPositionRef.current.target
+          );
+        }
+      }
+      else {
+        worldGroupPositionRef.current.current.copy(
+          worldGroupPositionRef.current.target
+        );
+      }
+      worldGroupRef.current.position.copy(worldGroupPositionRef.current.current);
 
       renderer.render(scene, camera);
-    }
+    };
     animate();
 
     return () => {
@@ -616,12 +837,14 @@ const Main = () => {
       window.removeEventListener("resize", handleResize);
       if (mountRef.current) {
         mountRef.current.removeEventListener("wheel", handleWheel);
+
         mountRef.current.removeEventListener("pointerdown", handlePointerDown);
         mountRef.current.removeEventListener("pointermove", handlePointerMove);
         mountRef.current.removeEventListener("pointerup", handlePointerUp);
-        mountRef.current.removeEventListener("touchstart", handleTouchStart);
-        mountRef.current.removeEventListener("touchmove", handleTouchMove);
-        mountRef.current.removeEventListener("touchend", handleTouchEnd);
+
+        // mountRef.current.removeEventListener("touchstart", handleTouchStart);
+        // mountRef.current.removeEventListener("touchmove", handleTouchMove);
+        // mountRef.current.removeEventListener("touchend", handleTouchEnd);
       }
       if (rendererRef.current && mountRef.current?.contains(rendererRef.current.domElement)) {
         mountRef.current.removeChild(renderer.domElement);
@@ -630,8 +853,68 @@ const Main = () => {
     }
   }, []);
 
+  const sansing = () => {
+    console.log("\n");
+    console.log("worldGroupScale: ", worldGroupScaleRef.current.current);
+    console.log("currentSection: ", currentSectionRef.current);
+    console.log("currentDepth: ", currentDepthRef.current);
+    console.log("currentPosition: ", worldGroupPositionRef.current);
+    console.log("--- End ---");
+  }
+
+  const qwe = () => {
+    const section = currentSectionRef.current;
+    const firshMesh = section!.group.children[0].name;
+    const mesh = section!.group.getObjectByName(firshMesh) as THREE.Mesh;
+    const material = mesh.material as THREE.MeshStandardMaterial;
+    if (material) material.color = new THREE.Color(0xffffff);
+
+    meshing.current = mesh;
+
+    const currentScale = worldGroupScaleRef.current.current;
+    const meshWorld = new THREE.Vector3();
+    mesh.getWorldPosition(meshWorld);
+    meshPosition.current = meshWorld.clone().divideScalar(currentScale);
+
+    const transitionRange = transitionRangeByDepthRef.current[currentDepthRef.current];
+    const max = Math.max(...transitionRange);
+
+    let realDepth = currentDepthRef.current;
+    if (currentScale > max) realDepth += 1;
+
+    const sansPosition = meshWorld.clone().divideScalar(currentScale);
+    targetPositionIdMapRef.current.set(section!.id, sansPosition);
+    isChasingTarget.current = true;
+    // meshPosition.current = mesh.position.clone().divideScalar(currentScale);
+
+    // const meshWorld = new THREE.Vector3();
+    // mesh.getWorldPosition(meshWorld);
+    // worldGroupRef.current.position.sub(meshWorld);
+
+    // targetMeshDepthMapRef.current.set(currentDepthRef.current, mesh);
+    // console.log(targetMeshDepthMapRef.current);
+  }
+
+  const asd = () => {
+    const mesh = meshing.current;
+
+    const vec = new THREE.Vector3();
+    mesh?.getWorldPosition(vec);
+    worldGroupRef.current.position.sub(vec);
+  }
+
+  const meshing = useRef<THREE.Mesh|undefined>();
+  const meshPosition = useRef<THREE.Vector3|undefined>();
+
+  const zxc = () => {
+    meshing.current = undefined;
+    meshPosition.current = undefined;
+    worldGroupRef.current.position.copy(centerVector);
+  }
+
   return (
     <React.Fragment>
+      <OntologyNavigator tree={tree} currentSectionId={normalizedSection?.id} back={backToPrevSection} push={pushToClickedSection} />
       <div className={clsx(styles.titleContainer)}>
         <p>{ title }</p>
       </div>
@@ -641,6 +924,20 @@ const Main = () => {
         </div>
       </div>
       <div ref={mountRef} className={clsx(styles.fullScreen)} />
+      <div className={clsx(styles.temp)}>
+        <div onClick={sansing}>
+          <p>sans</p>
+        </div>
+        <div onClick={qwe}>
+          <p>qwe</p>
+        </div>
+        <div onClick={asd}>
+          <p>asd</p>
+        </div>
+        <div onClick={zxc}>
+          <p>zxc</p>
+        </div>
+      </div>
     </React.Fragment>
   );
 };
