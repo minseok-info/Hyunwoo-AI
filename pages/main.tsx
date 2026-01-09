@@ -609,54 +609,53 @@ const Main = () => {
     pointerData.current = { x: null, y: null };
   };
 
-  // const handleTouchStart = (event: TouchEvent) => {
-  //   event.preventDefault();
+  const handleTouchStart = (event: TouchEvent) => {
+    event.preventDefault();
 
-  //   const touches = event.touches;
-  //   if (touches.length === 2) {
-  //     isZoomingRef.current = true;
+    const touches = event.touches;
+    if (touches.length === 2) {
+      isZoomingRef.current = true;
 
-  //     const dx = touches[0].clientX - touches[1].clientX;
-  //     const dy = touches[0].clientY - touches[1].clientY;
-  //     touchData.current.prevDistance = Math.hypot(dx, dy);
-  //   }
-  // };
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      touchData.current.prevDistance = Math.hypot(dx, dy);
+    }
+  };
 
-  // const handleTouchMove = (event: TouchEvent) => {
-  //   event.preventDefault();
+  const handleTouchMove = (event: TouchEvent) => {
+    const worldGroup = worldGroupRef.current;
+    if (!worldGroup) return;
+    event.preventDefault();
 
-  //   const touches = event.touches;
-  //   if (event.touches.length === 2 && touchData.current.prevDistance) {
-  //     const dx = touches[0].clientX - touches[1].clientX;
-  //     const dy = touches[0].clientY - touches[1].clientY;
-  //     const distance = Math.hypot(dx, dy);
+    const touches = event.touches;
+    if (event.touches.length === 2 && touchData.current.prevDistance) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      const distance = Math.hypot(dx, dy);
 
-  //     const factor = cameraZoomRef.current.current / CAMERA_CONSTANTS.startZoom;
-  //     const delta = (touchData.current.prevDistance - distance);
-  //     let normalizedDelta = delta * factor * MOBILE_CONSTANTS.zoomSpeed;
+      const delta = -(touchData.current.prevDistance - distance);
 
-  //     const minDelta = MOBILE_CONSTANTS.minDelta;
-  //     if (Math.abs(normalizedDelta) < minDelta) {
-  //       normalizedDelta = Math.sign(normalizedDelta) * minDelta;
-  //     }
+      const currentScale = worldGroupScaleRef.current.current;
+      const scaleFactor = currentScale / START_SCALE;
 
-  //     cameraZoomRef.current.target = THREE.MathUtils.clamp(
-  //       cameraZoomRef.current.target + normalizedDelta,
-  //       CAMERA_CONSTANTS.minZoom,
-  //       CAMERA_CONSTANTS.maxZoom
-  //     );
+      let normalizedDelta = delta* scaleFactor * (ZOOM_SENSITIVITY * 0.075);
+      worldGroupScaleRef.current.target = THREE.MathUtils.clamp(
+        worldGroupScaleRef.current.target + normalizedDelta,
+        MIN_SCALE,
+        MAX_SCALE
+      );
 
-  //     touchData.current.prevDistance = distance;
-  //   }
-  // };
+      touchData.current.prevDistance = distance;
+    }
+  };
 
-  // const handleTouchEnd = (event: TouchEvent) => {
-  //   const touches = event.touches;
-  //   if (touches.length < 2) {
-  //     isZoomingRef.current = false;
-  //     touchData.current.prevDistance = null;
-  //   }
-  // };
+  const handleTouchEnd = (event: TouchEvent) => {
+    const touches = event.touches;
+    if (touches.length < 2) {
+      isZoomingRef.current = false;
+      touchData.current.prevDistance = null;
+    }
+  };
 
   useEffect(() => {
     treeRef.current = tree;
@@ -754,9 +753,9 @@ const Main = () => {
     mountRef.current.addEventListener("pointermove", handlePointerMove, { passive: false });
     mountRef.current.addEventListener("pointerup", handlePointerUp);
 
-    // mountRef.current.addEventListener("touchstart", handleTouchStart, { passive: false });
-    // mountRef.current.addEventListener("touchmove", handleTouchMove, { passive: false });
-    // mountRef.current.addEventListener("touchend", handleTouchEnd);
+    mountRef.current.addEventListener("touchstart", handleTouchStart, { passive: false });
+    mountRef.current.addEventListener("touchmove", handleTouchMove, { passive: false });
+    mountRef.current.addEventListener("touchend", handleTouchEnd);
 
     const handleResize = () => {
       if (!mountRef.current) return;
@@ -842,9 +841,9 @@ const Main = () => {
         mountRef.current.removeEventListener("pointermove", handlePointerMove);
         mountRef.current.removeEventListener("pointerup", handlePointerUp);
 
-        // mountRef.current.removeEventListener("touchstart", handleTouchStart);
-        // mountRef.current.removeEventListener("touchmove", handleTouchMove);
-        // mountRef.current.removeEventListener("touchend", handleTouchEnd);
+        mountRef.current.removeEventListener("touchstart", handleTouchStart);
+        mountRef.current.removeEventListener("touchmove", handleTouchMove);
+        mountRef.current.removeEventListener("touchend", handleTouchEnd);
       }
       if (rendererRef.current && mountRef.current?.contains(rendererRef.current.domElement)) {
         mountRef.current.removeChild(renderer.domElement);
