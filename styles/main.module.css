@@ -27,7 +27,7 @@
 .socialContainer > div {
   cursor: pointer;
   display: flex;
-  border-radius: 5px;
+  border-radius: 2.5px;
   overflow: hidden;
   filter: opacity(0.5) brightness(0.75);
   transition: all 150ms;
@@ -36,6 +36,23 @@
   object-fit: cover;
   width: 100%;
   height: 100%;
+}
+
+.temp {
+  position: absolute;
+  top: 25px;
+  left: 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.temp > div {
+  cursor: pointer;
+  background-color: white;
+  padding: 5px 15px;
+  display: flex;
 }
 
 @media (hover: hover) {
