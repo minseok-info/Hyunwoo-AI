@@ -109,6 +109,7 @@ const Main = () => {
   const currentSectionRef = useRef<Section | undefined>(undefined);
   const [normalizedSection, setNormalizedSection] = useState<Section | undefined>(undefined);
 
+  const targetNodeIdMapRef = useRef<Map<SectionId, Tree>>(new Map());
   const targetPositionIdMapRef = useRef<Map<SectionId, THREE.Vector3>>(new Map());
   const isChasingTarget = useRef<boolean>(false);
 
@@ -449,6 +450,23 @@ const Main = () => {
   const onSectionEnter = (depth: Depth) => {
     const enteredSection = sectionDepthMapRef.current.get(depth)!;
     currentSectionRef.current = enteredSection;
+
+    const normalizedDepth = normalizedDepthRef.current;
+    if (normalizedDepth !== depth) return;
+
+    const targetNode = targetNodeIdMapRef.current.get(enteredSection.id);
+    if (!targetNode) return;
+    
+    // targetNode의 children을 이용하여
+    // brain과 마찬가지로 섹션을 만들어 추가
+
+    const nodeSection = sectionIdMapRef.current.get(targetNode.name);
+    if (!nodeSection) {
+      createNodeSection(targetNode);
+    }
+    else {
+      console.log(nodeSection);
+    }
   };
 
   const updateSection = () => {
@@ -527,7 +545,7 @@ const Main = () => {
         }
         else {
           sectionDepthMapRef.current.set(currentDepth + 1, leftOrRightSection);
-          transitionRangeByDepthRef.current.push([50, 70]);
+          transitionRangeByDepthRef.current.push([350, 550]);
         }
       }
     }
@@ -549,7 +567,7 @@ const Main = () => {
     const currentScale = worldGroupScaleRef.current.current;
 
     const minProcessScale = Math.max(...prevTransitionRange);
-    const maxProcessScale = Math.min(...currentTransitionRange) * 0.75;
+    const maxProcessScale = Math.min(...currentTransitionRange) * 0.5;
     const process = (currentScale - minProcessScale) / (maxProcessScale - minProcessScale);
 
     const from = centerVector.clone();
@@ -572,13 +590,12 @@ const Main = () => {
     const scaleFactor = currentScale / START_SCALE;
     
     const normalizedDelta = delta * scaleFactor * ZOOM_SENSITIVITY;
-    console.log(normalizedDelta)
     worldGroupScaleRef.current.target = THREE.MathUtils.clamp(
       worldGroupScaleRef.current.target + normalizedDelta,
       MIN_SCALE,
       MAX_SCALE
     );
-  }
+  };
 
   const handlePointerDown = (event: PointerEvent) => {
     if (isZoomingRef.current) return;
@@ -876,11 +893,8 @@ const Main = () => {
     mesh.getWorldPosition(meshWorld);
     meshPosition.current = meshWorld.clone().divideScalar(currentScale);
 
-    const transitionRange = transitionRangeByDepthRef.current[currentDepthRef.current];
-    const max = Math.max(...transitionRange);
-
-    let realDepth = currentDepthRef.current;
-    if (currentScale > max) realDepth += 1;
+    const node = treeUtils.getNode(tree, mesh.name);
+    targetNodeIdMapRef.current.set(section!.id, node!);
 
     const sansPosition = meshWorld.clone().divideScalar(currentScale);
     targetPositionIdMapRef.current.set(section!.id, sansPosition);
