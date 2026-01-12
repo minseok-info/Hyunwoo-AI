@@ -566,12 +566,13 @@ const Main = () => {
     if (!worldGroup) return;
     event.preventDefault();
 
-    const delta = -event.deltaY / 100;
+    const delta = Math.sign(-event.deltaY);
     
     const currentScale = worldGroupScaleRef.current.current;
     const scaleFactor = currentScale / START_SCALE;
-
+    
     const normalizedDelta = delta * scaleFactor * ZOOM_SENSITIVITY;
+    console.log(normalizedDelta)
     worldGroupScaleRef.current.target = THREE.MathUtils.clamp(
       worldGroupScaleRef.current.target + normalizedDelta,
       MIN_SCALE,
