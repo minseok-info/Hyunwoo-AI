@@ -66,11 +66,6 @@ const Main = () => {
     maxZoom: 1500,
   };
 
-  const MOBILE_CONSTANTS = {
-    minDelta: 3.5,
-    zoomSpeed: 1
-  };
-
   const cameraRotationRef = useRef<{
     current: { theta: number; phi: number }
     target: { theta: number; phi: number }
