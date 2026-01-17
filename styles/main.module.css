@@ -3,6 +3,18 @@
   height: 100dvh;
 }
 
+.marker {
+  cursor: pointer;
+  display: flex;
+  transform-origin: left;
+  font-size: 2px;
+}
+.content {
+  opacity: clamp(0, calc((var(--inverseProcess) - 0.25) / 0.25), 1);
+  transform-origin: left;
+  color: white;
+}
+
 .titleContainer {
   position: absolute;
   top: 25px;
@@ -57,6 +69,10 @@
 }
 
 @media (hover: hover) {
+  .content:hover {
+    transform: scale(max(calc(4 * var(--inverseProcess)), 1));
+  }
+
   .socialContainer > div:hover {
     filter: opacity(1) brightness(1);
   }

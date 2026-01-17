@@ -1,3 +1,7 @@
+body {
+  overflow: hidden;
+}
+
 .titleContainer {
   position: absolute;
   top: 25px;

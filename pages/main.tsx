@@ -1,4 +1,4 @@
-import { OntologyNavigator } from "@/components";
+import { NodeCard, OntologyNavigator, ProgressBar } from "@/components";
 import { loadBrainModel, loadHumanModel, loadSpaceModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BaseSection, BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
@@ -8,7 +8,7 @@ import clsx from "clsx";
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/Addons.js";
+import { CSS3DObject, CSS3DRenderer, EffectComposer, FXAAShader, GLTFLoader, RenderPass, ShaderPass, TreesGeometry, UnrealBloomPass } from "three/examples/jsm/Addons.js";
 
 const githubIcon = {
   src: require("@/public/icons/github.svg"),
@@ -41,7 +41,9 @@ const MOVE_SPEED = 0.05;
 
 const START_SCALE = 1;
 const MIN_SCALE = 0.1;
-const MAX_SCALE = 1500;
+const MAX_SCALE = Infinity;
+
+const NODE_SECTION_RATIO = 0.01;
 
 const Main = () => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -51,6 +53,7 @@ const Main = () => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
   const isZoomingRef = useRef<boolean>(false);
+  const isProgressBarRef = useRef<boolean>(false);
   const pointerData = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
   const touchData = useRef<{ prevDistance: number | null }>({ prevDistance: null });
 
@@ -92,8 +95,6 @@ const Main = () => {
 
   const tempBox = new THREE.Box3();
   const tempVec = new THREE.Vector3();
-  
-  // const transitionIntentRef = useRef<"left" | "right" | "auto">("auto");
 
   const worldGroupRef = useRef<THREE.Group>(new THREE.Group()); // 크기 보정을 위한 Group
   const sectionsRootRef = useRef<THREE.Group>(new THREE.Group()); // 섹션 보관을 위한 Group
@@ -112,12 +113,13 @@ const Main = () => {
   const currentDepthRef = useRef<number>(0);
   const normalizedDepthRef = useRef<number>(0);
 
-  const transitionRangeByDepthRef = useRef<Array<[number, number]>>([
-    [6, 7.5],
-    [11, 12.5]
-  ]);
+  const scaleProgressRef = useRef<number>(0);
+  const [globalProgress, setGlobalProgress] = useState<number>(0);
 
-  const [title, setTitle] = useState<string>("Hyunwoo.ai");
+  const transitionRangeDepthMapRef = useRef<Map<number, [number, number]>>(new Map([
+    [0, [1.80, 2.00]],
+    [1, [2.40, 2.75]]
+  ]));
 
   const [tree, setTree] = useState<Tree[]>([]);
   const treeRef = useRef<Tree[]>([]);
@@ -143,7 +145,6 @@ const Main = () => {
     }
     catch (error) {
       console.error(error);
-      setTitle("Error");
     }
     finally {
       setTree(ontologyToTree(newOntology));
@@ -186,27 +187,26 @@ const Main = () => {
 
   const createNodeSection = (
     node: Tree,
+    depth: number,
     {
-      parent = undefined,
-      size = [1, 3],
-      distance = {},
+      position = undefined,
       scalar = 1
     }: {
-      parent?: THREE.Object3D | undefined,
-      size?: [number, number],
-      distance?: { min?: number, max?: number },
+      position?: THREE.Vector3 | undefined,
       scalar?: number
     } = {}
   ) => {
     if (!sceneRef.current) return;
 
+    const sectionId = node.nodeId;
+
     const children = node.children;
     const group = new THREE.Group();
 
-    const minSize = size[0];
-    const maxSize = size[1];
-    const minDistance = size[1] + (distance.min ?? 5);
-    const maxDistance = distance.max ?? 50;
+    const minSize = 2;
+    const maxSize = 3;
+    const minDistance = maxSize + 5;
+    const maxDistance = 50;
     const maxTries = 50;
 
     const usedPositions: THREE.Vector3[] = [];
@@ -261,38 +261,60 @@ const Main = () => {
     for (const c of children) {
       const computedSize = minSize + Math.random() * (maxSize - minSize);
       const geometry = new THREE.SphereGeometry(computedSize, 32, 32);
+
+      const color = randomColor();
       const material = new THREE.MeshStandardMaterial({
-        color: randomColor()
+        color: color,
+        emissive: new THREE.Color(0xffffff),
+        emissiveIntensity: 0.35
       });
 
-      const position = generatePosition(usedPositions);
+      const meshPosition = generatePosition(usedPositions);
 
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.renderOrder = 100;
       mesh.name = c.nodeId;
-      mesh.position.copy(position);
+      mesh.position.copy(meshPosition);
 
-      usedPositions.push(position);
+      const wrapper = document.createElement("span");
+      wrapper.className = styles.marker;
+
+      const nameSpan = document.createElement("span");
+      nameSpan.className = styles.content;
+      nameSpan.textContent = c.name;
+
+      wrapper.appendChild(nameSpan);
+      wrapper.addEventListener("click", () => {
+        setSectionTarget(mesh);
+      });
+
+      const textObject = new CSS3DObject(wrapper);
+      textObject.position.x += geometry.parameters.radius + 0.75;
+
+      mesh.userData.textObject = textObject;
+      mesh.add(textObject);
+
+      usedPositions.push(meshPosition);
       group.add(mesh);
     };
 
-    const id = node.nodeId;
     const section: NodeSection = {
-      id: id,
+      id: sectionId,
       kind: "node",
       group: group,
     };
     connectSimilarNode(node, section);
 
-    section.group.scale.setScalar(scalar * 0.35);
+    const maxScale = Math.max(...transitionRangeDepthMapRef.current.get(depth)!);
+    const scaleFactor = START_SCALE / maxScale;
+    const normalizedScale = scalar * scaleFactor;
+
+    section.group.scale.setScalar(normalizedScale);
     section.group.visible = false;
+    section.group.renderOrder = -depth;
 
-    if (parent) {
-      const position = parent.position.clone();
-      section.group.position.copy(position);
-    }
+    if (position) section.group.position.copy(position.clone());
 
-    sectionIdMapRef.current.set(id, section);
+    sectionIdMapRef.current.set(sectionId, section);
     sectionsRootRef.current.add(section.group);
     
     return section;
@@ -324,15 +346,87 @@ const Main = () => {
     section.group.add(lines);
   };
 
+  const resolveSection = (
+    sectionId: SectionId,
+    {
+      position,
+      scalar
+    }: {
+      position?: THREE.Vector3,
+      scalar?: number
+    } = {}
+  ): Section | undefined => {
+    const section = sectionIdMapRef.current.get(sectionId);
+    if (section) {
+      return section;
+    }
+
+    const node = treeUtils.getNode(treeRef.current, sectionId);
+    if (!node) return;
+
+    const newSection = createNodeSection(node, normalizedDepthRef.current, { position, scalar });
+    if (!newSection) return;
+
+    return newSection;
+  };
+
+  const advanceToNextDepth = (
+    section: Section,
+    transitionRange: TransitionRange
+  ) => {
+    const normalizedDepth = normalizedDepthRef.current;
+    const nextDepth = normalizedDepth + 1;
+
+    for (const depth of Array.from(sectionDepthMapRef.current.keys())) {
+      if (depth >= nextDepth + 1) {
+        sectionDepthMapRef.current.delete(depth);
+      }
+    }
+    for (const depth of Array.from(transitionRangeDepthMapRef.current.keys())) {
+      if (depth >= nextDepth + 1) {
+        transitionRangeDepthMapRef.current.delete(depth);
+      }
+    }
+
+    sectionDepthMapRef.current.set(nextDepth, section);
+    transitionRangeDepthMapRef.current.set(nextDepth, transitionRange);
+  };
+
+  const setNextNodeSection = () => {
+    const normalizedDepth = normalizedDepthRef.current;
+    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    if (!normalizedSection) return;
+
+    const targetNode = targetNodeIdMapRef.current.get(normalizedSection.id);
+    if (!targetNode) return;
+
+    const targetPosition = targetPositionIdMapRef.current.get(normalizedSection.id);
+    if (!targetPosition) return;
+    
+    const nextScale = Math.pow(NODE_SECTION_RATIO, normalizedDepth - 1);
+    const nextSection = resolveSection(targetNode.nodeId, { position: targetPosition, scalar: nextScale });
+    if (!nextSection) return;
+
+    const baseStart = 6.5;
+    
+    const rangeDelta = 4.85;
+    const rangeWidth = 0.35;
+    
+    const rangeStart = baseStart + (normalizedDepth - 1) * rangeDelta;
+    const rangeEnd = rangeStart + rangeWidth;
+
+    advanceToNextDepth(nextSection, [rangeStart, rangeEnd]);
+  }
+
   const computeOpacity = (
     range: TransitionRange
   ): number => {
-    const currentScale = worldGroupScaleRef.current.current;
+    const scaleProgress = scaleProgressRef.current;
 
     const min = Math.min(...range);
     const max = Math.max(...range);
 
-    return THREE.MathUtils.inverseLerp(min, max, currentScale);
+    return THREE.MathUtils.inverseLerp(min, max, scaleProgress);
   };
 
   const setSectionOpacity = (
@@ -367,58 +461,12 @@ const Main = () => {
           mat.needsUpdate = true;
         }
       }
+      else if (child instanceof CSS3DObject) {
+        const element = child.element as HTMLElement;
+
+        element.style.opacity = opacity.toString();
+      }
     });
-  };
-
-  const backToPrevSection = () => {
-    // const prevTransition = prevTransitionMapRef.current.get(currentSectionIdRef.current);
-    // if (!prevTransition) return;
-
-    // const requireZoom = Math.max(...prevTransition.range) + 20;
-    // cameraZoomRef.current.target = requireZoom;
-  };
-
-  const pushToClickedSection = (clickedSectionId: SectionId) => {
-    // const currentSection = sectionMapRef.current.get(currentSectionIdRef.current);
-    // if (!currentSection) return;
-    
-    // const SECTION_IDS = [...Object.values(MODEL_IDS), ...Object.values(BRAIN_AREA_IDS)] as SectionId[];
-    // const isNodeSection = !SECTION_IDS.includes(clickedSectionId);
-
-    // if (isNodeSection) {
-    //   const clickedMesh = currentSection.group.getObjectByName(clickedSectionId);
-    //   if (!clickedMesh) return;
-
-    //   clickedMesh.getWorldPosition(tempVec);
-    //   setTargetPosition(tempVec);
-    // }
-
-    // let clickedSection = sectionMapRef.current.get(clickedSectionId);
-    // if (!clickedSection) return;
-    
-    // const prevTransition = prevTransitionMapRef.current.get(clickedSection.id);
-    // if (!prevTransition) return;
-
-    // const prevSectionId = prevTransition.section.id;
-    // const prevSection = sectionMapRef.current.get(prevSectionId);
-
-    // if (prevSection?.id === MODEL_IDS.brain) {
-    //   const isLeft = clickedSectionId === BRAIN_AREA_IDS.left;
-    //   transitionIntentRef.current = isLeft
-    //     ? "left"
-    //     : "right";
-
-    //   const yawOffset = Math.PI / 7.5;
-    //   cameraRotationRef.current.target.theta = isLeft
-    //     ? -yawOffset
-    //     : yawOffset;
-    // }
-
-    // const nextTransitionWithPrevSection = nextTransitionMapRef.current.get(prevSectionId);
-    // if (!nextTransitionWithPrevSection) return;
-
-    // const requireZoom = Math.min(...nextTransitionWithPrevSection.range) - 2;
-    // cameraZoomRef.current.target = requireZoom;
   };
 
   const getDirection = (
@@ -442,26 +490,59 @@ const Main = () => {
     return angle < 0 ? "left" : "right";
   };
 
+  const setSectionTarget = (mesh: THREE.Mesh) => {
+    const normalizedDepth = normalizedDepthRef.current;
+    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    if (!normalizedSection) return;
+
+    const sectionId = normalizedSection.id;
+    const nodeId = mesh.name;
+
+    const meshWorldPos = new THREE.Vector3();
+    mesh.getWorldPosition(meshWorldPos);
+
+    meshWorldPos.sub(worldGroupRef.current.position);
+
+    const meshNode = treeUtils.getNode(treeRef.current, nodeId);
+    targetNodeIdMapRef.current.set(sectionId, meshNode!);
+
+    const normalizedPosition = meshWorldPos
+      .clone()
+      .divideScalar(worldGroupScaleRef.current.current);
+
+    targetPositionIdMapRef.current.set(sectionId, normalizedPosition);
+    isChasingTarget.current = true;
+  };
+
+  // const backPreviousSection = () => {
+  //   const normalizedDepth = normalizedDepthRef.current;
+
+  //   const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
+  //   if (!prevTransitionRange) return;
+
+  //   const minProgress = Math.min(...prevTransitionRange);
+  //   const maxProgress = Math.max(...prevTransitionRange);
+
+  //   const targetScale = START_SCALE * Math.exp(minProgress);
+  //   const offsetScale = START_SCALE * Math.exp(maxProgress - minProgress) * 1.05;
+
+  //   worldGroupScaleRef.current.target = targetScale - offsetScale;
+  // };
+
+  // const pushNextSection = (node: Tree) => {
+  //   const normalizedDepth = normalizedDepthRef.current;
+  //   const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+  //   if (!normalizedSection) return;
+
+  //   const mesh = normalizedSection.group.getObjectByName(node.nodeId) as THREE.Mesh;
+  //   if (!mesh) return;
+
+  //   setSectionTarget(mesh);
+  // };
+
   const onSectionEnter = (depth: Depth) => {
     const enteredSection = sectionDepthMapRef.current.get(depth)!;
     currentSectionRef.current = enteredSection;
-
-    const normalizedDepth = normalizedDepthRef.current;
-    if (normalizedDepth !== depth) return;
-
-    const targetNode = targetNodeIdMapRef.current.get(enteredSection.id);
-    if (!targetNode) return;
-    
-    // targetNode의 children을 이용하여
-    // brain과 마찬가지로 섹션을 만들어 추가
-
-    const nodeSection = sectionIdMapRef.current.get(targetNode.name);
-    if (!nodeSection) {
-      createNodeSection(targetNode);
-    }
-    else {
-      console.log(nodeSection);
-    }
   };
 
   const updateSection = () => {
@@ -469,18 +550,22 @@ const Main = () => {
     if (direction === "idle") return;
 
     const currentScale = worldGroupScaleRef.current.current;
+    const scaleProgress = Math.log(currentScale / START_SCALE);
+
+    scaleProgressRef.current = scaleProgress;
+
     const currentDepth = currentDepthRef.current;
     const currentSection = currentSectionRef.current;
     if (!currentSection) return;
 
-    const transitionRange = transitionRangeByDepthRef.current[currentDepth] ?? undefined;
+    const transitionRange = transitionRangeDepthMapRef.current.get(currentDepth) ?? undefined;
     if (transitionRange) {
       const min = Math.min(...transitionRange);
       const max = Math.max(...transitionRange);
       const t = computeOpacity(transitionRange);
 
       let normalizedDepth = currentDepth;
-      if (currentScale >= max) normalizedDepth += 1;
+      if (scaleProgress >= min) normalizedDepth += 1;
 
       if (normalizedDepthRef.current !== normalizedDepth) {
         normalizedDepthRef.current = normalizedDepth;
@@ -490,7 +575,7 @@ const Main = () => {
       }
   
       if (direction === "in") {
-        if (currentScale > max) {
+        if (scaleProgress > max) {
           currentDepthRef.current = Math.min(
             currentDepth + 1,
             sectionDepthMapRef.current.size - 1
@@ -498,7 +583,7 @@ const Main = () => {
         }
       }
       else if (direction === "out") {
-        if (currentScale < min) {
+        if (scaleProgress < min) {
           currentDepthRef.current = Math.max(
             currentDepth - 1,
             0
@@ -525,25 +610,70 @@ const Main = () => {
     }
 
     if (currentSection.id === MODEL_IDS.brain) {
-      if (currentScale < Math.min(...transitionRange)) {
+      if (scaleProgress < Math.min(...transitionRange!)) {
         const angle = getAngle();
 
         const leftOrRightId = angle === "left"
           ? BRAIN_AREA_IDS.left
           : BRAIN_AREA_IDS.right;
-        const leftOrRightSection = sectionIdMapRef.current.get(leftOrRightId);
-        if (!leftOrRightSection) {
-          const node = treeUtils.getNode(treeRef.current, leftOrRightId);
-          if (!node) return;
-
-          createNodeSection(node);
-        }
-        else {
-          sectionDepthMapRef.current.set(currentDepth + 1, leftOrRightSection);
-          transitionRangeByDepthRef.current.push([350, 550]);
+        const leftOrRightSection = resolveSection(leftOrRightId, { scalar: 0.5 });
+        if (leftOrRightSection) {
+          advanceToNextDepth(leftOrRightSection, [6.50, 6.80]);
         }
       }
     }
+
+    if (currentSection.kind === "node") {
+      setNextNodeSection();
+    }
+  };
+
+  const updateGlobalProgress = () => {
+    const ranges = Array.from(transitionRangeDepthMapRef.current.values());
+
+    const globalMin = MIN_SCALE;
+    const globalMax = Math.max(...ranges.flat());
+
+    const rawProgress = (scaleProgressRef.current - globalMin) / (globalMax - globalMin);
+    const progress = THREE.MathUtils.clamp(rawProgress, 0, 1);
+
+    setGlobalProgress(progress);
+  };
+
+  const updateTextObject = () => {
+    const camera = cameraRef.current;
+    if (!camera) return;
+    
+    const normalizedDepth = normalizedDepthRef.current;
+    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    if (!normalizedSection || normalizedSection.kind !== "node") return;
+
+    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
+    const currentTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth);
+    if (!prevTransitionRange || !currentTransitionRange) return;
+
+    const scaleProgress = scaleProgressRef.current;
+
+    const minScaleProgress = Math.min(...prevTransitionRange);
+    const maxScaleProgress = Math.min(...currentTransitionRange);
+
+    const maxProcess = (maxScaleProgress - minScaleProgress);
+    const process = (scaleProgress - minScaleProgress) / maxProcess;
+
+    const inverseProcess = 1 - process;
+    const isInteractive = inverseProcess > 0.25;
+
+    normalizedSection.group.traverse(obj => {
+      if (!(obj instanceof THREE.Mesh) || !obj.userData.textObject) return;
+
+      const mesh = obj;
+      const textObject: CSS3DObject = obj.userData.textObject;
+
+      textObject.element.style.pointerEvents = isInteractive ? "auto" : "none";
+      textObject.element.style.setProperty("--inverseProcess", inverseProcess.toString());
+
+      mesh.quaternion.copy(camera.quaternion);
+    });
   };
 
   const updateWorldGroupPosition = () => {
@@ -553,25 +683,52 @@ const Main = () => {
     const currentSection = sectionDepthMapRef.current.get(normalizedDepth);
     if (!prevSection || !currentSection) return;
 
-    const prevTransitionRange = transitionRangeByDepthRef.current[normalizedDepth - 1];
-    const currentTransitionRange = transitionRangeByDepthRef.current[normalizedDepth];
+    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
+    const currentTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth);
+    if (!prevTransitionRange || !currentTransitionRange) return;
 
-    const targetPosition = targetPositionIdMapRef.current.get(currentSection.id);
-    if (!targetPosition) return;
+    const prevTargetPosition = targetPositionIdMapRef.current.get(prevSection.id);
+    const currentTargetPosition = targetPositionIdMapRef.current.get(currentSection.id);
 
-    const currentScale = worldGroupScaleRef.current.current;
+    const scaleProgress = scaleProgressRef.current;
 
-    const minProcessScale = Math.max(...prevTransitionRange);
-    const maxProcessScale = Math.min(...currentTransitionRange) * 0.5;
-    const process = (currentScale - minProcessScale) / (maxProcessScale - minProcessScale);
+    const minScaleProgress = Math.min(...prevTransitionRange);
+    const maxScaleProgress = Math.min(...currentTransitionRange);
 
-    const from = centerVector.clone();
-    const to = targetPosition.clone().multiplyScalar(-currentScale);
+    const maxProcess = (maxScaleProgress - minScaleProgress) * 0.5;
+    const process = (scaleProgress - minScaleProgress) / maxProcess;
+
+    let from = centerVector.clone();
+    let to = centerVector.clone();
+
+    if (!prevTargetPosition && currentTargetPosition) {
+      to = currentTargetPosition.clone();
+    }
+    else if (prevTargetPosition && !currentTargetPosition) {
+      from = prevTargetPosition.clone();
+      to = prevTargetPosition.clone();
+    }
+    else if (prevTargetPosition && currentTargetPosition) {
+      from = prevTargetPosition.clone();
+      to = currentTargetPosition.clone();
+    }
 
     const t = THREE.MathUtils.clamp(process, 0, 1);
     worldGroupPositionRef.current.target.copy(
       from.clone().lerp(to, t)
     );
+  };
+
+  const handleChangeProgress = (progress: number) => {
+    const ranges = Array.from(transitionRangeDepthMapRef.current.values());
+    
+    const globalMin = MIN_SCALE;
+    const globalMax = Math.max(...ranges.flat());
+
+    const scaleProgress = globalMin + progress * (globalMax - globalMin);
+    const worldScale = START_SCALE * Math.exp(scaleProgress);
+
+    worldGroupScaleRef.current.target = worldScale;
   };
 
   const handleWheel = (event: WheelEvent) => {
@@ -596,11 +753,15 @@ const Main = () => {
     if (isZoomingRef.current) return;
     event.preventDefault();
 
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.className.includes("progressBar")) isProgressBarRef.current = true;
+
     pointerData.current = { x: event.clientX, y: event.clientY };
   };
 
   const handlePointerMove = (event: PointerEvent) => {
-    if (isZoomingRef.current) return;
+    if (isZoomingRef.current || isProgressBarRef.current) return;
     else if (pointerData.current.x === null || pointerData.current.y === null) return;
     event.preventDefault();
 
@@ -619,6 +780,7 @@ const Main = () => {
   };
 
   const handlePointerUp = () => {
+    isProgressBarRef.current = false;
     pointerData.current = { x: null, y: null };
   };
 
@@ -693,14 +855,23 @@ const Main = () => {
     );
     camera.position.z = CAEMRA_POSITION;
 
+    const pixelRatio = Math.min(window.devicePixelRatio, 2);
+
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       powerPreference: "high-performance",
       alpha: false
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(pixelRatio);
     mountRef.current.appendChild(renderer.domElement);
+
+    const cssRenderer = new CSS3DRenderer();
+    cssRenderer.setSize(width, height);
+    cssRenderer.domElement.style.position = "absolute";
+    cssRenderer.domElement.style.top = "0";
+    cssRenderer.domElement.style.pointerEvents = "none";
+    mountRef.current.appendChild(cssRenderer.domElement);
 
     sceneRef.current = scene;
     cameraRef.current = camera;
@@ -762,9 +933,9 @@ const Main = () => {
     // Camera 사용을 위한 Event
     mountRef.current.addEventListener("wheel", handleWheel, { passive: false });
 
-    mountRef.current.addEventListener("pointerdown", handlePointerDown, { passive: false });
-    mountRef.current.addEventListener("pointermove", handlePointerMove, { passive: false });
-    mountRef.current.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointerdown", handlePointerDown, { passive: false });
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
 
     mountRef.current.addEventListener("touchstart", handleTouchStart, { passive: false });
     mountRef.current.addEventListener("touchmove", handleTouchMove, { passive: false });
@@ -778,6 +949,7 @@ const Main = () => {
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
+      cssRenderer.setSize(width, height);
     };
     window.addEventListener("resize", handleResize);
     
@@ -815,6 +987,8 @@ const Main = () => {
       worldGroupRef.current.scale.setScalar(worldGroupScaleRef.current.current);
 
       updateSection();
+      updateGlobalProgress();
+      updateTextObject();
       updateWorldGroupPosition();
 
       if (isChasingTarget.current) {
@@ -825,8 +999,9 @@ const Main = () => {
 
         const offset = worldGroupPositionRef.current.current
           .distanceTo(worldGroupPositionRef.current.target);
+        const logicalEpsilon = 1 / Math.max(worldGroupScaleRef.current.current, 0.001);
 
-        if (offset < 1) {
+        if (offset < logicalEpsilon) {
           isChasingTarget.current = false;
           worldGroupPositionRef.current.current.copy(
             worldGroupPositionRef.current.target
@@ -838,9 +1013,14 @@ const Main = () => {
           worldGroupPositionRef.current.target
         );
       }
-      worldGroupRef.current.position.copy(worldGroupPositionRef.current.current);
+      worldGroupRef.current.position.copy(
+        worldGroupPositionRef.current.current
+          .clone()
+          .multiplyScalar(-worldGroupScaleRef.current.current)
+      );
 
       renderer.render(scene, camera);
+      cssRenderer.render(scene, camera);
     };
     animate();
 
@@ -850,9 +1030,9 @@ const Main = () => {
       if (mountRef.current) {
         mountRef.current.removeEventListener("wheel", handleWheel);
 
-        mountRef.current.removeEventListener("pointerdown", handlePointerDown);
-        mountRef.current.removeEventListener("pointermove", handlePointerMove);
-        mountRef.current.removeEventListener("pointerup", handlePointerUp);
+        window.removeEventListener("pointerdown", handlePointerDown);
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
 
         mountRef.current.removeEventListener("touchstart", handleTouchStart);
         mountRef.current.removeEventListener("touchmove", handleTouchMove);
@@ -865,88 +1045,17 @@ const Main = () => {
     }
   }, []);
 
-  const sansing = () => {
-    console.log("\n");
-    console.log("worldGroupScale: ", worldGroupScaleRef.current.current);
-    console.log("currentSection: ", currentSectionRef.current);
-    console.log("currentDepth: ", currentDepthRef.current);
-    console.log("currentPosition: ", worldGroupPositionRef.current);
-    console.log("--- End ---");
-  }
-
-  const qwe = () => {
-    const section = currentSectionRef.current;
-    const firshMesh = section!.group.children[0].name;
-    const mesh = section!.group.getObjectByName(firshMesh) as THREE.Mesh;
-    const material = mesh.material as THREE.MeshStandardMaterial;
-    if (material) material.color = new THREE.Color(0xffffff);
-
-    meshing.current = mesh;
-
-    const currentScale = worldGroupScaleRef.current.current;
-    const meshWorld = new THREE.Vector3();
-    mesh.getWorldPosition(meshWorld);
-    meshPosition.current = meshWorld.clone().divideScalar(currentScale);
-
-    const node = treeUtils.getNode(tree, mesh.name);
-    targetNodeIdMapRef.current.set(section!.id, node!);
-
-    const sansPosition = meshWorld.clone().divideScalar(currentScale);
-    targetPositionIdMapRef.current.set(section!.id, sansPosition);
-    isChasingTarget.current = true;
-    // meshPosition.current = mesh.position.clone().divideScalar(currentScale);
-
-    // const meshWorld = new THREE.Vector3();
-    // mesh.getWorldPosition(meshWorld);
-    // worldGroupRef.current.position.sub(meshWorld);
-
-    // targetMeshDepthMapRef.current.set(currentDepthRef.current, mesh);
-    // console.log(targetMeshDepthMapRef.current);
-  }
-
-  const asd = () => {
-    const mesh = meshing.current;
-
-    const vec = new THREE.Vector3();
-    mesh?.getWorldPosition(vec);
-    worldGroupRef.current.position.sub(vec);
-  }
-
-  const meshing = useRef<THREE.Mesh|undefined>();
-  const meshPosition = useRef<THREE.Vector3|undefined>();
-
-  const zxc = () => {
-    meshing.current = undefined;
-    meshPosition.current = undefined;
-    worldGroupRef.current.position.copy(centerVector);
-  }
-
   return (
     <React.Fragment>
-      <OntologyNavigator tree={tree} currentSectionId={normalizedSection?.id} back={backToPrevSection} push={pushToClickedSection} />
-      <div className={clsx(styles.titleContainer)}>
-        <p>{ title }</p>
-      </div>
+      {/* <OntologyNavigator tree={tree} currentSectionId={normalizedSection?.id} back={backPreviousSection} push={pushNextSection} /> */}
       <div className={clsx(styles.socialContainer)}>
         <div onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
           <Image src={githubIcon.src} alt={githubIcon.alt} />
         </div>
       </div>
       <div ref={mountRef} className={clsx(styles.fullScreen)} />
-      <div className={clsx(styles.temp)}>
-        <div onClick={sansing}>
-          <p>sans</p>
-        </div>
-        <div onClick={qwe}>
-          <p>qwe</p>
-        </div>
-        <div onClick={asd}>
-          <p>asd</p>
-        </div>
-        <div onClick={zxc}>
-          <p>zxc</p>
-        </div>
-      </div>
+      {/* <ProgressBar progress={globalProgress} onChangeProgress={handleChangeProgress} /> */}
+      <NodeCard tree={tree} section={normalizedSection} />
     </React.Fragment>
   );
 };
