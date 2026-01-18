@@ -8,22 +8,25 @@ const image = {
   alt: "favicon"
 };
 
-const SplashImage = ({ isMounted }: { isMounted: boolean }) => {
+const SplashImage = ({ show }: { show: boolean }) => {
   const splashRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isMounted || !splashRef.current) return;
-    splashRef.current.style.opacity = "1";
+    if (!show) return;
+    let duration = 0;
 
+    duration += 750;
     setTimeout(() => {
       if (!splashRef.current) return;
       splashRef.current.style.opacity = "0";
-    }, 1000);
+    }, duration);
+
+    duration += 500;
     setTimeout(() => {
       if (!splashRef.current) return;
       splashRef.current.style.display = "none";
-    }, 1000 + 500);
-  }, [isMounted]);
+    }, duration);
+  }, [show]);
 
   return (
     <div ref={splashRef} className={clsx(styles.splash)}>

@@ -1,4 +1,4 @@
-import { NodeCard, OntologyNavigator, SplashImage } from "@/components";
+import { ChatBox, NodeCard, OntologyNavigator, SplashImage } from "@/components";
 import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
@@ -14,6 +14,16 @@ import { CSS3DObject, CSS3DRenderer, GLTFLoader } from "three/examples/jsm/Addon
 const githubIcon = {
   src: require("@/public/icons/github.svg"),
   alt: "github"
+};
+
+const videoIcon = {
+  src: require("@/public/icons/video.svg"),
+  alt: "video"
+};
+
+const chatIcon = {
+  src: require("@/public/icons/chat.svg"),
+  alt: "chat"
 };
 
 const modelsTransformAttr: Record<ModelId, ModelTransformParams> = {
@@ -45,9 +55,10 @@ const CAEMRA_POSITION = 500;
 const ZOOM_SENSITIVITY = 0.035;
 const ROTATE_SENSITIVITY = 0.005;
 
-const ZOOM_SPEED = 0.05;
 const ROTATE_SPEED = 0.05;
 const MOVE_SPEED = 0.05;
+const ZOOM_SPEED = 0.05;
+const CHASING_LOG_SPEED = 0.01;
 
 const START_SCALE = 1;
 const MIN_SCALE = 0.1;
@@ -57,7 +68,6 @@ const NODE_SECTION_RATIO = 0.01;
 
 const Main = () => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const [isMounted, setIsMounted] = useState<boolean>(false);
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -123,6 +133,9 @@ const Main = () => {
 
   const [tree, setTree] = useState<Tree[]>([]);
   const treeRef = useRef<Tree[]>([]);
+
+  const [isToggleChatBox, setIsToggleChatBox] = useState<boolean>(false);
+  const [showSplashImage, setShowSplashImage] = useState<boolean>(false);
 
   const getOntology = async ()  => {
     let newOntology: Ontology = { nodes: [], relations: [] };
@@ -392,6 +405,18 @@ const Main = () => {
     return newSection;
   };
 
+  const computeNextTransitionRange = (depth: number): { rangeStart: number, rangeEnd: number } => {
+    const baseStart = 6.5;
+
+    const rangeDelta = 4.85;
+    const rangeWidth = 0.35;
+
+    const rangeStart = baseStart + (depth - 1) * rangeDelta;
+    const rangeEnd = rangeStart + rangeWidth;
+
+    return { rangeStart, rangeEnd };
+  };
+
   const advanceToNextDepth = (
     section: Section,
     transitionRange: TransitionRange
@@ -429,13 +454,7 @@ const Main = () => {
     const nextSection = resolveSection(targetNode.nodeId, { position: targetPosition, scalar: nextScale });
     if (!nextSection) return;
 
-    const baseStart = 6.5;
-    
-    const rangeDelta = 4.85;
-    const rangeWidth = 0.35;
-    
-    const rangeStart = baseStart + (normalizedDepth - 1) * rangeDelta;
-    const rangeEnd = rangeStart + rangeWidth;
+    const { rangeStart, rangeEnd } = computeNextTransitionRange(normalizedDepth);
 
     advanceToNextDepth(nextSection, [rangeStart, rangeEnd]);
   }
@@ -541,6 +560,14 @@ const Main = () => {
       .divideScalar(worldGroupScaleRef.current.current);
 
     targetPositionIdMapRef.current.set(sectionId, normalizedPosition);
+
+    const { rangeEnd } = computeNextTransitionRange(normalizedDepth - 1);
+    const margin = 0.15;
+
+    const targetLog = rangeEnd + margin;
+    worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);;
+
+    setNextNodeSection();
     isChasingTarget.current = true;
   };
 
@@ -550,13 +577,11 @@ const Main = () => {
     const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
     if (!prevTransitionRange) return;
 
-    const minProgress = Math.min(...prevTransitionRange);
-    const maxProgress = Math.max(...prevTransitionRange);
+    const rangeStart = Math.min(...prevTransitionRange);
+    const margin = 0.15;
 
-    const targetScale = START_SCALE * Math.exp(minProgress);
-    const offsetScale = START_SCALE * Math.exp(maxProgress - minProgress) * 1.05;
-
-    worldGroupScaleRef.current.target = targetScale - offsetScale;
+    const targetLog = rangeStart - margin;
+    worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);
   };
 
   const pushNextSection = (node: Tree) => {
@@ -573,6 +598,7 @@ const Main = () => {
   const onSectionEnter = (depth: Depth) => {
     const enteredSection = sectionDepthMapRef.current.get(depth)!;
     currentSectionRef.current = enteredSection;
+    isChasingTarget.current = false;
   };
 
   const updateSection = () => {
@@ -737,19 +763,23 @@ const Main = () => {
     );
   };
 
-  const handleChangeProgress = (progress: number) => {
-    const ranges = Array.from(transitionRangeDepthMapRef.current.values());
-    
-    const globalMin = MIN_SCALE;
-    const globalMax = Math.max(...ranges.flat());
+  const handleStartExplore = () => {
+    setShowSplashImage(true);
 
-    const scaleProgress = globalMin + progress * (globalMax - globalMin);
-    const worldScale = START_SCALE * Math.exp(scaleProgress);
+    window.addEventListener("wheel", handleWheel, { passive: false });
 
-    worldGroupScaleRef.current.target = worldScale;
+    window.addEventListener("pointerdown", handlePointerDown, { passive: false });
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+
+    window.addEventListener("touchstart", handleTouchStart, { passive: false });
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
   };
 
   const handleWheel = (event: WheelEvent) => {
+    if (isChasingTarget.current) return;
+
     const worldGroup = worldGroupRef.current;
     if (!worldGroup) return;
     event.preventDefault();
@@ -931,7 +961,6 @@ const Main = () => {
         ]);
 
         setInitialSections({ humanModel, brainModel, milkywayModel });
-        setIsMounted(true);
       }
       catch (error) {
         console.error(error);
@@ -941,17 +970,6 @@ const Main = () => {
 
     worldGroupRef.current.add(sectionsRootRef.current);
     scene.add(worldGroupRef.current);
-
-    // Camera 사용을 위한 Event
-    window.addEventListener("wheel", handleWheel, { passive: false });
-
-    window.addEventListener("pointerdown", handlePointerDown, { passive: false });
-    window.addEventListener("pointermove", handlePointerMove, { passive: false });
-    window.addEventListener("pointerup", handlePointerUp);
-
-    window.addEventListener("touchstart", handleTouchStart, { passive: false });
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
-    window.addEventListener("touchend", handleTouchEnd);
 
     const handleResize = () => {
       if (!mountRef.current) return;
@@ -991,11 +1009,26 @@ const Main = () => {
       camera.position.copy(offset);
       camera.lookAt(centerVector);
 
-      worldGroupScaleRef.current.current = THREE.MathUtils.lerp(
-        worldGroupScaleRef.current.current,
-        worldGroupScaleRef.current.target,
-        ZOOM_SPEED
-      );
+      if (isChasingTarget.current) {
+        const currentLog = Math.log(worldGroupScaleRef.current.current / START_SCALE);
+        const targetLog = Math.log(worldGroupScaleRef.current.target / START_SCALE);
+
+        const diff = targetLog - currentLog;
+        const step = CHASING_LOG_SPEED * Math.sign(diff);
+
+        const nextLog = Math.abs(step) > Math.abs(diff)
+          ? targetLog
+          : currentLog + step;
+
+        worldGroupScaleRef.current.current = START_SCALE * Math.exp(nextLog);
+      }
+      else {
+        worldGroupScaleRef.current.current = THREE.MathUtils.lerp(
+          worldGroupScaleRef.current.current,
+          worldGroupScaleRef.current.target,
+          ZOOM_SPEED
+        );
+      }
       worldGroupRef.current.scale.setScalar(worldGroupScaleRef.current.current);
 
       updateSection();
@@ -1013,7 +1046,6 @@ const Main = () => {
         const logicalEpsilon = 1 / Math.max(worldGroupScaleRef.current.current, 0.001);
 
         if (offset < logicalEpsilon) {
-          isChasingTarget.current = false;
           worldGroupPositionRef.current.current.copy(
             worldGroupPositionRef.current.target
           );
@@ -1061,15 +1093,24 @@ const Main = () => {
       <Head>
         <title>Hyunwoo AI</title>
       </Head>
-      <SplashImage isMounted={isMounted} />
+      <SplashImage show={showSplashImage} />
       <OntologyNavigator tree={tree} currentSectionId={normalizedSection?.id} back={backPreviousSection} push={pushNextSection} />
+      <ChatBox isToggled={isToggleChatBox} />
       <div className={clsx(styles.socialContainer)}>
         <div onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
           <Image src={githubIcon.src} alt={githubIcon.alt} />
         </div>
       </div>
+      <div className={clsx(styles.chatContainer)}>
+        {/* <div>
+          <Image src={videoIcon.src} alt={videoIcon.alt} />
+        </div> */}
+        <div onClick={() => setIsToggleChatBox(!isToggleChatBox)}>
+          <Image src={chatIcon.src} alt={chatIcon.alt} />
+        </div>
+      </div>
       <div ref={mountRef} className={clsx(styles.fullScreen)} />
-      <NodeCard tree={tree} section={normalizedSection} />
+      <NodeCard tree={tree} section={normalizedSection} onFirstClick={handleStartExplore} />
     </React.Fragment>
   );
 };

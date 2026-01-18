@@ -1,6 +1,8 @@
 export { default as NodeCard } from "./NodeCard";
 export { default as SplashImage } from "./SplashImage";
 
+export { default as ChatBox } from "./ChatBox";
+
 export { default as Modal } from "./Modal";
 
 export { default as SidebarNavigator } from "./SidebarNavigator";
