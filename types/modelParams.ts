@@ -7,7 +7,8 @@ export type LoadModelParams = {
 
 export const MODEL_IDS = {
   brain: "idBrain",
-  human: "idHuman"
+  human: "idHuman",
+  milkyway: "idMilkyway"
 } as const
 
 export const BRAIN_AREA_IDS = {
@@ -32,7 +33,7 @@ export type SectionRelation = {
 }
 
 export type SectionId = string
-export type SectionKind = "model" | "tree" | "node"
+export type SectionKind = "model" | "node"
 export interface BaseSection {
   id: SectionId
   kind: SectionKind

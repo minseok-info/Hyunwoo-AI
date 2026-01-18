@@ -1,5 +1,5 @@
-export { default as ZoomProgressBar } from "./zoomProgressBar";
-export { default as SplashScreen } from "./splashScreen";
+export { default as NodeCard } from "./NodeCard";
+export { default as SplashImage } from "./SplashImage";
 
 export { default as Modal } from "./Modal";
 

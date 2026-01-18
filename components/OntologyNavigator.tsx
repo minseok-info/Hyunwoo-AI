@@ -1,5 +1,5 @@
 import styles from "@/styles/ontologyNavigator.module.css";
-import { MODEL_IDS, SectionId } from "@/types/modelParams";
+import { MODEL_IDS, Section, SectionId } from "@/types/modelParams";
 import { Tree } from "@/types/ontologyTypes";
 import { treeUtils } from "@/utils";
 import clsx from "clsx";
@@ -13,7 +13,7 @@ const arrowIcon = {
 
 const OntologyNavigator = (
   { tree, currentSectionId, back, push }:
-  { tree: Tree[], currentSectionId: SectionId | undefined, back: () => void, push: (arg: SectionId) => void }
+  { tree: Tree[], currentSectionId: SectionId | undefined, back: () => void, push: (arg: Tree) => void }
 ) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
@@ -46,7 +46,7 @@ const OntologyNavigator = (
         </div>
         <div className={clsx(styles.childList)}>
           {children.map((c, idx) => (
-            <div key={idx} onClick={() => push(c.nodeId)}>
+            <div key={idx} onClick={() => push(c)}>
               <p>{ c.name }</p>
             </div>
           ))}
