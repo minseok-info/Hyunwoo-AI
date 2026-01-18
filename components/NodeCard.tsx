@@ -15,7 +15,7 @@ const DEFAULT_TREE: Tree = {
   treeId: "Hyunwoo AI",
   nodeId: "Hyunwoo AI",
   name: "Hyunwoo AI",
-  desc: "",
+  desc: "Hyunwoo AI를 클릭해서 진행하세요",
   tags: [],
   children: []
 };

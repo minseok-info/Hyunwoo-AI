@@ -7,7 +7,8 @@ export type LoadModelParams = {
 
 export const MODEL_IDS = {
   brain: "idBrain",
-  human: "idHuman"
+  human: "idHuman",
+  milkyway: "idMilkyway"
 } as const
 
 export const BRAIN_AREA_IDS = {

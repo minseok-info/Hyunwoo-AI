@@ -50,24 +50,6 @@
   height: 100%;
 }
 
-.temp {
-  position: absolute;
-  top: 25px;
-  left: 25px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-.temp > div {
-  cursor: pointer;
-  color: black;
-  background-color: white;
-  padding: 5px 15px;
-  display: flex;
-}
-
 @media (hover: hover) {
   .content:hover {
     transform: scale(max(calc(4 * var(--inverseProcess)), 1));
