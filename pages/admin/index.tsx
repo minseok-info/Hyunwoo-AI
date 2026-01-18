@@ -1,6 +1,6 @@
 import { Modal, NodeEditor, SidebarNavigator } from "@/components";
 import TreeContext from "@/contexts/TreeContext";
-import styles from "@/styles/temp.module.css";
+import styles from "@/styles/admin.module.css";
 import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
 import { ontologyCompare, ontologyToTree, treeToOntology, treeUtils } from "@/utils";
 import clsx from "clsx";
@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import "katex/dist/katex.min.css"
 
-const Temp = () => {
+const Admin = () => {
   const { query, pathname, push } = useRouter();
   const treeRef = useRef<Tree[]>([]);
 
@@ -199,4 +199,4 @@ const Temp = () => {
   );
 }
 
-export default Temp;
+export default Admin;

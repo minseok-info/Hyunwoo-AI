@@ -41,7 +41,7 @@ const TreeFolder = ({ node, depth, closeForce }: { node: Tree, depth: number, cl
         <div onClick={handleFolderOpen}>
           <Image className={clsx({ [styles.rotatedIMG]: !isOpened })} src={folderIcon.src} alt={folderIcon.alt} />
         </div>
-        <div>
+        <div className={clsx(styles.name)}>
           <p>{ node.name }</p>
         </div>
       </div>

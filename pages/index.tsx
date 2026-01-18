@@ -1,1077 +1,1118 @@
-import { SplashScreen, ZoomProgressBar } from "@/components";
-import styles from "@/styles/home.module.css";
+import { ChatBox, NodeCard, OntologyNavigator, SplashImage } from "@/components";
+import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
+import styles from "@/styles/main.module.css";
+import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
+import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
+import { ontologyToTree, treeUtils } from "@/utils";
+import clsx from "clsx";
 import Head from "next/head";
 import Image from "next/image";
-import { PointerEvent, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { EffectComposer, GLTFLoader, OrbitControls, RenderPass, UnrealBloomPass } from "three/examples/jsm/Addons.js";
+import { CSS3DObject, CSS3DRenderer, GLTFLoader } from "three/examples/jsm/Addons.js";
 
 const githubIcon = {
   src: require("@/public/icons/github.svg"),
-  alt: "githubIcon",
-}
+  alt: "github"
+};
 
-const Home = () => {
-  type ItemType = {
-    id?: number,
-    title: string,
-    content: string,
+const videoIcon = {
+  src: require("@/public/icons/video.svg"),
+  alt: "video"
+};
+
+const chatIcon = {
+  src: require("@/public/icons/chat.svg"),
+  alt: "chat"
+};
+
+const modelsTransformAttr: Record<ModelId, ModelTransformParams> = {
+  idHuman: {
+    sizeRatio: 0.01,
+    posXRatio: 0,
+    posYRatio: 1.925,
+    posZRatio: 7.5,
+  },
+  idBrain: {
+    sizeRatio: 0.145,
+    posXRatio: 0,
+    posYRatio: 2.25,
+    posZRatio: 1,
+  },
+  idMilkyway: {
+    sizeRatio: 50,
+    posXRatio: 0,
+    posYRatio: 0,
+    posZRatio: 0,
   }
-  type MeshInfo = {
-    mesh: THREE.Mesh,
-    data: DataType,
-  }
-  type GroupInfo = MeshInfo & {
-    position: THREE.Vector3,
-    velocity: THREE.Vector3,
-  }
+};
 
-  type DataType = { type: "leftNeuron" | "rightNeuron" } & ItemType
-  type ModelType = THREE.Object3D | null
+const CAMERA_FOV = 75;
+const CAMERA_NEAR = 0.1;
+const CAMERA_FAR = 500000;
+const CAEMRA_POSITION = 500;
 
-  const [siteReady, setSiteReady] = useState<boolean>(false);
+const ZOOM_SENSITIVITY = 0.035;
+const ROTATE_SENSITIVITY = 0.005;
 
+const ROTATE_SPEED = 0.05;
+const MOVE_SPEED = 0.05;
+const ZOOM_SPEED = 0.05;
+const CHASING_LOG_SPEED = 0.01;
+
+const START_SCALE = 1;
+const MIN_SCALE = 0.1;
+const MAX_SCALE = Infinity;
+
+const NODE_SECTION_RATIO = 0.01;
+
+const Main = () => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const titleContainerRef = useRef<HTMLDivElement>(null);
 
-  const spaceModelRef = useRef<ModelType>(null);
-  const humanModelRef = useRef<ModelType>(null);
-  const brainModelRef = useRef<ModelType>(null);
-  const planetModelRef = useRef<ModelType>(null);
-  const skyModelRef = useRef<ModelType>(null);
-  const grassModelRef = useRef<ModelType>(null);
-
-  const brainModelCenterRef = useRef<number>(0);
-  const brainPosition = useRef<"left" | "right" | null>(null);
-
-  const centerVector = new THREE.Vector3(0, 0, 0);
-  const leftBrainVector = new THREE.Vector3(-3000, 0, 0);
-  const rightBrainVector = new THREE.Vector3(3000, 0, 0);
-
-  const sceneRef = useRef<THREE.Scene>();
-  const cameraRef = useRef<THREE.Camera>();
-  const orbitControlsRef = useRef<OrbitControls>();
-
-  const cameraTargetRef = useRef<THREE.Vector3>(centerVector);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
   const isZoomingRef = useRef<boolean>(false);
-  const explorationModeRef = useRef<boolean>(false);
+  const isProgressBarRef = useRef<boolean>(false);
+  const pointerData = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
+  const touchData = useRef<{ prevDistance: number | null }>({ prevDistance: null });
 
-  const zoomListenerRef = useRef<() => void>();
-  const intersectTargetZoomListenerRef = useRef<() => void>();
+  const centerVector = new THREE.Vector3(0, 0, 0);
 
-  const downIntersectRef = useRef<THREE.Mesh | null>(null);
-  const intersectTargetRef = useRef<THREE.Mesh | null>(null);
+  const cameraRotationRef = useRef<{
+    current: { theta: number; phi: number }
+    target: { theta: number; phi: number }
+  }>({
+    current: { theta: 0, phi: 0 },
+    target: { theta: 0, phi: 0 }
+  });
 
-  const leftGroupInfosRef = useRef<GroupInfo[]>([]);
-  const rightGroupInfosRef = useRef<GroupInfo[]>([]);
+  const worldGroupScaleRef = useRef<{
+    current: number;
+    target: number
+  }>({
+    current: 1,
+    target: 1
+  });
 
-  const leftLinesRef = useRef<THREE.LineSegments | null>(null);
-  const rightLinesRef = useRef<THREE.LineSegments | null>(null);
+  const worldGroupPositionRef = useRef<{
+    current: THREE.Vector3,
+    target: THREE.Vector3
+  }>({
+    current: centerVector.clone(),
+    target: centerVector.clone()
+  });
 
-  const deepPhaseObjects = useRef<(ModelType | THREE.DirectionalLight | THREE.Mesh | THREE.Mesh[])[]>([]);
+  const tempBox = new THREE.Box3();
+  const tempVec = new THREE.Vector3();
 
-  const [data, setData] = useState<DataType[]>([]);
-  const [title, setTitle] = useState<string>("Hyunwoo Kim");
+  const worldGroupRef = useRef<THREE.Group>(new THREE.Group()); // 크기 보정을 위한 Group
+  const sectionsRootRef = useRef<THREE.Group>(new THREE.Group()); // 섹션 보관을 위한 Group
 
-  const zoom = {
-    speed: 0.5,
-    minDistance: 0,
-    maxDistance: 400000,
-    startDistance: 125000,
-  }
-  const [zoomDistance, setZoomDistance] = useState<number>(zoom.startDistance);
+  const sectionIdMapRef = useRef<Map<SectionId, Section>>(new Map());
+  const sectionDepthMapRef = useRef<Map<Depth, Section>>(new Map());
 
-  const modelSizes = {
-    space: 5000,
-    human: 1500,
-    brain: 17500,
-    planet: 75,
-    sky: 250,
-    grass: 30,
-  }
+  const currentSectionRef = useRef<Section | undefined>(undefined);
+  const [normalizedSection, setNormalizedSection] = useState<Section | undefined>(undefined);
 
-  const group = {
-    maxDistance: 3000,
-    minSize: 250,
-    maxSize: 300,
-    minSpeed: 0.15,
-    maxSpeed: 0.25,
-  }
+  const targetNodeIdMapRef = useRef<Map<SectionId, Tree>>(new Map());
+  const targetPositionIdMapRef = useRef<Map<SectionId, THREE.Vector3>>(new Map());
+  const isChasingTarget = useRef<boolean>(false);
 
-  const loadSpaceModel = (
-    loader: GLTFLoader,
-    scene: THREE.Scene,
-    ref: React.MutableRefObject<ModelType>
-  ) => {
-    loader.load("/models/space.glb", (gltf) => {
-      const model = gltf.scene;
-      const size = modelSizes.space;
+  const prevDepthRef = useRef<number>(0);
+  const currentDepthRef = useRef<number>(0);
+  const normalizedDepthRef = useRef<number>(0);
 
-      model.scale.set(size, size, size);
+  const scaleProgressRef = useRef<number>(0);
 
-      ref.current = model;
-      scene.add(ref.current);
-    });
-  }
+  const transitionRangeDepthMapRef = useRef<Map<number, [number, number]>>(new Map([
+    [0, [1.80, 2.00]],
+    [1, [2.40, 2.75]]
+  ]));
 
-  const loadHumanModel = (
-    loader: GLTFLoader,
-    scene: THREE.Scene,
-    ref: React.MutableRefObject<ModelType>
-  ) => {
-    loader.load("/models/human.glb", (gltf) => {
-      const model = gltf.scene;
-      const size = modelSizes.human;
+  const [tree, setTree] = useState<Tree[]>([]);
+  const treeRef = useRef<Tree[]>([]);
 
-      model.scale.set(size, size, size);
-      model.position.set(0, -235000, 5000);
+  const [isToggleChatBox, setIsToggleChatBox] = useState<boolean>(false);
+  const [showSplashImage, setShowSplashImage] = useState<boolean>(false);
 
-      model.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
+  const getOntology = async ()  => {
+    let newOntology: Ontology = { nodes: [], relations: [] };
 
-          const edgesGeometry = new THREE.EdgesGeometry(mesh.geometry, 15);
-          const lineMaterial = new THREE.LineBasicMaterial({
-            color: 0xcccccc,
-            transparent: true,
-            opacity: 1,
-            linewidth: 1,
-          });
-          const lineSegments = new THREE.LineSegments(edgesGeometry, lineMaterial);
-          mesh.add(lineSegments);
-
-          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-          materials.forEach((mat) => {
-            const m = mat as THREE.MeshStandardMaterial;
-            m.color.set(new THREE.Color(1, 1, 1));
-
-            if (m.roughness === undefined) m.roughness = 0.5;
-            if (m.metalness === undefined) m.metalness = 0.5;
-            m.needsUpdate = true;
-          });
-        }
+    try {
+      const serverUrl = "https://hyunwoo-ai-backend.fly.dev/";
+      const response = await fetch(`${serverUrl}ontology`, {
+        method: "GET"
       });
+      if (!response.ok) return;
 
-      ref.current = model;
-      scene.add(ref.current);
-    });
-  }
+      await response.json().then(j => {
+        const resOnt = j["ontology"] as Ontology;
 
-  const loadBrainModel = (
-    loader: GLTFLoader,
-    scene: THREE.Scene,
-    ref: React.MutableRefObject<ModelType>
-  ) => {
-    loader.load("/models/brain.glb", (gltf) => {
-      const model = gltf.scene;
-      const size = modelSizes.brain;
+        const resNodes: Node[] = resOnt["nodes"].map((r: any) => ({ ...r, desc: r.description }));
+        const resRels: Relation[] = resOnt["relations"].map((r: any) => ({ from: r.from_, to: r.to_, type: r.type }));
 
-      model.scale.set(size, size, size);
-      model.rotation.set(0, (Math.PI - 0.4), 0);
-      model.position.set(0, -2500, 0);
-
-      const centerOffset = -229.219;
-      const modelBox = new THREE.Box3().setFromObject(model);
-      const modelCenter = (modelBox.min.x + modelBox.max.x) / 2 + centerOffset;
-      brainModelCenterRef.current = modelCenter;
-
-      model.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          
-          mesh.material = new THREE.MeshStandardMaterial({
-            vertexColors: true,
-            roughness: 0.25,
-            metalness: 0.25,
-          });
-
-          const geometry = mesh.geometry as THREE.BufferGeometry;
-          const position = geometry.attributes.position;
-          let color = geometry.attributes.color as THREE.BufferAttribute;
-
-          if (!color) {
-            color = new THREE.BufferAttribute(new Float32Array(position.count * 3), 3);
-            geometry.setAttribute("color", color);
-          }
-
-          for (let i = 0; i < position.count; i++) {
-            const x = position.getX(i);
-
-            if (x < modelCenter) color.setXYZ(i, 0.8, 0.139, 0.139);
-            else color.setXYZ(i, 0.139, 0.139, 0.8);
-          }
-          color.needsUpdate = true;
-        }
+        newOntology = { nodes: resNodes, relations: resRels };
       });
+    }
+    catch (error) {
+      console.error(error);
+    }
+    finally {
+      setTree(ontologyToTree(newOntology));
+    }
+  };
 
-      ref.current = model;
-      scene.add(ref.current);
-    });
-  }
+  const createModelSection = (
+    id: ModelId,
+    model: THREE.Group,
+    transform: ModelTransformParams,
+  ): ModelSection => {
+    if (transform.sizeRatio !== undefined) {
+      const baseScale = CAEMRA_POSITION * transform.sizeRatio;
+      model.scale.setScalar(baseScale);
+    }
 
-  const loadPlanetModel = (
-    loader: GLTFLoader,
-    scene: THREE.Scene,
-    ref: React.MutableRefObject<ModelType>
-  ) => {
-    loader.load("/models/planet.glb", (gltf) => {
-      const model = gltf.scene;
-      const size = modelSizes.planet;
+    tempBox.setFromObject(model);
+    tempBox.getCenter(tempVec);
 
-      model.scale.set(size, size, size);
+    const position = tempVec.clone();
+    position.x *= transform.posXRatio;
+    position.y *= transform.posYRatio;
+    position.z *= transform.posZRatio;
 
-      model.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          mesh.visible = false;
-        }
-      });
+    const { x, y, z } = position;
+    model.position.set(x, -y, z);
 
-      ref.current = model;
-      scene.add(ref.current);
-    });
-  }
-
-  const loadSkyModel = (
-    loader: GLTFLoader,
-    scene: THREE.Scene,
-    ref: React.MutableRefObject<ModelType>
-  ) => {
-    loader.load("/models/sky.glb", gltf => {
-      const model = gltf.scene;
-      const size = modelSizes.sky;
-
-      model.scale.set(size, size, size);
-      model.visible = false;
-
-      ref.current = model;
-      scene.add(ref.current);
-    });
-  }
-
-  const loadGrassModel = (
-    loader: GLTFLoader,
-    scene: THREE.Scene,
-    ref: React.MutableRefObject<ModelType>
-  ) => {
-    loader.load("/models/grass.glb", gltf => {
-      const model = gltf.scene;
-      const size = modelSizes.grass;
-
-      model.scale.set(size, size, size);
-      const toRemove: THREE.Object3D[] = [];
-
-      model.traverse(child => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          if (!mesh.name.includes("Plane")) toRemove.push(mesh);
-        }
-      });
-
-      toRemove.forEach(obj => obj.parent?.remove(obj));
-      model.visible = false;
-
-      ref.current = model;
-      scene.add(ref.current);
-    });
-  }
-
-  const createTextSprite = (text: string, scale = 1024, fontSize = 64, color = "#ffffff") => {
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d")!;
-
-    context.font = `${fontSize}px Arial`;
-    const metrics = context.measureText(text);
-    const textWidth = metrics.width;
-    const textHeight = fontSize;
-
-    const size = Math.pow(2, Math.ceil(Math.log2(Math.max(textWidth, textHeight))));
-    canvas.width = size;
-    canvas.height = size;
-
-    context.font = `${fontSize}px Arial`;
-    context.fillStyle = color;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText(text, size / 2, size / 2);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false, });
-    const sprite = new THREE.Sprite(material);
-
-    sprite.scale.set(scale, scale, scale);
-    sprite.raycast = () => {};
-    return sprite;
-  }
-
-  const createGroups = (scene: THREE.Scene, vector: THREE.Vector3, groups: DataType[]) => {
-    if (groups.length < 1) return;
-
-    const isLeft = vector === leftBrainVector;
-    const groupInfosRef = isLeft ? leftGroupInfosRef : rightGroupInfosRef;
-    groupInfosRef.current = [];
-
-    const maxDistance = group.maxDistance;
-    const minSize = group.minSize;
-    const maxSize = group.maxSize;
-    const minSpeed = group.minSpeed;
-    const maxSpeed = group.maxSpeed;
-
-    groups.forEach((g, index) => {
-      const u = Math.random();
-      const v = Math.random();
-      const theta = 2 * Math.PI * u;
-      const phi = Math.acos(2 * v - 1);
-      const r = Math.cbrt(Math.random()) * maxDistance;
-
-      const x = r * Math.sin(phi) * Math.cos(theta) + vector.x;
-      const y = r * Math.sin(phi) * Math.sin(theta) + vector.y;
-      const z = r * Math.cos(phi) + vector.z;
-
-      const radius = minSize + Math.random() * (maxSize - minSize);
-
-      const velocity = new THREE.Vector3(
-        minSpeed + (Math.random() - 0.5) * (maxSpeed - minSpeed),
-        minSpeed + (Math.random() - 0.5) * (maxSpeed - minSpeed),
-        minSpeed + (Math.random() - 0.5) * (maxSpeed - minSpeed)
+    if (id === MODEL_IDS.milkyway) {
+      model.position.copy(
+        centerVector.clone().sub(tempVec)
       );
+    }
 
-      const geometry = new THREE.SphereGeometry(radius, 32, 32);
+    const section: ModelSection = {
+      id: id,
+      kind: "model",
+      group: model,
+      transform: transform
+    };
+    section.group.visible = false;
+
+    sectionIdMapRef.current.set(id, section);
+    sectionsRootRef.current.add(section.group);
+    return section;
+  };
+
+  const createNodeSection = (
+    node: Tree,
+    depth: number,
+    {
+      position = undefined,
+      scalar = 1
+    }: {
+      position?: THREE.Vector3 | undefined,
+      scalar?: number
+    } = {}
+  ) => {
+    if (!sceneRef.current) return;
+
+    const loader = new THREE.TextureLoader();
+    const glowTexture = loader.load("/textures/glowTexture.png");
+
+    const sectionId = node.nodeId;
+
+    const children = node.children;
+    const group = new THREE.Group();
+
+    const minSize = 2;
+    const maxSize = 3;
+    const minDistance = maxSize + 5;
+    const maxDistance = 50;
+    const maxTries = 50;
+
+    const usedPositions: THREE.Vector3[] = [];
+
+    const randomColor = (max = 0.8): THREE.Color => {
+      return new THREE.Color(
+        Math.random() * max,
+        Math.random() * max,
+        Math.random() * max
+      );
+    };
+
+    const generatePosition = (
+      existing: THREE.Vector3[]
+    ): THREE.Vector3 => {
+      let bestCandidate: THREE.Vector3 | null = null;
+      let bestMinDistSq = -Infinity;
+
+      for (let attempt = 0; attempt < maxTries; attempt++) {
+        const u = Math.random();
+        const v = Math.random();
+        const theta = 2 * Math.PI * u;
+        const phi = Math.acos(2 * v - 1);
+        const r = Math.cbrt(Math.random()) * maxDistance;
+
+        const x = r * Math.sin(phi) * Math.cos(theta);
+        const y = r * Math.sin(phi) * Math.sin(theta);
+        const z = r * Math.cos(phi);
+
+        const position = new THREE.Vector3(x, y, z);
+
+        let minDistSq = Infinity;
+
+        for (const p of existing) {
+          const d = p.distanceToSquared(position);
+          if (d < minDistSq) minDistSq = d;
+        }
+
+        if (minDistSq >= minDistance * minDistance) {
+          return position;
+        }
+
+        if (minDistSq > bestMinDistSq) {
+          bestMinDistSq = minDistSq;
+          bestCandidate = position;
+        }
+      }
+
+      return bestCandidate ?? new THREE.Vector3();
+    };
+
+    for (const c of children) {
+      const computedSize = minSize + Math.random() * (maxSize - minSize);
+      const geometry = new THREE.SphereGeometry(computedSize, 32, 32);
+
+      const color = randomColor();
       const material = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(Math.random() * 0.8, Math.random() * 0.8, Math.random() * 0.8),
+        color: color,
         emissive: new THREE.Color(0xffffff),
-        emissiveIntensity: 1
+        emissiveIntensity: 0.35
       });
+
+      const meshPosition = generatePosition(usedPositions);
 
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.name = `${isLeft ? "left" : "right"}Group${index}`;
-      mesh.position.set(x, y, z);
+      mesh.name = c.nodeId;
+      mesh.position.copy(meshPosition);
 
-      const sprite = createTextSprite(g.title);
-      sprite.position.set(0, radius + 100, 0);
+      const spriteMat = new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: color,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const sprite = new THREE.Sprite(spriteMat);
+      const spriteScale = 17.5 + computedSize;
+      sprite.scale.set(spriteScale, spriteScale, spriteScale);
       mesh.add(sprite);
 
-      mesh.visible = false;
-      scene.add(mesh);
+      const wrapper = document.createElement("span");
+      wrapper.className = styles.marker;
 
-      groupInfosRef.current.push({
-        mesh: mesh,
-        data: g,
-        position: new THREE.Vector3(x, y, z),
-        velocity: velocity,
+      const nameSpan = document.createElement("span");
+      nameSpan.className = styles.content;
+      nameSpan.textContent = c.name;
+
+      wrapper.appendChild(nameSpan);
+      wrapper.addEventListener("click", () => {
+        setSectionTarget(mesh);
       });
-    });
+
+      const textObject = new CSS3DObject(wrapper);
+      textObject.position.x += geometry.parameters.radius + 0.75;
+
+      mesh.userData.textObject = textObject;
+      mesh.add(textObject);
+
+      usedPositions.push(meshPosition);
+      group.add(mesh);
+    };
+
+    const section: NodeSection = {
+      id: sectionId,
+      kind: "node",
+      group: group,
+    };
+    connectSimilarNode(node, section);
+
+    const maxScale = Math.max(...transitionRangeDepthMapRef.current.get(depth)!);
+    const scaleFactor = START_SCALE / maxScale;
+    const normalizedScale = scalar * scaleFactor;
+
+    section.group.scale.setScalar(normalizedScale);
+    section.group.visible = false;
+    section.group.renderOrder = -depth;
+
+    if (position) section.group.position.copy(position.clone());
+
+    sectionIdMapRef.current.set(sectionId, section);
+    sectionsRootRef.current.add(section.group);
+    
+    return section;
   };
 
-  const connectGroup = (scene: THREE.Scene, groups: MeshInfo[]) => {
-    if (groups.length < 1) return null;
+  const connectSimilarNode = (node: Tree, section: NodeSection) => {
+    const similarPoints: THREE.Vector3[] = [];
+    for (let i = 0; i < node.children.length; i++) {
+      for (let j = i + 1; j < node.children.length; j++) {
+        const a = node.children[i];
+        const b = node.children[j];
 
-    const points: THREE.Vector3[] = [];
-    const connected = new Set<THREE.Mesh>();
+        const hasSameTag = a.tags.some(t => b.tags.includes(t));
+        if (!hasSameTag) continue;
 
-    groups.forEach(g => {
-      const centerPos = g.mesh.position;
-      let minDistance = Infinity;
-      let closestPos: THREE.Vector3 | null = null;
+        const aMesh = section.group.getObjectByName(a.nodeId);
+        const bMesh = section.group.getObjectByName(b.nodeId);
+        if (!aMesh || !bMesh) return;
 
-      groups.forEach(cand => {
-        if (cand.mesh === g.mesh) return;
-        else if (connected.has(cand.mesh)) return;
-
-        const candPos = cand.mesh.position;
-        const distance = centerPos.distanceTo(candPos);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestPos = candPos;
-        }
-      });
-
-      if (closestPos) {
-        points.push(centerPos.clone(), (closestPos as THREE.Vector3).clone());
-        connected.add(g.mesh);
+        const aPosition = aMesh.position.clone();
+        const bPosition = bMesh.position.clone();
+        similarPoints.push(aPosition, bPosition)
       }
-    });
+    }
 
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+    const geometry = new THREE.BufferGeometry().setFromPoints(similarPoints);
+    const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
     const lines = new THREE.LineSegments(geometry, material);
-    lines.visible = false;
-    scene.add(lines);
-    return lines;
+    section.group.add(lines);
   };
 
-  const createLight = ({ x, y, z }: THREE.Vector3) => {
-    if (!sceneRef.current) return;
-
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-
-    light.position.set(x + 50, y + 100, z + 75);
-    light.target.position.set(x, y - 50, z);
-    light.castShadow = true;
-
-    light.shadow.mapSize.width = 2048;
-    light.shadow.mapSize.height = 2048;
-
-    const d = 300;
-    light.shadow.camera.left = -d;
-    light.shadow.camera.right = d;
-    light.shadow.camera.top = d;
-    light.shadow.camera.bottom = -d;
-    light.shadow.camera.near = 0.5;
-    light.shadow.camera.far = 1000;
-
-    light.shadow.radius = 2;
-
-    sceneRef.current.add(light);
-    sceneRef.current.add(light.target);
-    return light;
-  }
-
-  const createSky = ({ x, y, z }: THREE.Vector3) => {
-    if (!skyModelRef.current) return null;
-
-    const model = skyModelRef.current;
-    model.position.set(x, y, z);
-    model.visible = true;
-
-    return model;
-  }
-
-  const createGrass = ({ x, y, z }: THREE.Vector3) => {
-    if (!grassModelRef.current) return null;
-
-    const model = grassModelRef.current;
-    model.position.set(x + 23, y - 43 - modelSizes.grass / 2, z + 10);
-    model.visible = true;
-
-    return model;
-  }
-
-  const createHenges = ({ x, y, z }: THREE.Vector3) => {
-    if (!sceneRef.current) return;
-
-    const henges = [];
-
-    const count = 10;
-    const groundTop = y - 50;
-
-    const minRadius = 75;
-    const maxRadius = 120;
-
-    const minWidth = 25;
-    const maxWidth = 50;
-
-    const minHeight = 35;
-    const maxHeight = 150;
-
-    const minDepth = 7.5;
-    const maxDepth = 15;
-
-    const glowColor = 0xf4f4f4;
-    const colorMap = [0x111111, 0x333333, 0x555555, glowColor];
-
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const radius = minRadius + Math.random() * (maxRadius - minRadius);
-
-      const width = minWidth + Math.random() * (maxWidth - minWidth);
-      const height = minHeight + Math.random() * (maxHeight - minHeight);
-      const depth = minDepth + Math.random() * (maxDepth - minDepth);
-
-      const posX = x + Math.cos(angle) * radius;
-      const posZ = z + Math.sin(angle) * radius;
-      const posY = groundTop + height / 2;
-
-      const colorIndex = Math.floor(Math.random() * colorMap.length);
-
-      const geometry = new THREE.BoxGeometry(width, height, depth);
-      const material = new THREE.MeshStandardMaterial({
-        color: colorMap[colorIndex],
-        roughness: 1,
-        metalness: 0,
-      });
-      const henge = new THREE.Mesh(geometry, material);
-
-      henge.position.set(posX, posY, posZ);
-      henge.lookAt(x, posY, z);
-
-      henge.castShadow = true;
-      henge.receiveShadow = true;
-
-      sceneRef.current.add(henge);
-      henges.push(henge);
+  const resolveSection = (
+    sectionId: SectionId,
+    {
+      position,
+      scalar
+    }: {
+      position?: THREE.Vector3,
+      scalar?: number
+    } = {}
+  ): Section | undefined => {
+    const section = sectionIdMapRef.current.get(sectionId);
+    if (section) {
+      return section;
     }
 
-    return henges;
-  }
+    const node = treeUtils.getNode(treeRef.current, sectionId);
+    if (!node) return;
 
-  const enterDeepPhase = (target: THREE.Mesh) => {
-    const position = target.position;
+    const newSection = createNodeSection(node, normalizedDepthRef.current, { position, scalar });
+    if (!newSection) return;
 
-    const sky = createSky(position);
-    const grass = createGrass(position);
-    const light = createLight(position);
-    const neurons = createHenges(position);
+    return newSection;
+  };
 
-    if (sky) deepPhaseObjects.current.push(sky);
-    if (grass) deepPhaseObjects.current.push(grass);
-    if (light) deepPhaseObjects.current.push(light);
-    if (neurons) deepPhaseObjects.current.push(neurons);
-  }
+  const computeNextTransitionRange = (depth: number): { rangeStart: number, rangeEnd: number } => {
+    const baseStart = 6.5;
 
-  const leaveDeepPhase = () => {
-    deepPhaseObjects.current.forEach(object => {
-      if (Array.isArray(object)) {
-        object.forEach(obj => {
-          if (obj instanceof THREE.Mesh) {
-            sceneRef.current!.remove(obj);
-            obj.geometry.dispose();
+    const rangeDelta = 4.85;
+    const rangeWidth = 0.35;
 
-            const material = Array.isArray(obj.material) ? obj.material : [obj.material];
-            material.forEach(m => m.dispose());
-          }
-        });
-      }
-      else if (object instanceof THREE.DirectionalLight) {
-        if (object.shadow.map) object.shadow.map.dispose();
-        sceneRef.current!.remove(object);
-      }
-      else if (object instanceof THREE.Mesh) {
-        sceneRef.current!.remove(object);
-        object.geometry.dispose();
+    const rangeStart = baseStart + (depth - 1) * rangeDelta;
+    const rangeEnd = rangeStart + rangeWidth;
 
-        const material = Array.isArray(object.material) ? object.material : [object.material];
-        material.forEach(m => m.dispose());
-      }
-      else if (object instanceof THREE.Object3D) {
-        object.visible = false;
-      }
-    });
-  }
+    return { rangeStart, rangeEnd };
+  };
 
-  const updateGroups = (groups: GroupInfo[], center: THREE.Vector3) => {
-    groups.forEach(g => {
-      const mesh = g.mesh;
-      const uuid = mesh.uuid;
-      const intersectedUuid = intersectTargetRef.current?.uuid;
-
-      if (intersectedUuid && uuid === intersectedUuid) return;
-
-      g.position.add(g.velocity);
-      g.mesh.position.copy(g.position);
-
-      if (g.position.distanceTo(center) > group.maxDistance) {
-        const dirFromCenter = g.position.clone().sub(center).normalize();
-        g.position.copy(dirFromCenter.multiplyScalar(group.maxDistance).add(center));
-        g.velocity.multiplyScalar(-1);
-      }
-    });
-  }
-
-  const updateLines = (lines: THREE.LineSegments, groups: GroupInfo[]) => {
-    const points: number[] = [];
-    const connected = new Set<THREE.Mesh>();
-
-    groups.forEach(g => {
-      const centerPos = g.mesh.position;
-
-      let minDistance = Infinity;
-      let closestPos: THREE.Vector3 | null = null;
-
-      groups.forEach(cand => {
-        if (cand.mesh === g.mesh) return;
-        else if (connected.has(cand.mesh)) return;
-
-        const candPos = cand.mesh.position;
-        const distance = centerPos.distanceTo(candPos);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestPos = candPos;
-        }
-      });
-
-      if (closestPos) {
-        points.push(centerPos.x, centerPos.y, centerPos.z);
-        points.push((closestPos as THREE.Vector3).x, (closestPos as THREE.Vector3).y, (closestPos as THREE.Vector3).z);
-        connected.add(g.mesh);
-      }
-    });
-
-    const geometry = lines.geometry as THREE.BufferGeometry;
-    const positionAttr = geometry.getAttribute("position") as THREE.BufferAttribute;
-
-    positionAttr.array.set(points);
-    positionAttr.needsUpdate = true;
-
-    return lines;
-  }
-
-  const updateOpacityByDistance = (
-    object: ModelType | THREE.Mesh[],
-    distance: number,
-    startDist: number,
-    endDist: number,
-    limit?: number
+  const advanceToNextDepth = (
+    section: Section,
+    transitionRange: TransitionRange
   ) => {
-    if (!object) return;
+    const normalizedDepth = normalizedDepthRef.current;
+    const nextDepth = normalizedDepth + 1;
 
-    const t = THREE.MathUtils.clamp((distance - startDist) / (endDist - startDist), 0, 1);
-    const opacity = limit ? (limit * t) : (1 - t);
-    const [model, meshes] = [
-      !Array.isArray(object) && (object as THREE.Object3D).isObject3D ? object as THREE.Object3D : null,
-      Array.isArray(object) && (object[0] as THREE.Mesh).isMesh ? object as THREE.Mesh[] : null,
-    ];
-
-    if (model) {
-      model.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-  
-          materials.forEach((mat) => {
-            const m = mat as THREE.MeshStandardMaterial & { opacity?: number; transparent?: boolean };
-            m.opacity = opacity;
-            m.transparent = opacity < 1;
-            m.needsUpdate = true;
-          });
-  
-          mesh.visible = opacity > 0;
-        }
-        else if ((child as THREE.LineSegments).isLineSegments) {
-          const line = child as THREE.LineSegments;
-          const m = line.material as any;
-          const opacity = 1 - t;
-  
-          if (m) {
-            m.opacity = opacity;
-            m.transparent = opacity < 1;
-            m.needsupdate = true;
-          }
-  
-          m.visible = opacity > 0;
-        }
-      });
+    for (const depth of Array.from(sectionDepthMapRef.current.keys())) {
+      if (depth >= nextDepth + 1) {
+        sectionDepthMapRef.current.delete(depth);
+      }
     }
-    else if (meshes && meshes.length > 0) {
-      meshes.forEach(mesh => {
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        materials.forEach(mat => {
-          const m = mat as THREE.MeshStandardMaterial;
-          m.opacity = opacity;
-          m.transparent = opacity < 1;
-          m.needsUpdate = true;
-        });
-
-        mesh.visible = opacity > 0;
-      });
+    for (const depth of Array.from(transitionRangeDepthMapRef.current.keys())) {
+      if (depth >= nextDepth + 1) {
+        transitionRangeDepthMapRef.current.delete(depth);
+      }
     }
+
+    sectionDepthMapRef.current.set(nextDepth, section);
+    transitionRangeDepthMapRef.current.set(nextDepth, transitionRange);
+  };
+
+  const setNextNodeSection = () => {
+    const normalizedDepth = normalizedDepthRef.current;
+    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    if (!normalizedSection) return;
+
+    const targetNode = targetNodeIdMapRef.current.get(normalizedSection.id);
+    if (!targetNode) return;
+
+    const targetPosition = targetPositionIdMapRef.current.get(normalizedSection.id);
+    if (!targetPosition) return;
+    
+    const nextScale = Math.pow(NODE_SECTION_RATIO, normalizedDepth - 1);
+    const nextSection = resolveSection(targetNode.nodeId, { position: targetPosition, scalar: nextScale });
+    if (!nextSection) return;
+
+    const { rangeStart, rangeEnd } = computeNextTransitionRange(normalizedDepth);
+
+    advanceToNextDepth(nextSection, [rangeStart, rangeEnd]);
   }
 
-  const changeColorByAngle = (
-    model: ModelType,
-    isLeft: boolean,
-  ) => {
-    if (!model) return;
-    model.rotation.set(0, 0, 0);
-    isLeft
-      ? model.rotation.set(-1, 0.75, 0.5)
-      : model.rotation.set(1, 0.75, -1.5);
+  const computeOpacity = (
+    range: TransitionRange
+  ): number => {
+    const scaleProgress = scaleProgressRef.current;
 
-    model.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
+    const min = Math.min(...range);
+    const max = Math.max(...range);
+
+    return THREE.MathUtils.inverseLerp(min, max, scaleProgress);
+  };
+
+  const setSectionOpacity = (
+    section: Section,
+    opacity: number
+  ) => {
+    if (opacity > 1.5 || opacity < -0.5) return;
+
+    section.group.visible = opacity > 0;
+    section.group.traverse(child => {
+      if (child instanceof THREE.Mesh) {
         const mesh = child as THREE.Mesh;
-        const mat = Array.isArray(mesh.material)
-          ? (mesh.material[0] as THREE.MeshStandardMaterial)
-          : (mesh.material as THREE.MeshStandardMaterial);
+        const materials = Array.isArray(mesh.material)
+          ? mesh.material
+          : [mesh.material];
 
-        mat.emissive = isLeft
-          ? new THREE.Color(1, 0.15, 0.15)
-          : new THREE.Color(0.25, 0.25, 1);
+        materials.forEach(mat => {
+          if (!("opacity" in mat)) return;
+
+          mat.opacity = opacity;
+          mat.transparent = opacity < 1;
+          mat.needsUpdate = true;
+        });
+      }
+      else if (child instanceof THREE.LineSegments) {
+        const line = child as THREE.LineSegments;
+        const mat = line.material as any;
+
+        if (mat) {
+          mat.opacity = opacity;
+          mat.transparent = opacity < 1;
+          mat.needsUpdate = true;
+        }
+      }
+      else if (child instanceof THREE.Sprite) {
+        const sprite = child as THREE.Sprite;
+        const mat = sprite.material as THREE.SpriteMaterial;
+
+        mat.opacity = opacity;
+        mat.transparent = opacity < 1;
+        mat.needsUpdate = true;
+      }
+      else if (child instanceof CSS3DObject) {
+        const element = child.element as HTMLElement;
+
+        element.style.opacity = opacity.toString();
       }
     });
-  }
+  };
 
-  const handleResize = (
-    camera: THREE.PerspectiveCamera,
-    renderer: THREE.WebGLRenderer,
-    composer: EffectComposer,
-  ) => {
+  const getDirection = (
+    offset = ZOOM_SENSITIVITY
+  ): "in" | "out" | "idle" => {
+    const current = worldGroupScaleRef.current.current;
+    const target = worldGroupScaleRef.current.target;
+
+    if (current < target - offset) return "in";
+    if (current > target + offset) return "out";
+    return "idle";
+  };
+
+  const getAngle = (): "left" | "right" => {
+    const direction = new THREE.Vector3().subVectors(cameraRef.current!.position, centerVector);
+
+    direction.y = 0;
+    direction.normalize();
+
+    const angle = Math.atan2(direction.x, direction.z);
+    return angle < 0 ? "left" : "right";
+  };
+
+  const setSectionTarget = (mesh: THREE.Mesh) => {
+    const normalizedDepth = normalizedDepthRef.current;
+    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    if (!normalizedSection) return;
+
+    const sectionId = normalizedSection.id;
+    const nodeId = mesh.name;
+
+    const meshWorldPos = new THREE.Vector3();
+    mesh.getWorldPosition(meshWorldPos);
+
+    meshWorldPos.sub(worldGroupRef.current.position);
+
+    const meshNode = treeUtils.getNode(treeRef.current, nodeId);
+    targetNodeIdMapRef.current.set(sectionId, meshNode!);
+
+    const normalizedPosition = meshWorldPos
+      .clone()
+      .divideScalar(worldGroupScaleRef.current.current);
+
+    targetPositionIdMapRef.current.set(sectionId, normalizedPosition);
+
+    const { rangeEnd } = computeNextTransitionRange(normalizedDepth - 1);
+    const margin = 0.15;
+
+    const targetLog = rangeEnd + margin;
+    worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);;
+
+    setNextNodeSection();
+    isChasingTarget.current = true;
+  };
+
+  const backPreviousSection = () => {
+    const normalizedDepth = normalizedDepthRef.current;
+
+    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
+    if (!prevTransitionRange) return;
+
+    const rangeStart = Math.min(...prevTransitionRange);
+    const margin = 0.15;
+
+    const targetLog = rangeStart - margin;
+    worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);
+  };
+
+  const pushNextSection = (node: Tree) => {
+    const normalizedDepth = normalizedDepthRef.current;
+    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    if (!normalizedSection) return;
+
+    const mesh = normalizedSection.group.getObjectByName(node.nodeId) as THREE.Mesh;
+    if (!mesh) return;
+
+    setSectionTarget(mesh);
+  };
+
+  const onSectionEnter = (depth: Depth) => {
+    const enteredSection = sectionDepthMapRef.current.get(depth)!;
+    currentSectionRef.current = enteredSection;
+    isChasingTarget.current = false;
+  };
+
+  const updateSection = () => {
+    const direction = getDirection();
+    if (direction === "idle") return;
+
+    const currentScale = worldGroupScaleRef.current.current;
+    const scaleProgress = Math.log(currentScale / START_SCALE);
+
+    scaleProgressRef.current = scaleProgress;
+
+    const currentDepth = currentDepthRef.current;
+    const currentSection = currentSectionRef.current;
+    if (!currentSection) return;
+
+    const transitionRange = transitionRangeDepthMapRef.current.get(currentDepth) ?? undefined;
+    if (transitionRange) {
+      const min = Math.min(...transitionRange);
+      const max = Math.max(...transitionRange);
+      const t = computeOpacity(transitionRange);
+
+      let normalizedDepth = currentDepth;
+      if (scaleProgress >= min) normalizedDepth += 1;
+
+      if (normalizedDepthRef.current !== normalizedDepth) {
+        normalizedDepthRef.current = normalizedDepth;
+
+        const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+        setNormalizedSection(normalizedSection);
+      }
+  
+      if (direction === "in") {
+        if (scaleProgress > max) {
+          currentDepthRef.current = Math.min(
+            currentDepth + 1,
+            sectionDepthMapRef.current.size - 1
+          );
+        }
+      }
+      else if (direction === "out") {
+        if (scaleProgress < min) {
+          currentDepthRef.current = Math.max(
+            currentDepth - 1,
+            0
+          );
+        }
+      }
+
+      setSectionOpacity(currentSection, 1 - t);
+      
+      const nextSection = sectionDepthMapRef.current.get(currentDepth + 1);
+      if (nextSection) {
+        setSectionOpacity(nextSection, t);
+      }
+    }
+
+    const prevDepth = prevDepthRef.current;
+    const nextDepth = currentDepthRef.current;
+    
+    if (prevDepth !== nextDepth) {
+      onSectionEnter(nextDepth);
+      prevDepthRef.current = nextDepth;
+      
+      return;
+    }
+
+    if (currentSection.id === MODEL_IDS.brain) {
+      if (scaleProgress < Math.min(...transitionRange!)) {
+        const angle = getAngle();
+
+        const leftOrRightId = angle === "left"
+          ? BRAIN_AREA_IDS.left
+          : BRAIN_AREA_IDS.right;
+        const leftOrRightSection = resolveSection(leftOrRightId, { scalar: 0.5 });
+        if (leftOrRightSection) {
+          advanceToNextDepth(leftOrRightSection, [6.50, 6.80]);
+        }
+      }
+    }
+
+    if (currentSection.kind === "node") {
+      setNextNodeSection();
+    }
+  };
+
+  const updateTextObject = () => {
+    const camera = cameraRef.current;
+    if (!camera) return;
+    
+    const normalizedDepth = normalizedDepthRef.current;
+    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    if (!normalizedSection || normalizedSection.kind !== "node") return;
+
+    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
+    const currentTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth);
+    if (!prevTransitionRange || !currentTransitionRange) return;
+
+    const scaleProgress = scaleProgressRef.current;
+
+    const minScaleProgress = Math.min(...prevTransitionRange);
+    const maxScaleProgress = Math.min(...currentTransitionRange);
+
+    const maxProcess = (maxScaleProgress - minScaleProgress);
+    const process = (scaleProgress - minScaleProgress) / maxProcess;
+
+    const inverseProcess = 1 - process;
+    const isInteractive = inverseProcess > 0.25;
+
+    normalizedSection.group.traverse(obj => {
+      if (!(obj instanceof THREE.Mesh) || !obj.userData.textObject) return;
+
+      const mesh = obj;
+      const textObject: CSS3DObject = obj.userData.textObject;
+
+      textObject.element.style.pointerEvents = isInteractive ? "auto" : "none";
+      textObject.element.style.setProperty("--inverseProcess", inverseProcess.toString());
+
+      mesh.quaternion.copy(camera.quaternion);
+    });
+  };
+
+  const updateWorldGroupPosition = () => {
+    const normalizedDepth = normalizedDepthRef.current;
+
+    const prevSection = sectionDepthMapRef.current.get(normalizedDepth - 1)
+    const currentSection = sectionDepthMapRef.current.get(normalizedDepth);
+    if (!prevSection || !currentSection) return;
+
+    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
+    const currentTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth);
+    if (!prevTransitionRange || !currentTransitionRange) return;
+
+    const prevTargetPosition = targetPositionIdMapRef.current.get(prevSection.id);
+    const currentTargetPosition = targetPositionIdMapRef.current.get(currentSection.id);
+
+    const scaleProgress = scaleProgressRef.current;
+
+    const minScaleProgress = Math.min(...prevTransitionRange);
+    const maxScaleProgress = Math.min(...currentTransitionRange);
+
+    const maxProcess = (maxScaleProgress - minScaleProgress) * 0.5;
+    const process = (scaleProgress - minScaleProgress) / maxProcess;
+
+    let from = centerVector.clone();
+    let to = centerVector.clone();
+
+    if (!prevTargetPosition && currentTargetPosition) {
+      to = currentTargetPosition.clone();
+    }
+    else if (prevTargetPosition && !currentTargetPosition) {
+      from = prevTargetPosition.clone();
+      to = prevTargetPosition.clone();
+    }
+    else if (prevTargetPosition && currentTargetPosition) {
+      from = prevTargetPosition.clone();
+      to = currentTargetPosition.clone();
+    }
+
+    const t = THREE.MathUtils.clamp(process, 0, 1);
+    worldGroupPositionRef.current.target.copy(
+      from.clone().lerp(to, t)
+    );
+  };
+
+  const handleStartExplore = () => {
+    setShowSplashImage(true);
+
+    window.addEventListener("wheel", handleWheel, { passive: false });
+
+    window.addEventListener("pointerdown", handlePointerDown, { passive: false });
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+
+    window.addEventListener("touchstart", handleTouchStart, { passive: false });
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
+  };
+
+  const handleWheel = (event: WheelEvent) => {
+    if (isChasingTarget.current) return;
+
+    const worldGroup = worldGroupRef.current;
+    if (!worldGroup) return;
+    event.preventDefault();
+
+    const delta = Math.sign(-event.deltaY);
+    
+    const currentScale = worldGroupScaleRef.current.current;
+    const scaleFactor = currentScale / START_SCALE;
+    
+    const normalizedDelta = delta * scaleFactor * ZOOM_SENSITIVITY;
+    worldGroupScaleRef.current.target = THREE.MathUtils.clamp(
+      worldGroupScaleRef.current.target + normalizedDelta,
+      MIN_SCALE,
+      MAX_SCALE
+    );
+  };
+
+  const handlePointerDown = (event: PointerEvent) => {
+    if (isZoomingRef.current) return;
+    event.preventDefault();
+
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.className.includes("progressBar")) isProgressBarRef.current = true;
+
+    pointerData.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handlePointerMove = (event: PointerEvent) => {
+    if (isZoomingRef.current || isProgressBarRef.current) return;
+    else if (pointerData.current.x === null || pointerData.current.y === null) return;
+    event.preventDefault();
+
+    const dx = (event.clientX - pointerData.current.x) * window.devicePixelRatio;
+    const dy = (event.clientY - pointerData.current.y) * window.devicePixelRatio;
+
+    cameraRotationRef.current.target.theta -= dx * ROTATE_SENSITIVITY;
+    cameraRotationRef.current.target.phi += dy * ROTATE_SENSITIVITY;
+    cameraRotationRef.current.target.phi = THREE.MathUtils.clamp(
+      cameraRotationRef.current.target.phi,
+      -Math.PI / 2 + 0.01,
+      Math.PI / 2 - 0.01
+    );
+
+    pointerData.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handlePointerUp = () => {
+    isProgressBarRef.current = false;
+    pointerData.current = { x: null, y: null };
+  };
+
+  const handleTouchStart = (event: TouchEvent) => {
+    event.preventDefault();
+
+    const touches = event.touches;
+    if (touches.length === 2) {
+      isZoomingRef.current = true;
+
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      touchData.current.prevDistance = Math.hypot(dx, dy);
+    }
+  };
+
+  const handleTouchMove = (event: TouchEvent) => {
+    const worldGroup = worldGroupRef.current;
+    if (!worldGroup) return;
+    event.preventDefault();
+
+    const touches = event.touches;
+    if (event.touches.length === 2 && touchData.current.prevDistance) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      const distance = Math.hypot(dx, dy);
+
+      const delta = -(touchData.current.prevDistance - distance);
+
+      const currentScale = worldGroupScaleRef.current.current;
+      const scaleFactor = currentScale / START_SCALE;
+
+      let normalizedDelta = delta* scaleFactor * (ZOOM_SENSITIVITY * 0.075);
+      worldGroupScaleRef.current.target = THREE.MathUtils.clamp(
+        worldGroupScaleRef.current.target + normalizedDelta,
+        MIN_SCALE,
+        MAX_SCALE
+      );
+
+      touchData.current.prevDistance = distance;
+    }
+  };
+
+  const handleTouchEnd = (event: TouchEvent) => {
+    const touches = event.touches;
+    if (touches.length < 2) {
+      isZoomingRef.current = false;
+      touchData.current.prevDistance = null;
+    }
+  };
+
+  useEffect(() => {
+    treeRef.current = tree;
+  }, [tree]);
+
+  useEffect(() => {
     if (!mountRef.current) return;
+    let isMounted = true;
+    
+    getOntology();
 
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
 
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-
-    renderer.setSize(width, height);
-    composer.setSize(width, height);
-  }
-
-  const handleZoomUpdate = (distance: number) => {
-    if (!cameraRef.current || !orbitControlsRef.current) return;
-    
-    const camera = cameraRef.current;
-    const controls = orbitControlsRef.current;
-
-    const dir = new THREE.Vector3()
-      .subVectors(camera.position, controls.target)
-      .normalize();
-
-    camera.position.copy(dir.multiplyScalar(distance).add(controls.target));
-    controls.update();
-  }
-
-  const handleZoom = (
-    camera: THREE.PerspectiveCamera,
-    controls: OrbitControls,
-  ) => {
-    if (!mountRef.current) return;
-    const angle = controls.getAzimuthalAngle();
-
-    const targetDistance = camera.position.distanceTo(cameraTargetRef.current);
-    const centerDistance = camera.position.distanceTo(centerVector);
-    const distance = Math.min(targetDistance, centerDistance);
-    setZoomDistance(distance);
-
-    if (!isZoomingRef.current) {
-      updateOpacityByDistance(humanModelRef.current, distance, 25000, 20000);
-      updateOpacityByDistance(brainModelRef.current, distance, 15000, 12000);
-      updateOpacityByDistance(planetModelRef.current, distance, 12000, 5000, 0.35);
-    }
-
-    const [leftGroupMeshes, rightGroupMeshes] = [leftGroupInfosRef, rightGroupInfosRef].map(group => group.current.map(info => info.mesh));
-    const [leftLines, rightLines] = [leftLinesRef, rightLinesRef].map(lines => lines.current);
-
-    if (distance < 12000) {
-      if (cameraTargetRef.current.equals(centerVector)) {
-        const isLeft = angle < 0;
-        changeColorByAngle(planetModelRef.current, isLeft);
-
-        const hasIntersectTarget = intersectTargetRef.current?.name.includes(isLeft ? "left" : "right");
-        const target = hasIntersectTarget
-          ? intersectTargetRef.current!.position.clone()
-          : isLeft ? leftBrainVector.clone() : rightBrainVector.clone();
-        cameraTargetRef.current = target;
-
-        const [show, hide] = isLeft ? [leftGroupMeshes, rightGroupMeshes] : [rightGroupMeshes, leftGroupMeshes];
-        show.forEach(mesh => mesh.visible = true);
-        hide.forEach(mesh => mesh.visible = false);
-  
-        if (leftLines) leftLines.visible = isLeft;
-        if (rightLines) rightLines.visible = !isLeft;
-      }
-    }
-    else {
-      if (!cameraTargetRef.current.equals(centerVector)) {
-        cameraTargetRef.current = centerVector.clone();
-        [...leftGroupMeshes, ...rightGroupMeshes].forEach(mesh => mesh.visible = false);
-        [leftLines, rightLines].forEach(lines => { if (lines) lines.visible = false; });
-      }
-    }
-  }
-
-  const handleIntersectTargetZoom = () => {
-    if (!cameraRef.current || !intersectTargetRef.current || !brainPosition.current) return;
-
-    const target = intersectTargetRef.current;
-    const distance = cameraRef.current.position.distanceTo(target.position);
-    setZoomDistance(distance);
-
-    const resetHandler = () => {
-      const [leftGroupMeshes, rightGroupMeshes] = [leftGroupInfosRef, rightGroupInfosRef].map(group => group.current.map(info => info.mesh));
-      const [leftLines, rightLines] = [leftLinesRef, rightLinesRef].map(lines => lines.current);
-  
-      const objectsMap = {
-        left: [leftGroupMeshes, leftLines, planetModelRef.current, spaceModelRef.current],
-        right: [rightGroupMeshes, rightLines, planetModelRef.current, spaceModelRef.current],
-      }
-      const objects = brainPosition.current
-        ? objectsMap[brainPosition.current]
-        : null;
-  
-      if (objects) {
-        objects.forEach(object => {
-          updateOpacityByDistance(object, distance, 500, 450);
-        });
-  
-        if (distance > 500) {
-          leaveDeepPhase();
-          explorationModeRef.current = false;
-
-          setTitle("Hyunwoo Kim");
-          titleContainerRef.current!.style.setProperty("opacity", "1");
-  
-          updateOpacityByDistance(humanModelRef.current, distance, 25000, 20000);
-          updateOpacityByDistance(brainModelRef.current, distance, 15000, 12000);
-          updateOpacityByDistance(planetModelRef.current, distance, 12000, 5000, 0.35);
-  
-          orbitControlsRef.current?.removeEventListener("change", intersectTargetZoomListenerRef.current!);
-          orbitControlsRef.current?.addEventListener("change", zoomListenerRef.current!);
-        }
-        else if (distance > 450) {
-          titleContainerRef.current!.style.setProperty("opacity", "0");
-        }
-      }
-    }
-
-    resetHandler();
-  }
-
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (!mountRef.current || !cameraRef.current || !orbitControlsRef.current || explorationModeRef.current) return;
-
-    const rect = mountRef.current.getBoundingClientRect();
-    const mouse = new THREE.Vector2();
-
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(mouse, cameraRef.current);
-
-    const visibleThoughts = [
-      ...leftGroupInfosRef.current.map(info => info.mesh).filter(m => m.visible),
-      ...rightGroupInfosRef.current.map(info => info.mesh).filter(m => m.visible),
-    ];
-    const intersects = raycaster.intersectObjects(visibleThoughts);
-
-    if (intersects.length > 0) {
-      downIntersectRef.current = intersects[0].object as THREE.Mesh;
-    }
-  }
-
-  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    if (!mountRef.current || !cameraRef.current || !orbitControlsRef.current || !downIntersectRef.current || explorationModeRef.current) return;
-
-    const rect = mountRef.current.getBoundingClientRect();
-    const mouse = new THREE.Vector2();
-
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(mouse, cameraRef.current);
-
-    const [leftGroupMeshes, rightGroupMeshes] = [leftGroupInfosRef, rightGroupInfosRef].map(group => group.current.map(info => info.mesh));
-    const [leftLines, rightLines] = [leftLinesRef, rightLinesRef].map(lines => lines.current);
-
-    const visibleThoughts = [
-      ...leftGroupMeshes.filter(m => m.visible),
-      ...rightGroupMeshes.filter(m => m.visible),
-    ];
-    const intersects = raycaster.intersectObjects(visibleThoughts);
-
-    if (intersects.length > 0 && intersects[0].object === downIntersectRef.current) {
-      intersectTargetRef.current = downIntersectRef.current;
-
-      const target = downIntersectRef.current;
-
-      const name = target.name;
-      const id = parseInt(name.replace(/leftGroup|rightGroup/g, ""));
-
-      if (name.toLowerCase().includes("group")) {
-        enterDeepPhase(target);
-
-        const isLeft = name.includes("left");
-        brainPosition.current = isLeft ? "left" : "right";
-
-        const groupInfosRef = isLeft ? leftGroupInfosRef : rightGroupInfosRef;
-        const groupInfo = groupInfosRef.current[id];
-        
-        const position = target.position.clone();
-        cameraTargetRef.current = position;
-  
-        const cameraDir = new THREE.Vector3();
-        cameraRef.current.getWorldDirection(cameraDir);
-  
-        const zoomDistance = 240;
-        const zoomTarget = position.clone().add(cameraDir.clone().multiplyScalar(-zoomDistance));
-  
-        const startDist = cameraRef.current.position.distanceTo(position);
-        const endDist = zoomDistance + 10;
-  
-        const objectsMap = {
-          left: [leftGroupMeshes, leftLines, planetModelRef.current, spaceModelRef.current],
-          right: [rightGroupMeshes, rightLines, planetModelRef.current, spaceModelRef.current],
-        }
-        const objects = brainPosition.current
-          ? objectsMap[brainPosition.current]
-          : null;
-  
-        const zoomIn = () => {
-          const distance = cameraRef.current!.position.distanceTo(position);
-          setZoomDistance(distance);
-  
-          if (distance > zoomDistance + 1) {
-            if (objects) {
-              objects.forEach(object => {
-                updateOpacityByDistance(object, distance, startDist, endDist);
-              });
-            }
-            cameraRef.current!.position.lerp(zoomTarget, 0.05);
-            requestAnimationFrame(zoomIn);
-          } else {
-            isZoomingRef.current = false;
-            explorationModeRef.current = true;
-
-            setTitle(groupInfo.data.title);
-            titleContainerRef.current?.style.setProperty("opacity", "1");
-
-            orbitControlsRef.current?.removeEventListener("change", zoomListenerRef.current!);
-            orbitControlsRef.current?.addEventListener("change", intersectTargetZoomListenerRef.current!);
-          }
-        }
-        
-        titleContainerRef.current?.style.setProperty("opacity", "0");
-        isZoomingRef.current = true;
-        zoomIn();
-      }
-    }
-
-    downIntersectRef.current = null;
-  }
-
-  useEffect(() => {
-    const leftGroups: DataType[] = [];
-    const rightGroups: DataType[] = [];
-
-    data.forEach(item => {
-      if (item.type === "leftNeuron") leftGroups.push(item)
-      else rightGroups.push(item);
-    });
-
-    createGroups(sceneRef.current!, leftBrainVector, leftGroups);
-    createGroups(sceneRef.current!, rightBrainVector, rightGroups);
-
-    leftLinesRef.current = connectGroup(sceneRef.current!, leftGroupInfosRef.current);
-    rightLinesRef.current = connectGroup(sceneRef.current!, rightGroupInfosRef.current);
-
-    setSiteReady(true);
-  }, [data]);
-
-  useEffect(() => {
-    if (!mountRef.current) return;
-
-    const clientWidth = mountRef.current.clientWidth;
-    const clientHeight = mountRef.current.clientHeight;
-
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, clientWidth / clientHeight, 1, 875000);
-    camera.position.z = zoom.startDistance;
+    scene.background = new THREE.Color(0x000000);
+    const camera = new THREE.PerspectiveCamera(
+      CAMERA_FOV,
+      width / height,
+      CAMERA_NEAR,
+      CAMERA_FAR
+    );
+    camera.position.z = CAEMRA_POSITION;
+
+    const pixelRatio = Math.min(window.devicePixelRatio, 2);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       powerPreference: "high-performance",
-      alpha: false,
+      alpha: false
     });
-    renderer.setSize(clientWidth, clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(pixelRatio);
     mountRef.current.appendChild(renderer.domElement);
 
-    const orbitControls = new OrbitControls(camera, renderer.domElement);
-    orbitControls.enableRotate = true;
-    orbitControls.enableZoom = true;
-    orbitControls.zoomSpeed = zoom.speed;
-    orbitControls.minDistance = zoom.minDistance
-    orbitControls.maxDistance = zoom.maxDistance
-    orbitControls.enableDamping = true;
-    orbitControls.dampingFactor = 0.05;
+    const cssRenderer = new CSS3DRenderer();
+    cssRenderer.setSize(width, height);
+    cssRenderer.domElement.style.position = "absolute";
+    cssRenderer.domElement.style.top = "0";
+    cssRenderer.domElement.style.pointerEvents = "none";
+    mountRef.current.appendChild(cssRenderer.domElement);
 
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(clientWidth, clientHeight),
-      1,
-      0.4,
-      1
-    );
-
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    composer.addPass(bloomPass);
+    sceneRef.current = scene;
+    cameraRef.current = camera;
+    rendererRef.current = renderer;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 3);
     scene.add(ambientLight);
 
-    const loader = new GLTFLoader();
-    loadSpaceModel(loader, scene, spaceModelRef);
-    loadHumanModel(loader, scene, humanModelRef);
-    loadBrainModel(loader, scene, brainModelRef);
-    loadPlanetModel(loader, scene, planetModelRef);
-    loadSkyModel(loader, scene, skyModelRef);
-    loadGrassModel(loader, scene, grassModelRef);
+    const setInitialSections = ({
+      humanModel,
+      brainModel,
+      milkywayModel
+    }: {
+      humanModel: THREE.Group,
+      brainModel: THREE.Group,
+      milkywayModel: THREE.Group
+    }) => {
+      const humanSection = createModelSection(MODEL_IDS.human, humanModel, modelsTransformAttr.idHuman);
+      const brainSection = createModelSection(MODEL_IDS.brain, brainModel, modelsTransformAttr.idBrain);
+      const milkywaySection = createModelSection(MODEL_IDS.milkyway, milkywayModel, modelsTransformAttr.idMilkyway);
 
-    const resizeListener = () => handleResize(camera, renderer, composer);
-    window.addEventListener("resize", resizeListener);
+      sectionDepthMapRef.current.set(0, humanSection);
+      sectionDepthMapRef.current.set(1, brainSection);
 
-    zoomListenerRef.current = () => handleZoom(camera, orbitControls);
-    orbitControls.addEventListener("change", zoomListenerRef.current);
+      currentSectionRef.current = humanSection;
+      setNormalizedSection(humanSection);
 
-    intersectTargetZoomListenerRef.current = () => handleIntersectTargetZoom();
+      setSectionOpacity(humanSection, 1);
+      setSectionOpacity(milkywaySection, 1);
+    };
 
-    sceneRef.current = scene;
-    cameraRef.current = camera;
-    orbitControlsRef.current = orbitControls;
-
-    const animate = () => {
-      requestAnimationFrame(animate);
-
-      updateGroups(leftGroupInfosRef.current, leftBrainVector);
-      updateGroups(rightGroupInfosRef.current, rightBrainVector);
-      if (leftLinesRef.current) leftLinesRef.current = updateLines(leftLinesRef.current, leftGroupInfosRef.current);
-      if (rightLinesRef.current) rightLinesRef.current = updateLines(rightLinesRef.current, rightGroupInfosRef.current);
-
-      orbitControls.target.lerp(cameraTargetRef.current, 0.05);
-      orbitControls.update();
-
-      composer.render();
-    }
-    animate();
-
-    const fetchData = async () => {
+    const loadModels = async () => {
       try {
-        const res = await fetch("https://hyunwoo-ai-backend.fly.dev/thoughts", {
-          method: "GET",
-        });
-  
-        if (res.ok) {
-          const result = await res.json();
-          setData(result);
-        }
+        const loader = new GLTFLoader();
+        const [humanModel, brainModel, milkywayModel] = await Promise.all([
+          loadHumanModel({ loader }),
+          loadBrainModel({ loader }),
+          loadMilkywayModel({ loader })
+        ]);
+
+        setInitialSections({ humanModel, brainModel, milkywayModel });
       }
       catch (error) {
-        setData([]);
+        console.error(error);
       }
-    }
-    fetchData();
+    };
+    loadModels();
+
+    worldGroupRef.current.add(sectionsRootRef.current);
+    scene.add(worldGroupRef.current);
+
+    const handleResize = () => {
+      if (!mountRef.current) return;
+      const width = mountRef.current.clientWidth;
+      const height = mountRef.current.clientHeight;
+
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+      cssRenderer.setSize(width, height);
+    };
+    window.addEventListener("resize", handleResize);
+    
+    const animate = () => {
+      if (!isMounted) return;
+      requestAnimationFrame(animate);
+
+      cameraRotationRef.current.current.theta = THREE.MathUtils.lerp(
+        cameraRotationRef.current.current.theta,
+        cameraRotationRef.current.target.theta,
+        ROTATE_SPEED
+      );
+      cameraRotationRef.current.current.phi = THREE.MathUtils.lerp(
+        cameraRotationRef.current.current.phi,
+        cameraRotationRef.current.target.phi,
+        ROTATE_SPEED
+      );
+
+      const radius = CAEMRA_POSITION;
+      const { theta, phi } = cameraRotationRef.current.current;
+
+      const offset = new THREE.Vector3(
+        radius * Math.sin(theta) * Math.cos(phi),
+        radius * Math.sin(phi),
+        radius * Math.cos(theta) * Math.cos(phi)
+      );
+      camera.position.copy(offset);
+      camera.lookAt(centerVector);
+
+      if (isChasingTarget.current) {
+        const currentLog = Math.log(worldGroupScaleRef.current.current / START_SCALE);
+        const targetLog = Math.log(worldGroupScaleRef.current.target / START_SCALE);
+
+        const diff = targetLog - currentLog;
+        const step = CHASING_LOG_SPEED * Math.sign(diff);
+
+        const nextLog = Math.abs(step) > Math.abs(diff)
+          ? targetLog
+          : currentLog + step;
+
+        worldGroupScaleRef.current.current = START_SCALE * Math.exp(nextLog);
+      }
+      else {
+        worldGroupScaleRef.current.current = THREE.MathUtils.lerp(
+          worldGroupScaleRef.current.current,
+          worldGroupScaleRef.current.target,
+          ZOOM_SPEED
+        );
+      }
+      worldGroupRef.current.scale.setScalar(worldGroupScaleRef.current.current);
+
+      updateSection();
+      updateTextObject();
+      updateWorldGroupPosition();
+
+      if (isChasingTarget.current) {
+        worldGroupPositionRef.current.current = worldGroupPositionRef.current.current.lerp(
+          worldGroupPositionRef.current.target,
+          MOVE_SPEED
+        );
+
+        const offset = worldGroupPositionRef.current.current
+          .distanceTo(worldGroupPositionRef.current.target);
+        const logicalEpsilon = 1 / Math.max(worldGroupScaleRef.current.current, 0.001);
+
+        if (offset < logicalEpsilon) {
+          worldGroupPositionRef.current.current.copy(
+            worldGroupPositionRef.current.target
+          );
+        }
+      }
+      else {
+        worldGroupPositionRef.current.current.copy(
+          worldGroupPositionRef.current.target
+        );
+      }
+      worldGroupRef.current.position.copy(
+        worldGroupPositionRef.current.current
+          .clone()
+          .multiplyScalar(-worldGroupScaleRef.current.current)
+      );
+
+      renderer.render(scene, camera);
+      cssRenderer.render(scene, camera);
+    };
+    animate();
 
     return () => {
-      window.removeEventListener("resize", resizeListener);
-      orbitControls.removeEventListener("change", zoomListenerRef.current!);
-      orbitControls.dispose();
+      isMounted = false;
+      window.removeEventListener("resize", handleResize);
+      if (mountRef.current) {
+        window.removeEventListener("wheel", handleWheel);
+
+        window.removeEventListener("pointerdown", handlePointerDown);
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+
+        window.removeEventListener("touchstart", handleTouchStart);
+        window.removeEventListener("touchmove", handleTouchMove);
+        window.removeEventListener("touchend", handleTouchEnd);
+      }
+      if (rendererRef.current && mountRef.current?.contains(rendererRef.current.domElement)) {
+        mountRef.current.removeChild(renderer.domElement);
+      }
       renderer.dispose();
-      mountRef.current?.replaceChildren();
     }
   }, []);
 
   return (
-    <>
+    <React.Fragment>
       <Head>
-        <title>Hyunwoo Kim</title>
+        <title>Hyunwoo AI</title>
       </Head>
-      <SplashScreen isReady={siteReady} />
-      <div ref={mountRef} className="display" onPointerDown={(event: PointerEvent<HTMLDivElement>) => handlePointerDown(event)} onPointerUp={(event: PointerEvent<HTMLDivElement>) => handlePointerUp(event)} />
-      <div ref={titleContainerRef} className={`${styles.titleContainer}`}>
-        <p>{ title }</p>
+      <SplashImage show={showSplashImage} />
+      <OntologyNavigator tree={tree} currentSectionId={normalizedSection?.id} back={backPreviousSection} push={pushNextSection} />
+      <ChatBox isToggled={isToggleChatBox} />
+      <div className={clsx(styles.socialContainer)}>
+        <div onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
+          <Image src={githubIcon.src} alt={githubIcon.alt} />
+        </div>
       </div>
-      <ZoomProgressBar distance={zoomDistance} minDistance={zoom.minDistance} maxDistance={zoom.maxDistance} onZoomUpdate={handleZoomUpdate} />
-      <div className={`pointer ${styles.social}`} onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
-        <Image src={githubIcon.src} alt={githubIcon.alt} />
+      <div className={clsx(styles.chatContainer)}>
+        {/* <div>
+          <Image src={videoIcon.src} alt={videoIcon.alt} />
+        </div> */}
+        <div onClick={() => setIsToggleChatBox(!isToggleChatBox)}>
+          <Image src={chatIcon.src} alt={chatIcon.alt} />
+        </div>
       </div>
-    </>
+      <div ref={mountRef} className={clsx(styles.fullScreen)} />
+      <NodeCard tree={tree} section={normalizedSection} onFirstClick={handleStartExplore} />
+    </React.Fragment>
   );
-}
+};
 
-export default Home;
+export default Main;

@@ -3,6 +3,18 @@
   height: 100dvh;
 }
 
+.marker {
+  cursor: pointer;
+  display: flex;
+  transform-origin: left;
+  font-size: 2px;
+}
+.content {
+  opacity: clamp(0, calc((var(--inverseProcess) - 0.25) / 0.25), 1);
+  transform-origin: left;
+  color: white;
+}
+
 .titleContainer {
   position: absolute;
   top: 25px;
@@ -17,17 +29,17 @@
 .socialContainer {
   position: absolute;
   bottom: 25px;
-  right: 25px;
+  left: 25px;
   display: grid;
   grid-auto-flow: column;
   grid-auto-rows: 40px;
   grid-auto-columns: 40px;
-  gap: 10px;
+  gap: 20px;
 }
 .socialContainer > div {
   cursor: pointer;
   display: flex;
-  border-radius: 5px;
+  border-radius: 2.5px;
   overflow: hidden;
   filter: opacity(0.5) brightness(0.75);
   transition: all 150ms;
@@ -38,8 +50,41 @@
   height: 100%;
 }
 
+.chatContainer {
+  position: absolute;
+  bottom: 25px;
+  right: 25px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-rows: 40px;
+  grid-auto-columns: 40px;
+  gap: 20px;
+}
+.chatContainer > div {
+  cursor: pointer;
+  border-radius: 2.5px;
+  overflow: hidden;
+  background-color: #1b1f23;
+  filter: opacity(0.45) brightness(0.75);
+  transition: all 150ms;
+  padding: 5px;
+}
+.chatContainer img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  filter: invert(0.85);
+}
+
 @media (hover: hover) {
+  .content:hover {
+    transform: scale(max(calc(4 * var(--inverseProcess)), 1));
+  }
+
   .socialContainer > div:hover {
+    filter: opacity(1) brightness(1);
+  }
+  .chatContainer > div:hover {
     filter: opacity(1) brightness(1);
   }
 }

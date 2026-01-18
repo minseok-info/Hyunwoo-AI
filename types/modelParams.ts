@@ -5,7 +5,18 @@ export type LoadModelParams = {
   loader: GLTFLoader
 }
 
-export type ModelId = "human" | "brain"
+export const MODEL_IDS = {
+  brain: "idBrain",
+  human: "idHuman",
+  milkyway: "idMilkyway"
+} as const
+
+export const BRAIN_AREA_IDS = {
+  left: "idLeft",
+  right: "idRight"
+} as const
+
+export type ModelId = typeof MODEL_IDS[keyof typeof MODEL_IDS]
 export type ModelTransformParams = {
   sizeRatio?: number
   posXRatio: number
@@ -13,18 +24,20 @@ export type ModelTransformParams = {
   posZRatio: number
 }
 
-export type SectionId = string
-export type SectionKind = "model" | "tree" | "node"
-export interface TransitionSection {
-  section: BaseSection
-  range: number[]
+export type Depth = number
+
+export type TransitionRange = [number, number]
+export type SectionRelation = {
+  sectionId: SectionId
+  type: "next" | "prev"
 }
+
+export type SectionId = string
+export type SectionKind = "model" | "node"
 export interface BaseSection {
   id: SectionId
   kind: SectionKind
   group: THREE.Group
-  next?: TransitionSection
-  prev?: TransitionSection
 }
 
 export interface ModelSection extends BaseSection {

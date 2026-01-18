@@ -1,5 +1,7 @@
-export { default as ZoomProgressBar } from "./zoomProgressBar";
-export { default as SplashScreen } from "./splashScreen";
+export { default as NodeCard } from "./NodeCard";
+export { default as SplashImage } from "./SplashImage";
+
+export { default as ChatBox } from "./ChatBox";
 
 export { default as Modal } from "./Modal";
 
@@ -14,3 +16,4 @@ export { default as NodeEditor } from "./NodeEditor";
 
 export { default as RAGChat } from "./RAGChat";
 export { default as RAGChatContainer } from "./RAGChatContainer";
+export { default as OntologyNavigator } from "./OntologyNavigator";

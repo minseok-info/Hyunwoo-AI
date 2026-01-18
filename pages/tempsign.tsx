@@ -1,4 +1,3 @@
-import styles from "@/styles/sign.module.css";
 import { useRouter } from "next/router";
 import { ChangeEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 
@@ -66,9 +65,9 @@ const Sign = () => {
   }, [id, pwd]);
 
   return (
-    <div className={`full flex flexColumn justifyCenter alignCenter ${styles.background}`}>
-      <div className={`flex flexColumn justifyCenter ${styles.signContainer}`}>
-        <div className={`flex flexColumn ${styles.form}`}>
+    <div className={`full flex flexColumn justifyCenter alignCenter`}>
+      <div className={`flex flexColumn justifyCenter`}>
+        <div className={`flex flexColumn`}>
           <input ref={idRef} type="text" value={id} onChange={(event: ChangeEvent<HTMLInputElement>) => setId(event.target.value)} onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => { event.key === "Enter" && signIn() }} />
           <input ref={pwdRef} type="password" value={pwd} onChange={(event: ChangeEvent<HTMLInputElement>) => setPwd(event.target.value)} onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => { event.key === "Enter" && signIn() }} />
         </div>

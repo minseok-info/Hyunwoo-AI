@@ -1,123 +1,16 @@
-.background {
-  min-height: 100dvh;
-  background-color: rgba(0, 0, 0, 0.8);
+.board {
+  background-color: var(--theme);
 }
 
-.category {
-  gap: 50px;
-  background-color: rgba(0, 0, 0, 0.8);
-}
-
-.category > div {
-  gap: 25px;
-}
-
-.category p {
-  cursor: pointer;
-  display: flex;
-  padding: 10px 50px;
-  border: 1px solid dimgray;
-  border-radius: 2.5px;
-  background-color: white;
-  transition: all 150ms;
-}
-
-.container {
-  padding: 0px 15px;
-  width: calc(100% - 30px);
-  max-width: 350px;
-}
-
-.list {
-  margin-top: 25px;
-  display: grid;
-  gap: 10px;
-}
-
-.save {
-  margin-left: auto;
-  margin-bottom: 35px;
-  padding: 5px 15px;
-  border: 1px solid white;
-  border-radius: 5px;
-  color: white;
-  font-size: 12px;
-  background-color: transparent;
-  transition: all 150ms;
-}
-
-.save:disabled {
-  opacity: 0.25;
-}
-
-.add {
-  padding: 10px 25px;
-  border: 2px dashed white;
-  border-radius: 5px;
-  color: white;
-  opacity: 1;
-  transition: 150ms;
-}
-
-.item > div {
-  display: flex;
-  justify-content: center;
-  border: 1px solid white;
-  border-radius: 5px;
-  color: white;
-  transition: all 150ms;
-}
-
-.item input {
-  outline: none;
-  border: none;
-  color: white;
-  background-color: transparent;
-}
-
-.item input:nth-child(1) {
-  font-size: 1.17em;
-  font-weight: bold;
-}
-
-.item input:nth-child(2) {
-  font-size: 12px;
-  word-break: break-word;
-}
-
-.item .desc {
-  flex: 1;
-  padding: 10px;
-  gap: 5px;
-}
-
-.item .del {
-  padding: 10px;
-  border-top-right-radius: 5px;
-  border-bottom-right-radius: 5px;
-  background-color: rgba(255, 0, 0, 0.2);
-  transition: all 150ms;
-}
-
-@media screen and (hover:hover) {
-  .category p:hover {
-    color: rgba(255, 255, 255, 0.75);
-    background-color: rgba(0, 0, 0, 0.55);
-  }
+.colorAttr {
+  --theme: #1f1f1f;
+  --darkTheme: #181818;
   
-  .save:not(:disabled):hover {
-    background-color: rgba(255, 255, 255, 0.35);
-  }
+  --line: #2b2b2b;
+  --text: #cccccc;
 
-  .add:hover {
-    background-color: rgba(255, 255, 255, 0.35);
-  }
+  --hoveredFolder: rgba(255, 255, 255, 0.075);
+  --hoveredFile: rgba(255, 255, 255, 0.15);
 
-  .item .del:hover {
-    padding-left: 50px;
-  }
-
-  .item:has(.del:active) > div {
-    transform: scale(0.975);
-  }
+  --selected: rgba(255, 255, 255, 0.3);
 }
