@@ -3,7 +3,7 @@ import { Section } from "@/types/modelParams";
 import { Tree } from "@/types/ontologyTypes";
 import { treeUtils } from "@/utils";
 import clsx from "clsx";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ReactMarkDown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -15,7 +15,14 @@ const DEFAULT_TREE: Tree = {
   treeId: "Hyunwoo AI",
   nodeId: "Hyunwoo AI",
   name: "Hyunwoo AI",
-  desc: "Hyunwoo AI를 클릭해서 진행하세요",
+  desc: [
+    "Explore and Get to know, Hyunwoo AI.",
+    "",
+    "1. Click title to expand Section's DESC",
+    "2. Click left side arrow to expand Navigator",
+    "3. Click chat button to use AI",
+    "4. Zoom and Click Meshes to explore Hyunwoo"
+  ].join("\n"),
   tags: [],
   children: []
 };
@@ -60,12 +67,20 @@ const katexSchema = {
   },
 };
 
-const NodeCard = ({ tree, section }: { tree: Tree[], section: Section | undefined }) => {
+const NodeCard = ({ tree, section, onFirstClick }: { tree: Tree[], section: Section | undefined, onFirstClick: () => void }) => {
   const [node, setNode] = useState<Tree>(DEFAULT_TREE);
-  const [isToggled, setIsToggled] = useState<boolean>(false);
+  const [isToggled, setIsToggled] = useState<boolean>(true);
 
   const [name, setName] = useState<Tree["name"]>("");
   const [desc, setDesc] = useState<Tree["desc"]>("");
+
+  const isFirstClickRef = useRef<boolean>(false);
+
+  const handleChangeToggleStatus = () => {
+    if (!isFirstClickRef.current) onFirstClick();
+
+    setIsToggled(!isToggled);
+  };
 
   useEffect(() => {
     if (!tree || !section) return;
@@ -93,7 +108,7 @@ const NodeCard = ({ tree, section }: { tree: Tree[], section: Section | undefine
           </ReactMarkDown>
         </div>
       </div>
-      <div className={clsx(styles.nodeName)} onClick={() => setIsToggled(!isToggled)}>
+      <div className={clsx(styles.nodeName)} onClick={handleChangeToggleStatus}>
         <p>{ name }</p>
       </div>
     </React.Fragment>
