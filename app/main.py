@@ -1,20 +1,20 @@
 from typing import List, Optional, Literal
-from fastapi import FastAPI, HTTPException, Form, Body, Request, Response, Depends, Cookie
+from fastapi import FastAPI, HTTPException, Form, Body, Depends, Request
 from fastapi.responses import JSONResponse
+from fastapi.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from datetime import datetime, timedelta
-
 import asyncpg
-import jwt
 import os
+
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
 
 app = FastAPI()
 
 app.add_middleware(
   CORSMiddleware,
-  # allow_origins=["*"],
   allow_origins=[
     "http://localhost",
     "https://hyunwoo.ai",
@@ -30,8 +30,9 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 ID = os.getenv("ID")
 PWD = os.getenv("PWD")
 
-SECRET_KEY = os.getenv("ADMIN_JWT_SECRET")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 6 * 60
 
 class Node(BaseModel):
   id: str
@@ -67,35 +68,33 @@ class OntologyDifference(BaseModel):
   nodes: NodesDiff
   relations: RelationsDiff
 
-def verify_admin_jwt(token: str):
-  try:
-    payload = jwt.decode(
-      token,
-      SECRET_KEY,
-      algorithms=[ALGORITHM]
-    )
-    if payload.get("role") != "admin":
-      raise HTTPException(status_code=401, detail="Not admin")
-    return payload
-  except jwt.ExpiredSignatureError:
-    raise HTTPException(status_code=401, detail="Token expired")
-  except jwt.InvalidTokenError:
-    raise HTTPException(status_code=401, detail="Invalid token")
-
-def create_admin_jwt():
-  payload = {
-    "role": "admin",
-    "exp": datetime.utcnow() + timedelta(hours=12),
-  }
-  return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-def require_admin(
-  admin_auth: Optional[str] = Cookie(None)
+def create_access_token(
+  data: dict,
+  expires_delta: timedelta | None = None
 ):
-  if not admin_auth:
-    raise HTTPException(status_code=401, detail="Not authenticated")
+  to_encode = data.copy()
+  if expires_delta:
+    expire = datetime.utcnow() + expires_delta
+  else:
+    expire = datetime.utcnow() + timedelta(minutes=15)
+  to_encode.update({"exp": expire})
+  encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+  return encoded_jwt
 
-  return verify_admin_jwt(admin_auth)
+def get_current_user(request: Request):
+  auth_header = request.headers.get("Authorization")
+  if not auth_header or not auth_header.startswith("Bearer "):
+    raise HTTPException(status_code =401, detail="Missing token")
+  
+  token = auth_header.split(" ")[1]
+  try:
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    username = payload.get("sub")
+    if username is None:
+      raise HTTPException(status_code=401, detail="Invalid token")
+    return username
+  except JWTError:
+    raise HTTPException(status_code=401, detail="Invalid token")
 
 @app.on_event("startup")
 async def startup():
@@ -126,35 +125,25 @@ async def home():
 
 @app.post("/signin")
 async def sign_in(
-  request: Request,
-  response: Response,
   id: str = Form(...),
   pwd: str = Form(...)
 ):
-  if not SECRET_KEY:
-    raise HTTPException(status_code=500, detail="Secret Key is not set")
-
   if id != ID:
     return { "status": "failed", "reason": "id" }
   elif pwd != PWD:
     return { "status": "failed", "reason": "pwd" }
 
-  token = create_admin_jwt()
-
-  origin = request.headers.get("origin", "")
-  is_localhost = origin.startswith("http://localhost")
-
-  response.set_cookie(
-    key="admin_auth",
-    value=token,
-    httponly=True,
-    secure=not is_localhost,
-    samesite="lax" if is_localhost else "none",
-    max_age=60*60*12,
-    path="/"
+  access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+  access_token = create_access_token(
+    data={"sub": id},
+    expires_delta=access_token_expires
   )
 
-  return { "status": "success" }
+  return JSONResponse({
+    "status": "success",
+    "access_token": access_token,
+    "token_type": "bearer"
+  })
 
 @app.get("/ontology")
 async def read_ontology():
@@ -181,7 +170,7 @@ async def read_ontology():
 @app.post("/ontology")
 async def write_ontology(
   ont_diff: OntologyDifference = Body(...),
-  _: dict = Depends(require_admin)
+  current_user: str = Depends(get_current_user)
 ):
   if not hasattr(app.state, "db") or app.state.db is None:
     raise HTTPException(status_code=500, detail="Cannot Connect DB")
