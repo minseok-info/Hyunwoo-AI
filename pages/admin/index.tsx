@@ -77,11 +77,19 @@ const Admin = () => {
 
     let status: boolean = false;
 
+    const getCookie = (name: string) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()?.split(";").shift();
+    };
+
     try {
       const serverUrl = serverUrlRef.current;
+      const token = getCookie("access_token");
       const res = await fetch(`${serverUrl}ontology`, {
         method: "POST",
         headers: {
+          "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(ontologyDifference)
