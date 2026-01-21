@@ -42,7 +42,6 @@ const SidebarNavigator = ({ tree }: { tree: Tree[] }) => {
 
   const returnToLanding = () => {
     router.push("/");
-    document.cookie = `access_token=; path=/; max-age=0; SameSite=Lax`;
   };
 
   const handleClick = (navigator: Navigator) => {
