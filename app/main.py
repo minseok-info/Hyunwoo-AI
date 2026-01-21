@@ -17,7 +17,8 @@ app.add_middleware(
   # allow_origins=["*"],
   allow_origins=[
     "http://localhost",
-    "https://hyunwoo.ai"
+    "https://hyunwoo.ai",
+    "https://www.hyunwoo.ai"
   ],
   allow_methods=["*"],
   allow_headers=["*"],
