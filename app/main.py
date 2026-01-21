@@ -1,7 +1,6 @@
 from typing import List, Optional, Literal
-from fastapi import FastAPI, HTTPException, Form, Body, Response, Depends, Cookie
+from fastapi import FastAPI, HTTPException, Form, Body, Request, Response, Depends, Cookie
 from fastapi.responses import JSONResponse
-from fastapi.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -15,7 +14,11 @@ app = FastAPI()
 
 app.add_middleware(
   CORSMiddleware,
-  allow_origins=["*"],
+  # allow_origins=["*"],
+  allow_origins=[
+    "http://localhost",
+    "https://hyunwoo.ai"
+  ],
   allow_methods=["*"],
   allow_headers=["*"],
   allow_credentials=True
@@ -122,6 +125,7 @@ async def home():
 
 @app.post("/signin")
 async def sign_in(
+  request: Request,
   response: Response,
   id: str = Form(...),
   pwd: str = Form(...)
@@ -136,12 +140,15 @@ async def sign_in(
 
   token = create_admin_jwt()
 
+  origin = request.headers.get("origin", "")
+  is_localhost = origin.startswith("http://localhost")
+
   response.set_cookie(
     key="admin_auth",
     value=token,
     httponly=True,
-    secure=True,
-    samesite="strict",
+    secure=not is_localhost,
+    samesite="lax" if is_localhost else "none",
     max_age=60*60*12,
     path="/"
   )
