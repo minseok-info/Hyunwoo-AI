@@ -5,3 +5,5 @@ gunicorn
 asyncpg
 pydantic
 python-multipart
+
+python-jose
