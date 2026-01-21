@@ -1,11 +1,14 @@
 from typing import List, Optional, Literal
-from fastapi import FastAPI, HTTPException, Form, Body
+from fastapi import FastAPI, HTTPException, Form, Body, Response, Depends, Cookie
 from fastapi.responses import JSONResponse
 from fastapi.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from datetime import datetime, timedelta
+
 import asyncpg
+import jwt
 import os
 
 app = FastAPI()
@@ -22,6 +25,9 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 ID = os.getenv("ID")
 PWD = os.getenv("PWD")
+
+SECRET_KEY = os.getenv("ADMIN_JWT_SECRET")
+ALGORITHM = "HS256"
 
 class Node(BaseModel):
   id: str
@@ -57,6 +63,36 @@ class OntologyDifference(BaseModel):
   nodes: NodesDiff
   relations: RelationsDiff
 
+def verify_admin_jwt(token: str):
+  try:
+    payload = jwt.decode(
+      token,
+      SECRET_KEY,
+      algorithms=[ALGORITHM]
+    )
+    if payload.get("role") != "admin":
+      raise HTTPException(status_code=401, detail="Not admin")
+    return payload
+  except jwt.ExpiredSignatureError:
+    raise HTTPException(status_code=401, detail="Token expired")
+  except jwt.InvalidTokenError:
+    raise HTTPException(status_code=401, detail="Invalid token")
+
+def create_admin_jwt():
+  payload = {
+    "role": "admin",
+    "exp": datetime.utcnow() + timedelta(hours=12),
+  }
+  return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def require_admin(
+  admin_auth: Optional[str] = Cookie(None)
+):
+  if not admin_auth:
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+  return verify_admin_jwt(admin_auth)
+
 @app.on_event("startup")
 async def startup():
   try:
@@ -84,21 +120,31 @@ async def home():
   print("health check")
   return { "status": "ok" }
 
-@app.post("/auth")
+@app.post("/signin")
 async def sign_in(
+  response: Response,
   id: str = Form(...),
   pwd: str = Form(...)
 ):
+  if not SECRET_KEY:
+    raise HTTPException(status_code=500, detail="Secret Key is not set")
+
   if id != ID:
-    return {
-      "status": "failed",
-      "reason": "id"
-    }
+    return { "status": "failed", "reason": "id" }
   elif pwd != PWD:
-    return {
-      "status": "failed",
-      "reason": "pwd"
-    }
+    return { "status": "failed", "reason": "pwd" }
+
+  token = create_admin_jwt()
+
+  response.set_cookie(
+    key="admin_auth",
+    value=token,
+    httponly=True,
+    secure=True,
+    samesite="strict",
+    max_age=60*60*12,
+    path="/"
+  )
 
   return { "status": "success" }
 
@@ -125,7 +171,10 @@ async def read_ontology():
   }
 
 @app.post("/ontology")
-async def write_ontology(ont_diff: OntologyDifference = Body(...)):
+async def write_ontology(
+  ont_diff: OntologyDifference = Body(...),
+  _: dict = Depends(require_admin)
+):
   if not hasattr(app.state, "db") or app.state.db is None:
     raise HTTPException(status_code=500, detail="Cannot Connect DB")
 
