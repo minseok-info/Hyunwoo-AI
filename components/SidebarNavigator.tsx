@@ -40,6 +40,11 @@ const SidebarNavigator = ({ tree }: { tree: Tree[] }) => {
     exit: ""
   };
 
+  const returnToLanding = () => {
+    router.push("/");
+    document.cookie = `access_token=; path=/; max-age=0; SameSite=Lax`;
+  };
+
   const handleClick = (navigator: Navigator) => {
     setNavigator(navigator);
   };
@@ -56,7 +61,7 @@ const SidebarNavigator = ({ tree }: { tree: Tree[] }) => {
         <div className={clsx({ [styles.selected]: navigator === "status" })} onClick={() => handleClick("status")}>
           <Image src={statusIcon.src} alt={statusIcon.alt} />
         </div>
-        <div onClick={() => router.push("/")}>
+        <div onClick={returnToLanding}>
           <Image src={exitIcon.src} alt={exitIcon.alt} />
         </div>
       </div>

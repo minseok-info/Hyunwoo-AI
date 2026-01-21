@@ -122,6 +122,8 @@ const Admin = () => {
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {
     event.preventDefault();
     event.returnValue = "";
+
+    document.cookie = `access_token=; path=/; max-age=0; SameSite=Lax`;
   };
 
   const handleSetTree = (newTree: Tree[]) => {
