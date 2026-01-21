@@ -81,21 +81,6 @@ def create_access_token(
   encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
   return encoded_jwt
 
-def get_current_user(request: Request):
-  auth_header = request.headers.get("Authorization")
-  if not auth_header or not auth_header.startswith("Bearer "):
-    raise HTTPException(status_code =401, detail="Missing token")
-  
-  token = auth_header.split(" ")[1]
-  try:
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    username = payload.get("sub")
-    if username is None:
-      raise HTTPException(status_code=401, detail="Invalid token")
-    return username
-  except JWTError:
-    raise HTTPException(status_code=401, detail="Invalid token")
-
 @app.on_event("startup")
 async def startup():
   try:
@@ -168,10 +153,7 @@ async def read_ontology():
   }
 
 @app.post("/ontology")
-async def write_ontology(
-  ont_diff: OntologyDifference = Body(...),
-  current_user: str = Depends(get_current_user)
-):
+async def write_ontology(ont_diff: OntologyDifference = Body(...)):
   if not hasattr(app.state, "db") or app.state.db is None:
     raise HTTPException(status_code=500, detail="Cannot Connect DB")
 
