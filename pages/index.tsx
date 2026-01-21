@@ -764,6 +764,7 @@ const Main = () => {
   };
 
   const handleStartExplore = () => {
+    if (showSplashImage) return;
     setShowSplashImage(true);
 
     window.addEventListener("wheel", handleWheel, { passive: false });
