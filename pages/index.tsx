@@ -280,9 +280,27 @@ const Main = () => {
       return bestCandidate ?? new THREE.Vector3();
     };
 
+    const generateRotation = (
+      maxX = Math.PI * 2,
+      maxY = Math.PI * 2,
+      maxZ = Math.PI * 2
+    ): THREE.Euler => {
+      const x = Math.random() * maxX;
+      const y = Math.random() * maxY;
+      const z = Math.random() * maxZ;
+
+      return new THREE.Euler(x, y, z);
+    };
+
     for (const c of children) {
       const computedSize = minSize + Math.random() * (maxSize - minSize);
-      const geometry = new THREE.SphereGeometry(computedSize, 32, 32);
+
+      const sphereGeometry = new THREE.SphereGeometry(computedSize, 32, 32);
+      const tetrahedronGeometry = new THREE.TetrahedronGeometry(computedSize, Math.floor(Math.random() * 3) + 1);
+
+      const geometry = c.children.length > 0
+        ? tetrahedronGeometry
+        : sphereGeometry;
 
       const color = randomColor();
       const material = new THREE.MeshStandardMaterial({
@@ -292,10 +310,12 @@ const Main = () => {
       });
 
       const meshPosition = generatePosition(usedPositions);
+      const meshRotation = generateRotation();
 
       const mesh = new THREE.Mesh(geometry, material);
       mesh.name = c.nodeId;
       mesh.position.copy(meshPosition);
+      mesh.rotation.copy(meshRotation);
 
       const spriteMat = new THREE.SpriteMaterial({
         map: glowTexture,
@@ -309,26 +329,32 @@ const Main = () => {
       const spriteScale = 17.5 + computedSize;
       sprite.scale.set(spriteScale, spriteScale, spriteScale);
       mesh.add(sprite);
-
+      
       const wrapper = document.createElement("span");
       wrapper.className = styles.marker;
-
+      
       const nameSpan = document.createElement("span");
       nameSpan.className = styles.content;
       nameSpan.textContent = c.name;
-
+      
       wrapper.appendChild(nameSpan);
       wrapper.addEventListener("click", () => {
         setSectionTarget(mesh);
       });
-
+      
       const textObject = new CSS3DObject(wrapper);
       textObject.position.x += geometry.parameters.radius + 0.75;
 
-      mesh.userData.textObject = textObject;
-      mesh.add(textObject);
+      const placeholder = new THREE.Object3D();
 
+      placeholder.add(textObject);
+      placeholder.position.copy(meshPosition);
+
+      mesh.userData.placeholder = placeholder;
+      mesh.userData.textObject = textObject;
+      
       usedPositions.push(meshPosition);
+      group.add(placeholder);
       group.add(mesh);
     };
 
@@ -565,7 +591,7 @@ const Main = () => {
     const margin = 0.15;
 
     const targetLog = rangeEnd + margin;
-    worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);;
+    worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);
 
     setNextNodeSection();
     isChasingTarget.current = true;
@@ -710,13 +736,13 @@ const Main = () => {
     normalizedSection.group.traverse(obj => {
       if (!(obj instanceof THREE.Mesh) || !obj.userData.textObject) return;
 
-      const mesh = obj;
+      const placeholder: THREE.Object3D = obj.userData.placeholder;
       const textObject: CSS3DObject = obj.userData.textObject;
 
       textObject.element.style.pointerEvents = isInteractive ? "auto" : "none";
       textObject.element.style.setProperty("--inverseProcess", inverseProcess.toString());
 
-      mesh.quaternion.copy(camera.quaternion);
+      placeholder.quaternion.copy(camera.quaternion);
     });
   };
 
@@ -834,10 +860,9 @@ const Main = () => {
   };
 
   const handleTouchStart = (event: TouchEvent) => {
-    event.preventDefault();
-
     const touches = event.touches;
     if (touches.length === 2) {
+      event.preventDefault();
       isZoomingRef.current = true;
 
       const dx = touches[0].clientX - touches[1].clientX;
