@@ -15,17 +15,6 @@
   color: white;
 }
 
-.titleContainer {
-  position: absolute;
-  top: 25px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: white;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
 .socialContainer {
   position: absolute;
   bottom: 25px;

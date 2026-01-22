@@ -834,10 +834,10 @@ const Main = () => {
   };
 
   const handleTouchStart = (event: TouchEvent) => {
-    event.preventDefault();
-
+    
     const touches = event.touches;
     if (touches.length === 2) {
+      event.preventDefault();
       isZoomingRef.current = true;
 
       const dx = touches[0].clientX - touches[1].clientX;
