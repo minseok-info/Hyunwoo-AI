@@ -28,7 +28,7 @@
   -webkit-user-drag: none;
 }
 .nodeDesc {
-  height: 100%;
+  height: calc(100% - 20px);
   padding: 10px;
   color: white;
   overflow: hidden;
@@ -37,7 +37,7 @@
 
 .viewerWrapper {
   width: calc(100% - 20%);
-  height: 100%;
+  height: calc(100% - 90px);
   padding: 75px 10% 15px;
 }
 
