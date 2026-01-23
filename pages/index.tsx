@@ -68,6 +68,7 @@ const NODE_SECTION_RATIO = 0.01;
 
 const Main = () => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const nodeCardRef = useRef<HTMLDivElement>(null);
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -807,6 +808,10 @@ const Main = () => {
   const handleWheel = (event: WheelEvent) => {
     if (isChasingTarget.current) return;
 
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (nodeCardRef.current?.contains(target)) return;
+
     const worldGroup = worldGroupRef.current;
     if (!worldGroup) return;
     event.preventDefault();
@@ -825,12 +830,12 @@ const Main = () => {
   };
 
   const handlePointerDown = (event: PointerEvent) => {
-    if (isZoomingRef.current) return;
-    event.preventDefault();
-
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (target.className.includes("progressBar")) isProgressBarRef.current = true;
+    if (nodeCardRef.current?.contains(target)) return;
+
+    if (isZoomingRef.current) return;
+    event.preventDefault();
 
     pointerData.current = { x: event.clientX, y: event.clientY };
   };
@@ -1136,7 +1141,7 @@ const Main = () => {
         </div>
       </div>
       <div ref={mountRef} className={clsx(styles.fullScreen)} />
-      <NodeCard tree={tree} section={normalizedSection} onFirstClick={handleStartExplore} />
+      <NodeCard ref={nodeCardRef} tree={tree} section={normalizedSection} onFirstClick={handleStartExplore} />
     </React.Fragment>
   );
 };
