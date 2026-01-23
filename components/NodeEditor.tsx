@@ -182,10 +182,10 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
             <p className={clsx({ [styles.descToolSelected]: descMode === "viewer" })} onClick={() => handleChangeDescMode("viewer")}>VIEWER</p>
           </div>
           {descMode === "md" && (
-            <textarea ref={textareaRef} placeholder="New Description" value={desc} onChange={handleChangeDesc} onPaste={handlePaste} />
+            <textarea ref={textareaRef} className={styles.descContent} placeholder="New Description" value={desc} onChange={handleChangeDesc} onPaste={handlePaste} />
           )}
           {descMode === "viewer" && (
-            <div className={clsx(styles.descViewer)}>
+            <div className={clsx(styles.descContent, styles.descViewer)}>
               <ReactMarkDown remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]} rehypePlugins={[rehypeKatex, [rehypeSanitize, katexSchema]]}>
                 { desc }
               </ReactMarkDown>

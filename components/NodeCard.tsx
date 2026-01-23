@@ -67,7 +67,16 @@ const katexSchema = {
   },
 };
 
-const NodeCard = ({ tree, section, onFirstClick }: { tree: Tree[], section: Section | undefined, onFirstClick: () => void }) => {
+const NodeCard = React.forwardRef<
+  HTMLDivElement,
+  {
+    tree: Tree[],
+    section: Section | undefined,
+    onFirstClick: () => void
+  }
+>((props, ref) => {
+  const { tree, section, onFirstClick } = props;
+
   const [node, setNode] = useState<Tree>(DEFAULT_TREE);
   const [isToggled, setIsToggled] = useState<boolean>(true);
 
@@ -81,6 +90,13 @@ const NodeCard = ({ tree, section, onFirstClick }: { tree: Tree[], section: Sect
 
     setIsToggled(!isToggled);
   };
+
+  useEffect(() => {
+    const element = ref && "current" in ref ? ref.current : null;
+    if (!element) return;
+
+    element.style.pointerEvents = isToggled ? "auto" : "none";
+  }, [isToggled, ref]);
 
   useEffect(() => {
     if (!tree || !section) return;
@@ -101,11 +117,13 @@ const NodeCard = ({ tree, section, onFirstClick }: { tree: Tree[], section: Sect
 
   return (
     <React.Fragment>
-      <div className={clsx(styles.card, { [styles.expand]: isToggled })}>
-        <div className={clsx(styles.nodeDesc, styles.viewer)}>
-          <ReactMarkDown remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]} rehypePlugins={[rehypeKatex, [rehypeSanitize, katexSchema]]}>
-            { desc }
-          </ReactMarkDown>
+      <div ref={ref} className={clsx(styles.card, { [styles.expand]: isToggled })}>
+        <div className={clsx(styles.viewerWrapper)}>
+          <div className={clsx(styles.nodeDesc, styles.viewer)}>
+            <ReactMarkDown remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]} rehypePlugins={[rehypeKatex, [rehypeSanitize, katexSchema]]}>
+              { desc }
+            </ReactMarkDown>
+          </div>
         </div>
       </div>
       <div className={clsx(styles.nodeName)} onClick={handleChangeToggleStatus}>
@@ -113,6 +131,6 @@ const NodeCard = ({ tree, section, onFirstClick }: { tree: Tree[], section: Sect
       </div>
     </React.Fragment>
   );
-};
+});
 
 export default NodeCard;

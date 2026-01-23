@@ -241,6 +241,21 @@
   transition: all 50ms;
 }
 
+.descContent::-webkit-scrollbar {
+  width: 10px;
+}
+.descContent::-webkit-scrollbar-track {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.05);
+}
+.descContent::-webkit-scrollbar-thumb {
+  cursor: default;
+  background: #303030;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50ms;
+}
+
 .descViewer {
   width: 100%;
   height: 450px;
@@ -254,6 +269,15 @@
   font-size: 24px;
   color: var(--text);
   margin: 5px 0px;
+}
+.descViewer h2 {
+  margin: 4px 0px;
+}
+.descViewer h3 {
+  margin: 3.5px 0px;
+}
+.descViewer h4 {
+  margin: 3px 0px;
 }
 .descViewer p {
   font-size: 14px;
@@ -275,6 +299,35 @@
 }
 .descViewer ul {
   list-style-position: inside;
+}
+.descViewer hr {
+  margin: 10px 0px;
+}
+.descViewer pre:has(code) {
+  padding: 2.5px;
+  border-radius: 2.5px;
+  margin: 3.5px 0px;
+  background-color: rgba(0, 0, 0, 0.35);
+  overflow-x: auto;
+}
+.descViewer code:not(pre code) {
+  padding: 2.5px;
+  border-radius: 2.5px;
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.descViewer pre:has(code)::-webkit-scrollbar {
+  height: 10px;
+}
+.descViewer pre:has(code)::-webkit-scrollbar-track {
+  cursor: default;
+}
+.descViewer pre:has(code)::-webkit-scrollbar-thumb {
+  cursor: default;
+  background: #303030;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50ms;
 }
 
 .descToolSelected {
@@ -392,8 +445,10 @@
     background-color: var(--hoveredFile);
   }
 
+  .descContent::-webkit-scrollbar-thumb:hover,
+  .descViewer pre:has(code)::-webkit-scrollbar-thumb:hover,
   .list::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(255, 255, 255, 0.35);
     border: 1px solid transparent;
     background-clip: content-box;
   }

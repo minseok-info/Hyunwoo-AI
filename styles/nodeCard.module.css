@@ -6,12 +6,11 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  width: 100vw;
+  width: 100dvw;
   height: 65dvh;
   background-color: rgba(0, 0, 0, 0.75);
   box-shadow: 0px 0px 50px 75px rgba(0, 0, 0, 0.75);
   transition: all 500ms;
-  pointer-events: none;
 }
 
 .expand {
@@ -29,16 +28,32 @@
   -webkit-user-drag: none;
 }
 .nodeDesc {
-  display: flex;
-  flex-direction: column;
-  padding: 75px 10% 15px;
+  height: 100%;
+  padding: 10px;
   color: white;
+  overflow: hidden;
+  overflow-y: auto;
+}
+
+.viewerWrapper {
+  width: calc(100% - 150px);
+  height: 100%;
+  padding: 75px 10% 15px;
 }
 
 .viewer h1 {
   font-size: 24px;
   margin: 5px 0px;
   word-break: break-all;
+}
+.viewer h2 {
+  margin: 4px 0px;
+}
+.viewer h3 {
+  margin: 3.5px 0px;
+}
+.viewer h4 {
+  margin: 3px 0px;
 }
 .viewer p {
   font-size: 14px;
@@ -61,4 +76,57 @@
 }
 .viewer ul {
   list-style-position: inside;
+}
+.viewer hr {
+  margin: 10px 0px;
+}
+.viewer pre:has(code) {
+  padding: 2.5px;
+  border-radius: 2.5px;
+  margin: 3.5px 0px;
+  background-color: rgba(255, 255, 255, 0.05);
+  overflow-x: auto;
+}
+.viewer code:not(pre code) {
+  padding: 2.5px;
+  border-radius: 2.5px;
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.viewer pre:has(code)::-webkit-scrollbar {
+  height: 10px;
+}
+.viewer pre:has(code)::-webkit-scrollbar-track {
+  cursor: default;
+}
+.viewer pre:has(code)::-webkit-scrollbar-thumb {
+  cursor: default;
+  background: #303030;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50ms;
+}
+
+.viewer::-webkit-scrollbar {
+  width: 10px;
+}
+.viewer::-webkit-scrollbar-track {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.05);
+}
+.viewer::-webkit-scrollbar-thumb {
+  cursor: default;
+  background: #303030;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50ms;
+}
+
+@media (hover: hover) {
+  .viewer pre:has(code)::-webkit-scrollbar-thumb:hover,
+  .viewer::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
 }
