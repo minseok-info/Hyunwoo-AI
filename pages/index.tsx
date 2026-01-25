@@ -819,12 +819,10 @@ const Main = () => {
     const deltaY = -event.deltaY
     let delta = Math.sign(deltaY);
 
-    switch (event.deltaMode) {
-      case WheelEvent.DOM_DELTA_PIXEL:
-        const limitedDeltaY = THREE.MathUtils.clamp(deltaY, -1.5, 2);
-        delta = limitedDeltaY / 3.5;
-        break;
-      }
+    if (Math.abs(deltaY) < 40) {
+      const limitedDeltaY = THREE.MathUtils.clamp(deltaY, -1.5, 2);
+      delta = limitedDeltaY / 3.5;
+    }
     
     const currentScale = worldGroupScaleRef.current.current;
     const scaleFactor = currentScale / START_SCALE;
