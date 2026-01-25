@@ -816,7 +816,7 @@ const Main = () => {
     if (!worldGroup) return;
     event.preventDefault();
 
-    const delta = Math.sign(-event.deltaY);
+    const delta = -event.deltaY / 100;
     
     const currentScale = worldGroupScaleRef.current.current;
     const scaleFactor = currentScale / START_SCALE;
