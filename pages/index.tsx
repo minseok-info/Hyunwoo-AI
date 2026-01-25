@@ -819,9 +819,10 @@ const Main = () => {
     const deltaY = -event.deltaY
     let delta = Math.sign(deltaY);
 
-    if (Math.abs(deltaY) < 40) {
+    const trackPadMax = 40;
+    if (Math.abs(deltaY) < trackPadMax) {
       const limitedDeltaY = THREE.MathUtils.clamp(deltaY, -1.5, 2);
-      delta = limitedDeltaY / 3.5;
+      delta = limitedDeltaY / 2;
     }
     
     const currentScale = worldGroupScaleRef.current.current;
