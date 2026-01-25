@@ -816,7 +816,15 @@ const Main = () => {
     if (!worldGroup) return;
     event.preventDefault();
 
-    const delta = -event.deltaY / 100;
+    const deltaY = -event.deltaY
+    let delta = Math.sign(deltaY);
+
+    switch (event.deltaMode) {
+      case WheelEvent.DOM_DELTA_PIXEL:
+        const limitedDeltaY = THREE.MathUtils.clamp(deltaY, -1.5, 2);
+        delta = limitedDeltaY / 3.5;
+        break;
+      }
     
     const currentScale = worldGroupScaleRef.current.current;
     const scaleFactor = currentScale / START_SCALE;
