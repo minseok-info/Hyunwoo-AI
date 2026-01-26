@@ -1,4 +1,4 @@
-import { ChatBox, NodeCard, OntologyNavigator, SplashImage } from "@/components";
+import { ChatBox, EnergyHandleTop, OntologyNavigator, SplashImage } from "@/components";
 import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
@@ -47,6 +47,17 @@ const modelsTransformAttr: Record<ModelId, ModelTransformParams> = {
   }
 };
 
+const DEFAULT_NODE: Tree = {
+  treeId: "Hyunwoo AI",
+  nodeId: "Hyunwoo AI",
+  name: "Hyunwoo AI",
+  desc: [
+    "Explore and Get to know, Hyunwoo AI."
+  ].join("\n"),
+  tags: [],
+  children: []
+};
+
 const CAMERA_FOV = 75;
 const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 500000;
@@ -68,7 +79,7 @@ const NODE_SECTION_RATIO = 0.01;
 
 const Main = () => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const nodeCardRef = useRef<HTMLDivElement>(null);
+  const descViewerRef = useRef<HTMLDivElement>(null);
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -116,6 +127,7 @@ const Main = () => {
 
   const currentSectionRef = useRef<Section | undefined>(undefined);
   const [normalizedSection, setNormalizedSection] = useState<Section | undefined>(undefined);
+  const [normalizedNode, setNormalizedNode] = useState<Tree>(DEFAULT_NODE);
 
   const targetNodeIdMapRef = useRef<Map<SectionId, Tree>>(new Map());
   const targetPositionIdMapRef = useRef<Map<SectionId, THREE.Vector3>>(new Map());
@@ -810,7 +822,7 @@ const Main = () => {
 
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (nodeCardRef.current?.contains(target)) return;
+    if (descViewerRef.current?.contains(target)) return;
 
     const worldGroup = worldGroupRef.current;
     if (!worldGroup) return;
@@ -839,7 +851,7 @@ const Main = () => {
   const handlePointerDown = (event: PointerEvent) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (nodeCardRef.current?.contains(target)) return;
+    if (descViewerRef.current?.contains(target)) return;
 
     if (isZoomingRef.current) return;
     event.preventDefault();
@@ -917,6 +929,13 @@ const Main = () => {
       touchData.current.prevDistance = null;
     }
   };
+
+  useEffect(() => {
+    if (!tree || !normalizedSection) return;
+
+    const normalizedNode = treeUtils.getNode(tree, normalizedSection.id);
+    setNormalizedNode(normalizedNode ?? DEFAULT_NODE);
+  }, [tree, normalizedSection]);
 
   useEffect(() => {
     treeRef.current = tree;
@@ -1115,7 +1134,7 @@ const Main = () => {
         window.removeEventListener("pointermove", handlePointerMove);
         window.removeEventListener("pointerup", handlePointerUp);
 
-        window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchstart", handleTouchStart);
         window.removeEventListener("touchmove", handleTouchMove);
         window.removeEventListener("touchend", handleTouchEnd);
       }
@@ -1131,24 +1150,27 @@ const Main = () => {
       <Head>
         <title>Hyunwoo AI</title>
       </Head>
+      <div ref={mountRef} className={clsx(styles.fullScreen)} />
       <SplashImage show={showSplashImage} />
-      <OntologyNavigator tree={tree} currentSectionId={normalizedSection?.id} back={backPreviousSection} push={pushNextSection} />
-      <ChatBox isToggled={isToggleChatBox} />
+      <div className={clsx(styles.nodeName)}>
+        { normalizedNode?.name }
+      </div>
       <div className={clsx(styles.socialContainer)}>
         <div onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
           <Image src={githubIcon.src} alt={githubIcon.alt} />
         </div>
       </div>
       <div className={clsx(styles.chatContainer)}>
-        {/* <div>
-          <Image src={videoIcon.src} alt={videoIcon.alt} />
-        </div> */}
+        <div>
+        <Image src={videoIcon.src} alt={videoIcon.alt} />
+        </div>
         <div onClick={() => setIsToggleChatBox(!isToggleChatBox)}>
-          <Image src={chatIcon.src} alt={chatIcon.alt} />
+        <Image src={chatIcon.src} alt={chatIcon.alt} />
         </div>
       </div>
-      <div ref={mountRef} className={clsx(styles.fullScreen)} />
-      <NodeCard ref={nodeCardRef} tree={tree} section={normalizedSection} onFirstClick={handleStartExplore} />
+      <ChatBox isToggled={isToggleChatBox} />
+      <OntologyNavigator tree={tree} currentSectionId={normalizedSection?.id} back={backPreviousSection} push={pushNextSection} />
+      <EnergyHandleTop ref={descViewerRef} node={normalizedNode} onFirstClick={handleStartExplore} />
     </React.Fragment>
   );
 };
