@@ -1,4 +1,4 @@
-import { ChatBox, EnergyHandleTop, OntologyNavigator, SplashImage } from "@/components";
+import { ChatBox, EnergyHandleLeft, EnergyHandleTop, SplashImage } from "@/components";
 import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
@@ -119,8 +119,8 @@ const Main = () => {
   const tempBox = new THREE.Box3();
   const tempVec = new THREE.Vector3();
 
-  const worldGroupRef = useRef<THREE.Group>(new THREE.Group()); // 크기 보정을 위한 Group
-  const sectionsRootRef = useRef<THREE.Group>(new THREE.Group()); // 섹션 보관을 위한 Group
+  const worldGroupRef = useRef<THREE.Group>(new THREE.Group());
+  const sectionsRootRef = useRef<THREE.Group>(new THREE.Group());
 
   const sectionIdMapRef = useRef<Map<SectionId, Section>>(new Map());
   const sectionDepthMapRef = useRef<Map<Depth, Section>>(new Map());
@@ -131,7 +131,9 @@ const Main = () => {
 
   const targetNodeIdMapRef = useRef<Map<SectionId, Tree>>(new Map());
   const targetPositionIdMapRef = useRef<Map<SectionId, THREE.Vector3>>(new Map());
+
   const isChasingTargetRef = useRef<boolean>(false);
+  const intentDirectionRef = useRef<"left" | "right" | undefined>(undefined);
 
   const prevDepthRef = useRef<number>(0);
   const currentDepthRef = useRef<number>(0);
@@ -629,7 +631,28 @@ const Main = () => {
     if (!normalizedSection) return;
 
     const mesh = normalizedSection.group.getObjectByName(node.nodeId) as THREE.Mesh;
-    if (!mesh) return;
+    if (!mesh) {
+      const nextTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth);
+      if (!nextTransitionRange) return;
+      
+      const rangeEnd = Math.max(...nextTransitionRange);
+      const margin = 0.05;
+      
+      const targetLog = rangeEnd + margin;
+      worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);
+
+      if (node.nodeId === BRAIN_AREA_IDS.left) {
+        cameraRotationRef.current.target.theta = -(Math.PI / 10);
+        intentDirectionRef.current = "left";
+      }
+      else if (node.nodeId === BRAIN_AREA_IDS.right) {
+        cameraRotationRef.current.target.theta = (Math.PI / 10);
+        intentDirectionRef.current = "right";
+      }
+
+      isChasingTargetRef.current = true;
+      return;
+    }
 
     setSectionTarget(mesh);
   };
@@ -705,7 +728,7 @@ const Main = () => {
 
     if (currentSection.id === MODEL_IDS.brain) {
       if (scaleProgress < Math.min(...transitionRange!)) {
-        const angle = getAngle();
+        const angle: "left" | "right" = intentDirectionRef.current ?? getAngle();
 
         const leftOrRightId = angle === "left"
           ? BRAIN_AREA_IDS.left
@@ -930,15 +953,19 @@ const Main = () => {
   };
 
   useEffect(() => {
-    if (!tree || !normalizedSection) return;
+    if (tree.length === 0 || !normalizedSection) return;
     isChasingTargetRef.current = false;
+    intentDirectionRef.current = undefined;
 
     const normalizedNode = treeUtils.getNode(tree, normalizedSection.id);
     setNormalizedNode(normalizedNode ?? DEFAULT_NODE);
   }, [tree, normalizedSection]);
 
   useEffect(() => {
+    if (tree.length === 0) return;
+
     treeRef.current = tree;
+    normalizedNode.children.push(tree[0]);
   }, [tree]);
 
   useEffect(() => {
@@ -1153,7 +1180,7 @@ const Main = () => {
       <div ref={mountRef} className={clsx(styles.fullScreen)} />
       <SplashImage show={showSplashImage} />
       <div className={clsx(styles.nodeName)}>
-        { normalizedNode?.name }
+        <p>{ normalizedNode?.name }</p>
       </div>
       <div className={clsx(styles.socialContainer)}>
         <div onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
@@ -1169,7 +1196,7 @@ const Main = () => {
         </div>
       </div>
       <ChatBox isToggled={isToggleChatBox} />
-      <OntologyNavigator tree={tree} currentSectionId={normalizedSection?.id} back={backPreviousSection} push={pushNextSection} />
+      <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} />
       <EnergyHandleTop ref={descViewerRef} node={normalizedNode} onFirstClick={handleStartExplore} />
     </React.Fragment>
   );
