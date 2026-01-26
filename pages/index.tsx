@@ -131,7 +131,7 @@ const Main = () => {
 
   const targetNodeIdMapRef = useRef<Map<SectionId, Tree>>(new Map());
   const targetPositionIdMapRef = useRef<Map<SectionId, THREE.Vector3>>(new Map());
-  const isChasingTarget = useRef<boolean>(false);
+  const isChasingTargetRef = useRef<boolean>(false);
 
   const prevDepthRef = useRef<number>(0);
   const currentDepthRef = useRef<number>(0);
@@ -607,7 +607,7 @@ const Main = () => {
     worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);
 
     setNextNodeSection();
-    isChasingTarget.current = true;
+    isChasingTargetRef.current = true;
   };
 
   const backPreviousSection = () => {
@@ -637,7 +637,6 @@ const Main = () => {
   const onSectionEnter = (depth: Depth) => {
     const enteredSection = sectionDepthMapRef.current.get(depth)!;
     currentSectionRef.current = enteredSection;
-    isChasingTarget.current = false;
   };
 
   const updateSection = () => {
@@ -818,7 +817,7 @@ const Main = () => {
   };
 
   const handleWheel = (event: WheelEvent) => {
-    if (isChasingTarget.current) return;
+    if (isChasingTargetRef.current) return;
 
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -932,6 +931,7 @@ const Main = () => {
 
   useEffect(() => {
     if (!tree || !normalizedSection) return;
+    isChasingTargetRef.current = false;
 
     const normalizedNode = treeUtils.getNode(tree, normalizedSection.id);
     setNormalizedNode(normalizedNode ?? DEFAULT_NODE);
@@ -1066,7 +1066,7 @@ const Main = () => {
       camera.position.copy(offset);
       camera.lookAt(centerVector);
 
-      if (isChasingTarget.current) {
+      if (isChasingTargetRef.current) {
         const currentLog = Math.log(worldGroupScaleRef.current.current / START_SCALE);
         const targetLog = Math.log(worldGroupScaleRef.current.target / START_SCALE);
 
@@ -1092,7 +1092,7 @@ const Main = () => {
       updateTextObject();
       updateWorldGroupPosition();
 
-      if (isChasingTarget.current) {
+      if (isChasingTargetRef.current) {
         worldGroupPositionRef.current.current = worldGroupPositionRef.current.current.lerp(
           worldGroupPositionRef.current.target,
           MOVE_SPEED
