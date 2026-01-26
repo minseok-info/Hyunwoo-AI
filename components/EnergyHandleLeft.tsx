@@ -1,4 +1,4 @@
-import styles from "@/styles/endergyHandleLeft.module.css";
+import styles from "@/styles/energyHandleLeft.module.css";
 import { Tree } from "@/types/ontologyTypes";
 import clsx from "clsx";
 import Image from "next/image";

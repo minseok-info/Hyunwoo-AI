@@ -1,11 +1,9 @@
 import katexSchema from "@/katexSchema";
 import styles from "@/styles/energyHandleTop.module.css";
-import { Section } from "@/types/modelParams";
 import { Tree } from "@/types/ontologyTypes";
-import { treeUtils } from "@/utils";
 import clsx from "clsx";
 import Image from "next/image";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import ReactMarkDown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import rehypeSanitize from "rehype-sanitize";
