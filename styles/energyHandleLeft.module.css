@@ -41,8 +41,9 @@
   transform: translate(-100%, -50%);
   top: 50%;
   left: -2px;
-  width: 225px;
-  height: 75dvh;
+  width: calc(225px - 20px);
+  height: calc(75dvh - 20px);
+  padding: 10px;
   background:
     radial-gradient(
       ellipse at 15% 50%,
@@ -66,8 +67,7 @@
 .navigatorWrapper {
   display: flex;
   flex-direction: column;
-  height: calc(100% - 10px);
-  padding: 10px;
+  height: 100%;
 }
 
 .back {
@@ -90,7 +90,7 @@
 
 .push {
   cursor: pointer;
-  padding: 2.5px 0px;
+  padding: 1.25px 0px;
 }
 .push p {
   opacity: 0.35;

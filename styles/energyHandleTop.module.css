@@ -41,9 +41,12 @@
   transform: translate(-50%, -100%);
   top: -2px;
   left: 50%;
-  width: 75dvw;
-  height: 50dvh;
+  display: flex;
+  flex-direction: column;
+  width: calc(75vw - 30px);
+  height: calc(50dvh - 70px);
   max-width: 1060px;
+  padding: 65px 15px 5px;
   background:
     radial-gradient(
       ellipse at 50% 15%,
@@ -64,19 +67,72 @@
   transition: all 1250ms;
 }
 
-.viewerWrapper {
-  height: calc(100% - 70px);
-  padding: 65px 15px 5px;
+.tagListWrapper {
+  display: flex;
+  height: 15px;
+}
+
+.tag {
+  cursor: pointer;
+  padding: 0px 3.5px;
+  border-radius: 2.5px 2.5px 0 0;
+  font-size: 10px;
+  color: white;
+  transition: all 50ms;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.contentWrapper {
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid rgba(120, 180, 255, 0.15);
+  border-bottom: 1px solid rgba(120, 180, 255, 0.15);
+}
+.contentWrapper:has(.path) {
+  height: calc(100% - 15px);
+}
+
+.nodeList {
+  height: calc(100% - 10px);
+  padding: 5px;
+  overflow-y: auto;
+}
+
+.node {
+  opacity: 0.35;
+  cursor: pointer;
+  padding: 1.25px 0px;
+  font-size: 14px;
+  color: white;
+}
+
+.path {
+  cursor: default;
+  display: flex;
+  margin-bottom: 5px;
+  gap: 5px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.path p {
+  font-size: 10px;
+  margin: 0;
+}
+
+.current {
+  opacity: 0.35;
+  cursor: pointer;
+  transition: all 50ms;
 }
 
 .viewer {
   height: calc(100% - 10px);
   padding: 5px;
-  border-top: 1px solid rgba(120, 180, 255, 0.15);
-  border-bottom: 1px solid rgba(120, 180, 255, 0.15);
   color: white;
   overflow-y: auto;
 }
+
 .viewer h1 {
   font-size: 24px;
   margin: 5px 0px;
@@ -91,7 +147,7 @@
 .viewer h4 {
   margin: 3px 0px;
 }
-.viewer p {
+.viewer:not(:has(.path)) p {
   font-size: 14px;
   margin: 1.5px 0px;
   word-break: break-all;
@@ -158,12 +214,31 @@
   transition: all 50ms;
 }
 
+.nodeList::-webkit-scrollbar {
+  width: 10px;
+}
+.nodeList::-webkit-scrollbar-track {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.05);
+}
+.nodeList::-webkit-scrollbar-thumb {
+  cursor: default;
+  background-color: rgba(120, 180, 255, 0.15);
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50ms;
+}
+
 .toggledHandle {
   opacity: 1;
   filter: brightness(1.35);
 }
 .toggledHandle .line {
   width: 100%;
+}
+
+.toggledTag {
+  background-color: rgba(255, 255, 255, 0.35);
 }
 
 .toggledPanel {
@@ -178,6 +253,18 @@
   }
   .handle:has(.diamond:hover) .line {
     width: 100%;
+  }
+
+  .tag:hover:not(.toggledTag) {
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .node:hover {
+    opacity: 1;
+  }
+
+  .current:hover {
+    opacity: 1;
   }
 
   .viewer pre:has(code)::-webkit-scrollbar-thumb:hover,

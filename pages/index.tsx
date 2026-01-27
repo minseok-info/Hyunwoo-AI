@@ -122,15 +122,15 @@ const Main = () => {
   const worldGroupRef = useRef<THREE.Group>(new THREE.Group());
   const sectionsRootRef = useRef<THREE.Group>(new THREE.Group());
 
-  const sectionIdMapRef = useRef<Map<SectionId, Section>>(new Map());
-  const sectionDepthMapRef = useRef<Map<Depth, Section>>(new Map());
+  const sectionByIdRef = useRef<Map<SectionId, Section>>(new Map());
+  const sectionByDepthRef = useRef<Map<Depth, Section>>(new Map());
 
   const currentSectionRef = useRef<Section | undefined>(undefined);
   const [normalizedSection, setNormalizedSection] = useState<Section | undefined>(undefined);
   const [normalizedNode, setNormalizedNode] = useState<Tree>(DEFAULT_NODE);
 
-  const targetNodeIdMapRef = useRef<Map<SectionId, Tree>>(new Map());
-  const targetPositionIdMapRef = useRef<Map<SectionId, THREE.Vector3>>(new Map());
+  const targetNodeByIdRef = useRef<Map<SectionId, Tree>>(new Map());
+  const targetPositionByIdRef = useRef<Map<SectionId, THREE.Vector3>>(new Map());
 
   const isChasingTargetRef = useRef<boolean>(false);
   const intentDirectionRef = useRef<"left" | "right" | undefined>(undefined);
@@ -141,7 +141,7 @@ const Main = () => {
 
   const scaleProgressRef = useRef<number>(0);
 
-  const transitionRangeDepthMapRef = useRef<Map<number, [number, number]>>(new Map([
+  const transitionRangeByDepthRef = useRef<Map<number, [number, number]>>(new Map([
     [0, [1.80, 2.00]],
     [1, [2.40, 2.75]]
   ]));
@@ -214,7 +214,7 @@ const Main = () => {
     };
     section.group.visible = false;
 
-    sectionIdMapRef.current.set(id, section);
+    sectionByIdRef.current.set(id, section);
     sectionsRootRef.current.add(section.group);
     return section;
   };
@@ -380,7 +380,7 @@ const Main = () => {
     };
     connectSimilarNode(node, section);
 
-    const maxScale = Math.max(...transitionRangeDepthMapRef.current.get(depth)!);
+    const maxScale = Math.max(...transitionRangeByDepthRef.current.get(depth)!);
     const scaleFactor = START_SCALE / maxScale;
     const normalizedScale = scalar * scaleFactor;
 
@@ -390,7 +390,7 @@ const Main = () => {
 
     if (position) section.group.position.copy(position.clone());
 
-    sectionIdMapRef.current.set(sectionId, section);
+    sectionByIdRef.current.set(sectionId, section);
     sectionsRootRef.current.add(section.group);
     
     return section;
@@ -432,7 +432,7 @@ const Main = () => {
       scalar?: number
     } = {}
   ): Section | undefined => {
-    const section = sectionIdMapRef.current.get(sectionId);
+    const section = sectionByIdRef.current.get(sectionId);
     if (section) {
       return section;
     }
@@ -465,30 +465,30 @@ const Main = () => {
     const normalizedDepth = normalizedDepthRef.current;
     const nextDepth = normalizedDepth + 1;
 
-    for (const depth of Array.from(sectionDepthMapRef.current.keys())) {
+    for (const depth of Array.from(sectionByDepthRef.current.keys())) {
       if (depth >= nextDepth + 1) {
-        sectionDepthMapRef.current.delete(depth);
+        sectionByDepthRef.current.delete(depth);
       }
     }
-    for (const depth of Array.from(transitionRangeDepthMapRef.current.keys())) {
+    for (const depth of Array.from(transitionRangeByDepthRef.current.keys())) {
       if (depth >= nextDepth + 1) {
-        transitionRangeDepthMapRef.current.delete(depth);
+        transitionRangeByDepthRef.current.delete(depth);
       }
     }
 
-    sectionDepthMapRef.current.set(nextDepth, section);
-    transitionRangeDepthMapRef.current.set(nextDepth, transitionRange);
+    sectionByDepthRef.current.set(nextDepth, section);
+    transitionRangeByDepthRef.current.set(nextDepth, transitionRange);
   };
 
   const setNextNodeSection = () => {
     const normalizedDepth = normalizedDepthRef.current;
-    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
     if (!normalizedSection) return;
 
-    const targetNode = targetNodeIdMapRef.current.get(normalizedSection.id);
+    const targetNode = targetNodeByIdRef.current.get(normalizedSection.id);
     if (!targetNode) return;
 
-    const targetPosition = targetPositionIdMapRef.current.get(normalizedSection.id);
+    const targetPosition = targetPositionByIdRef.current.get(normalizedSection.id);
     if (!targetPosition) return;
     
     const nextScale = Math.pow(NODE_SECTION_RATIO, normalizedDepth - 1);
@@ -582,7 +582,7 @@ const Main = () => {
 
   const setSectionTarget = (mesh: THREE.Mesh) => {
     const normalizedDepth = normalizedDepthRef.current;
-    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
     if (!normalizedSection) return;
 
     const sectionId = normalizedSection.id;
@@ -594,13 +594,13 @@ const Main = () => {
     meshWorldPos.sub(worldGroupRef.current.position);
 
     const meshNode = treeUtils.getNode(treeRef.current, nodeId);
-    targetNodeIdMapRef.current.set(sectionId, meshNode!);
+    targetNodeByIdRef.current.set(sectionId, meshNode!);
 
     const normalizedPosition = meshWorldPos
       .clone()
       .divideScalar(worldGroupScaleRef.current.current);
 
-    targetPositionIdMapRef.current.set(sectionId, normalizedPosition);
+    targetPositionByIdRef.current.set(sectionId, normalizedPosition);
 
     const { rangeEnd } = computeNextTransitionRange(normalizedDepth - 1);
     const margin = 0.15;
@@ -615,7 +615,7 @@ const Main = () => {
   const backPreviousSection = () => {
     const normalizedDepth = normalizedDepthRef.current;
 
-    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
+    const prevTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth - 1);
     if (!prevTransitionRange) return;
 
     const rangeStart = Math.min(...prevTransitionRange);
@@ -627,12 +627,12 @@ const Main = () => {
 
   const pushNextSection = (node: Tree) => {
     const normalizedDepth = normalizedDepthRef.current;
-    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
     if (!normalizedSection) return;
 
     const mesh = normalizedSection.group.getObjectByName(node.nodeId) as THREE.Mesh;
     if (!mesh) {
-      const nextTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth);
+      const nextTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth);
       if (!nextTransitionRange) return;
       
       const rangeEnd = Math.max(...nextTransitionRange);
@@ -658,7 +658,7 @@ const Main = () => {
   };
 
   const onSectionEnter = (depth: Depth) => {
-    const enteredSection = sectionDepthMapRef.current.get(depth)!;
+    const enteredSection = sectionByDepthRef.current.get(depth)!;
     currentSectionRef.current = enteredSection;
   };
 
@@ -675,7 +675,7 @@ const Main = () => {
     const currentSection = currentSectionRef.current;
     if (!currentSection) return;
 
-    const transitionRange = transitionRangeDepthMapRef.current.get(currentDepth) ?? undefined;
+    const transitionRange = transitionRangeByDepthRef.current.get(currentDepth) ?? undefined;
     if (transitionRange) {
       const min = Math.min(...transitionRange);
       const max = Math.max(...transitionRange);
@@ -687,7 +687,7 @@ const Main = () => {
       if (normalizedDepthRef.current !== normalizedDepth) {
         normalizedDepthRef.current = normalizedDepth;
 
-        const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+        const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
         setNormalizedSection(normalizedSection);
       }
   
@@ -695,7 +695,7 @@ const Main = () => {
         if (scaleProgress > max) {
           currentDepthRef.current = Math.min(
             currentDepth + 1,
-            sectionDepthMapRef.current.size - 1
+            sectionByDepthRef.current.size - 1
           );
         }
       }
@@ -710,7 +710,7 @@ const Main = () => {
 
       setSectionOpacity(currentSection, 1 - t);
       
-      const nextSection = sectionDepthMapRef.current.get(currentDepth + 1);
+      const nextSection = sectionByDepthRef.current.get(currentDepth + 1);
       if (nextSection) {
         setSectionOpacity(nextSection, t);
       }
@@ -750,11 +750,11 @@ const Main = () => {
     if (!camera) return;
     
     const normalizedDepth = normalizedDepthRef.current;
-    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
     if (!normalizedSection || normalizedSection.kind !== "node") return;
 
-    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
-    const currentTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth);
+    const prevTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth - 1);
+    const currentTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth);
     if (!prevTransitionRange || !currentTransitionRange) return;
 
     const scaleProgress = scaleProgressRef.current;
@@ -784,16 +784,16 @@ const Main = () => {
   const updateWorldGroupPosition = () => {
     const normalizedDepth = normalizedDepthRef.current;
 
-    const prevSection = sectionDepthMapRef.current.get(normalizedDepth - 1)
-    const currentSection = sectionDepthMapRef.current.get(normalizedDepth);
+    const prevSection = sectionByDepthRef.current.get(normalizedDepth - 1)
+    const currentSection = sectionByDepthRef.current.get(normalizedDepth);
     if (!prevSection || !currentSection) return;
 
-    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
-    const currentTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth);
+    const prevTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth - 1);
+    const currentTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth);
     if (!prevTransitionRange || !currentTransitionRange) return;
 
-    const prevTargetPosition = targetPositionIdMapRef.current.get(prevSection.id);
-    const currentTargetPosition = targetPositionIdMapRef.current.get(currentSection.id);
+    const prevTargetPosition = targetPositionByIdRef.current.get(prevSection.id);
+    const currentTargetPosition = targetPositionByIdRef.current.get(currentSection.id);
 
     const scaleProgress = scaleProgressRef.current;
 
@@ -1025,8 +1025,8 @@ const Main = () => {
       const brainSection = createModelSection(MODEL_IDS.brain, brainModel, modelsTransformAttr.idBrain);
       const milkywaySection = createModelSection(MODEL_IDS.milkyway, milkywayModel, modelsTransformAttr.idMilkyway);
 
-      sectionDepthMapRef.current.set(0, humanSection);
-      sectionDepthMapRef.current.set(1, brainSection);
+      sectionByDepthRef.current.set(0, humanSection);
+      sectionByDepthRef.current.set(1, brainSection);
 
       currentSectionRef.current = humanSection;
       setNormalizedSection(humanSection);
@@ -1197,7 +1197,7 @@ const Main = () => {
       </div>
       <ChatBox isToggled={isToggleChatBox} />
       <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} />
-      <EnergyHandleTop ref={descViewerRef} node={normalizedNode} onFirstClick={handleStartExplore} />
+      <EnergyHandleTop ref={descViewerRef} tree={tree} node={normalizedNode} onFirstClick={handleStartExplore} />
     </React.Fragment>
   );
 };
