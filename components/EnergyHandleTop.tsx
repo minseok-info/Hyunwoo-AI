@@ -47,7 +47,7 @@ const EnergyHandleTop = React.forwardRef<
 
     const targetNodes = treeUtils.getNodeWithTag(tree, targetTag);
     if (!targetNodes) setSameTagNodes([]);
-    else setSameTagNodes(targetNodes);
+    else setSameTagNodes([...targetNodes].sort((a, b) => a.name.localeCompare(b.name)));
 
     setToggledTag(targetTag);
   };
