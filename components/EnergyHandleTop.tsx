@@ -39,7 +39,7 @@ const EnergyHandleTop = React.forwardRef<
     setToggledNode(undefined);
   };
 
-  const setTag = (targetTag: Tree["tags"][number]) => {
+  const selectTag = (targetTag: Tree["tags"][number]) => {
     if (!targetTag) {
       setSameTagNodes([]);
       return;
@@ -66,7 +66,7 @@ const EnergyHandleTop = React.forwardRef<
       return;
     }
     
-    setTag(targetTag);
+    selectTag(targetTag);
   };
 
   const handleToggleNode = (targetNode: Tree) => {
