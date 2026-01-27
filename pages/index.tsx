@@ -52,7 +52,11 @@ const DEFAULT_NODE: Tree = {
   nodeId: "Hyunwoo AI",
   name: "Hyunwoo AI",
   desc: [
-    "Explore and Get to know, Hyunwoo AI."
+    "Explore and Get to know, Hyunwoo AI.",
+    "",
+    "1. Angular nodes hold hidden paths. Smooth nodes are complete.",
+    "2. Energy cores are active above and at your sides.",
+    "3. Deactivate the upper core to begin your journey."
   ].join("\n"),
   tags: [],
   children: []
