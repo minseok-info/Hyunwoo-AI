@@ -1,0 +1,276 @@
+.handle {
+  opacity: 0.5;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  transition: all 750ms;
+}
+
+.line {
+  width: 35%;
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    rgba(80, 140, 200, 0) 0%,
+    rgba(80, 140, 200, 0.5) 25%,
+    rgba(120, 180, 255, 1) 50%,
+    rgba(80, 140, 200, 0.5) 75%,
+    rgba(80, 140, 200, 0) 100%
+  );
+  transition: all 750ms;
+}
+
+.diamond {
+  cursor: pointer;
+  position: absolute;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+}
+.diamond img {
+  width: 100%;
+  height: 100%;
+}
+
+.panel {
+  opacity: 0.35;
+  position: absolute;
+  transform: translate(-50%, -100%);
+  top: -2px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  width: calc(75vw - 30px);
+  height: calc(50dvh - 70px);
+  max-width: 1060px;
+  padding: 52.5px 15px 5px;
+  background:
+    radial-gradient(
+      ellipse at 50% 15%,
+      rgba(70, 120, 190, 0.25) 0%,
+      rgba(70, 120, 190, 0.14) 30%,
+      rgba(70, 120, 190, 0.06) 50%,
+      rgba(70, 120, 190, 0.015) 65%,
+      rgba(70, 120, 190, 0.0) 75%
+    ) padding-box,
+
+    linear-gradient(
+      180deg,
+      rgba(90, 150, 230, 0.25),
+      rgba(40, 90, 160, 0.15)
+    ) border-box;
+  border: 1px solid transparent;
+  border-radius: 0 0 16px 16px;
+  transition: all 1250ms;
+}
+
+.tagListWrapper {
+  display: flex;
+  height: 15px;
+}
+
+.tag {
+  cursor: pointer;
+  padding: 0px 3.5px;
+  border-radius: 2.5px 2.5px 0 0;
+  font-size: 10px;
+  color: white;
+  transition: all 50ms;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.contentWrapper {
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid rgba(120, 180, 255, 0.15);
+  border-bottom: 1px solid rgba(120, 180, 255, 0.15);
+}
+.contentWrapper:has(.path) {
+  height: calc(100% - 15px);
+}
+
+.nodeList {
+  height: calc(100% - 10px);
+  padding: 5px;
+  overflow-y: auto;
+}
+
+.node {
+  opacity: 0.35;
+  cursor: pointer;
+  padding: 1.25px 0px;
+  font-size: 14px;
+  color: white;
+}
+
+.path {
+  cursor: default;
+  display: flex;
+  margin-bottom: 5px;
+  gap: 5px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.path p {
+  font-size: 10px;
+  margin: 0;
+}
+
+.current {
+  opacity: 0.35;
+  cursor: pointer;
+  transition: all 50ms;
+}
+
+.viewer {
+  height: calc(100% - 10px);
+  padding: 5px;
+  color: white;
+  overflow-y: auto;
+}
+
+.viewer h1 {
+  font-size: 24px;
+  margin: 5px 0px;
+  word-break: break-all;
+}
+.viewer h2 {
+  margin: 4px 0px;
+}
+.viewer h3 {
+  margin: 3.5px 0px;
+}
+.viewer h4 {
+  margin: 3px 0px;
+}
+.viewer p:not(.path p) {
+  font-size: 14px;
+  margin: 1.5px 0px;
+  word-break: break-all;
+}
+.viewer p:has(a) a {
+  pointer-events: auto;
+}
+.viewer img {
+  margin: 10px 0px;
+  width: auto;
+  height: 15dvh;
+}
+.viewer ol, .viewer ul {
+  margin-left: 1.25em;
+}
+.viewer ol:not(:nth-child(1)) {
+  margin-top: 15px;
+}
+.viewer ul {
+  list-style-position: inside;
+}
+.viewer hr {
+  margin: 10px 0px;
+}
+.viewer pre:has(code) {
+  padding: 2.5px;
+  border-radius: 2.5px;
+  margin: 3.5px 0px;
+  background-color: rgba(255, 255, 255, 0.05);
+  overflow-x: auto;
+}
+.viewer code:not(pre code) {
+  padding: 2.5px;
+  border-radius: 2.5px;
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.viewer pre:has(code)::-webkit-scrollbar {
+  height: 10px;
+}
+.viewer pre:has(code)::-webkit-scrollbar-track {
+  cursor: default;
+}
+.viewer pre:has(code)::-webkit-scrollbar-thumb {
+  cursor: default;
+  background-color: rgba(120, 180, 255, 0.15);
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50ms;
+}
+
+.viewer::-webkit-scrollbar {
+  width: 10px;
+}
+.viewer::-webkit-scrollbar-track {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.05);
+}
+.viewer::-webkit-scrollbar-thumb {
+  cursor: default;
+  background-color: rgba(120, 180, 255, 0.15);
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50ms;
+}
+
+.nodeList::-webkit-scrollbar {
+  width: 10px;
+}
+.nodeList::-webkit-scrollbar-track {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.05);
+}
+.nodeList::-webkit-scrollbar-thumb {
+  cursor: default;
+  background-color: rgba(120, 180, 255, 0.15);
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50ms;
+}
+
+.toggledHandle {
+  opacity: 1;
+  filter: brightness(1.35);
+}
+.toggledHandle .line {
+  width: 100%;
+}
+
+.toggledTag {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+.toggledPanel {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (hover: hover) {
+  .handle:has(.diamond:hover) {
+    opacity: 1;
+    filter: brightness(1.35);
+  }
+  .handle:has(.diamond:hover) .line {
+    width: 100%;
+  }
+
+  .tag:hover:not(.toggledTag) {
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .node:hover {
+    opacity: 1;
+  }
+
+  .current:hover {
+    opacity: 1;
+  }
+
+  .viewer pre:has(code)::-webkit-scrollbar-thumb:hover,
+  .viewer::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(120, 180, 255, 0.35);
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
+}

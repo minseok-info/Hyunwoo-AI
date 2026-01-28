@@ -1,4 +1,4 @@
-import { ChatBox, NodeCard, OntologyNavigator, SplashImage } from "@/components";
+import { EnergyHandleLeft, EnergyHandleRight, EnergyHandleTop, SplashImage } from "@/components";
 import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
@@ -14,16 +14,6 @@ import { CSS3DObject, CSS3DRenderer, GLTFLoader } from "three/examples/jsm/Addon
 const githubIcon = {
   src: require("@/public/icons/github.svg"),
   alt: "github"
-};
-
-const videoIcon = {
-  src: require("@/public/icons/video.svg"),
-  alt: "video"
-};
-
-const chatIcon = {
-  src: require("@/public/icons/chat.svg"),
-  alt: "chat"
 };
 
 const modelsTransformAttr: Record<ModelId, ModelTransformParams> = {
@@ -47,6 +37,21 @@ const modelsTransformAttr: Record<ModelId, ModelTransformParams> = {
   }
 };
 
+const DEFAULT_NODE: Tree = {
+  treeId: "Hyunwoo AI",
+  nodeId: "Hyunwoo AI",
+  name: "Hyunwoo AI",
+  desc: [
+    "Explore and Get to know, Hyunwoo AI.",
+    "",
+    "1. Angular nodes hold hidden paths. Smooth nodes are complete.",
+    "2. Energy cores are active above and at your sides.",
+    "3. Deactivate the upper core to begin your journey."
+  ].join("\n"),
+  tags: [],
+  children: []
+};
+
 const CAMERA_FOV = 75;
 const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 500000;
@@ -68,7 +73,7 @@ const NODE_SECTION_RATIO = 0.01;
 
 const Main = () => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const nodeCardRef = useRef<HTMLDivElement>(null);
+  const descViewerRef = useRef<HTMLDivElement>(null);
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -108,18 +113,21 @@ const Main = () => {
   const tempBox = new THREE.Box3();
   const tempVec = new THREE.Vector3();
 
-  const worldGroupRef = useRef<THREE.Group>(new THREE.Group()); // 크기 보정을 위한 Group
-  const sectionsRootRef = useRef<THREE.Group>(new THREE.Group()); // 섹션 보관을 위한 Group
+  const worldGroupRef = useRef<THREE.Group>(new THREE.Group());
+  const sectionsRootRef = useRef<THREE.Group>(new THREE.Group());
 
-  const sectionIdMapRef = useRef<Map<SectionId, Section>>(new Map());
-  const sectionDepthMapRef = useRef<Map<Depth, Section>>(new Map());
+  const sectionByIdRef = useRef<Map<SectionId, Section>>(new Map());
+  const sectionByDepthRef = useRef<Map<Depth, Section>>(new Map());
 
   const currentSectionRef = useRef<Section | undefined>(undefined);
   const [normalizedSection, setNormalizedSection] = useState<Section | undefined>(undefined);
+  const [normalizedNode, setNormalizedNode] = useState<Tree>(DEFAULT_NODE);
 
-  const targetNodeIdMapRef = useRef<Map<SectionId, Tree>>(new Map());
-  const targetPositionIdMapRef = useRef<Map<SectionId, THREE.Vector3>>(new Map());
-  const isChasingTarget = useRef<boolean>(false);
+  const targetNodeByIdRef = useRef<Map<SectionId, Tree>>(new Map());
+  const targetPositionByIdRef = useRef<Map<SectionId, THREE.Vector3>>(new Map());
+
+  const isChasingTargetRef = useRef<boolean>(false);
+  const intentDirectionRef = useRef<"left" | "right" | undefined>(undefined);
 
   const prevDepthRef = useRef<number>(0);
   const currentDepthRef = useRef<number>(0);
@@ -127,7 +135,7 @@ const Main = () => {
 
   const scaleProgressRef = useRef<number>(0);
 
-  const transitionRangeDepthMapRef = useRef<Map<number, [number, number]>>(new Map([
+  const transitionRangeByDepthRef = useRef<Map<number, [number, number]>>(new Map([
     [0, [1.80, 2.00]],
     [1, [2.40, 2.75]]
   ]));
@@ -200,7 +208,7 @@ const Main = () => {
     };
     section.group.visible = false;
 
-    sectionIdMapRef.current.set(id, section);
+    sectionByIdRef.current.set(id, section);
     sectionsRootRef.current.add(section.group);
     return section;
   };
@@ -366,7 +374,7 @@ const Main = () => {
     };
     connectSimilarNode(node, section);
 
-    const maxScale = Math.max(...transitionRangeDepthMapRef.current.get(depth)!);
+    const maxScale = Math.max(...transitionRangeByDepthRef.current.get(depth)!);
     const scaleFactor = START_SCALE / maxScale;
     const normalizedScale = scalar * scaleFactor;
 
@@ -376,7 +384,7 @@ const Main = () => {
 
     if (position) section.group.position.copy(position.clone());
 
-    sectionIdMapRef.current.set(sectionId, section);
+    sectionByIdRef.current.set(sectionId, section);
     sectionsRootRef.current.add(section.group);
     
     return section;
@@ -418,7 +426,7 @@ const Main = () => {
       scalar?: number
     } = {}
   ): Section | undefined => {
-    const section = sectionIdMapRef.current.get(sectionId);
+    const section = sectionByIdRef.current.get(sectionId);
     if (section) {
       return section;
     }
@@ -451,30 +459,30 @@ const Main = () => {
     const normalizedDepth = normalizedDepthRef.current;
     const nextDepth = normalizedDepth + 1;
 
-    for (const depth of Array.from(sectionDepthMapRef.current.keys())) {
+    for (const depth of Array.from(sectionByDepthRef.current.keys())) {
       if (depth >= nextDepth + 1) {
-        sectionDepthMapRef.current.delete(depth);
+        sectionByDepthRef.current.delete(depth);
       }
     }
-    for (const depth of Array.from(transitionRangeDepthMapRef.current.keys())) {
+    for (const depth of Array.from(transitionRangeByDepthRef.current.keys())) {
       if (depth >= nextDepth + 1) {
-        transitionRangeDepthMapRef.current.delete(depth);
+        transitionRangeByDepthRef.current.delete(depth);
       }
     }
 
-    sectionDepthMapRef.current.set(nextDepth, section);
-    transitionRangeDepthMapRef.current.set(nextDepth, transitionRange);
+    sectionByDepthRef.current.set(nextDepth, section);
+    transitionRangeByDepthRef.current.set(nextDepth, transitionRange);
   };
 
   const setNextNodeSection = () => {
     const normalizedDepth = normalizedDepthRef.current;
-    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
     if (!normalizedSection) return;
 
-    const targetNode = targetNodeIdMapRef.current.get(normalizedSection.id);
+    const targetNode = targetNodeByIdRef.current.get(normalizedSection.id);
     if (!targetNode) return;
 
-    const targetPosition = targetPositionIdMapRef.current.get(normalizedSection.id);
+    const targetPosition = targetPositionByIdRef.current.get(normalizedSection.id);
     if (!targetPosition) return;
     
     const nextScale = Math.pow(NODE_SECTION_RATIO, normalizedDepth - 1);
@@ -568,7 +576,7 @@ const Main = () => {
 
   const setSectionTarget = (mesh: THREE.Mesh) => {
     const normalizedDepth = normalizedDepthRef.current;
-    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
     if (!normalizedSection) return;
 
     const sectionId = normalizedSection.id;
@@ -580,13 +588,13 @@ const Main = () => {
     meshWorldPos.sub(worldGroupRef.current.position);
 
     const meshNode = treeUtils.getNode(treeRef.current, nodeId);
-    targetNodeIdMapRef.current.set(sectionId, meshNode!);
+    targetNodeByIdRef.current.set(sectionId, meshNode!);
 
     const normalizedPosition = meshWorldPos
       .clone()
       .divideScalar(worldGroupScaleRef.current.current);
 
-    targetPositionIdMapRef.current.set(sectionId, normalizedPosition);
+    targetPositionByIdRef.current.set(sectionId, normalizedPosition);
 
     const { rangeEnd } = computeNextTransitionRange(normalizedDepth - 1);
     const margin = 0.15;
@@ -595,13 +603,13 @@ const Main = () => {
     worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);
 
     setNextNodeSection();
-    isChasingTarget.current = true;
+    isChasingTargetRef.current = true;
   };
 
   const backPreviousSection = () => {
     const normalizedDepth = normalizedDepthRef.current;
 
-    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
+    const prevTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth - 1);
     if (!prevTransitionRange) return;
 
     const rangeStart = Math.min(...prevTransitionRange);
@@ -613,19 +621,39 @@ const Main = () => {
 
   const pushNextSection = (node: Tree) => {
     const normalizedDepth = normalizedDepthRef.current;
-    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
     if (!normalizedSection) return;
 
     const mesh = normalizedSection.group.getObjectByName(node.nodeId) as THREE.Mesh;
-    if (!mesh) return;
+    if (!mesh) {
+      const nextTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth);
+      if (!nextTransitionRange) return;
+      
+      const rangeEnd = Math.max(...nextTransitionRange);
+      const margin = 0.05;
+      
+      const targetLog = rangeEnd + margin;
+      worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);
+
+      if (node.nodeId === BRAIN_AREA_IDS.left) {
+        cameraRotationRef.current.target.theta = -(Math.PI / 10);
+        intentDirectionRef.current = "left";
+      }
+      else if (node.nodeId === BRAIN_AREA_IDS.right) {
+        cameraRotationRef.current.target.theta = (Math.PI / 10);
+        intentDirectionRef.current = "right";
+      }
+
+      isChasingTargetRef.current = true;
+      return;
+    }
 
     setSectionTarget(mesh);
   };
 
   const onSectionEnter = (depth: Depth) => {
-    const enteredSection = sectionDepthMapRef.current.get(depth)!;
+    const enteredSection = sectionByDepthRef.current.get(depth)!;
     currentSectionRef.current = enteredSection;
-    isChasingTarget.current = false;
   };
 
   const updateSection = () => {
@@ -641,7 +669,7 @@ const Main = () => {
     const currentSection = currentSectionRef.current;
     if (!currentSection) return;
 
-    const transitionRange = transitionRangeDepthMapRef.current.get(currentDepth) ?? undefined;
+    const transitionRange = transitionRangeByDepthRef.current.get(currentDepth) ?? undefined;
     if (transitionRange) {
       const min = Math.min(...transitionRange);
       const max = Math.max(...transitionRange);
@@ -653,7 +681,7 @@ const Main = () => {
       if (normalizedDepthRef.current !== normalizedDepth) {
         normalizedDepthRef.current = normalizedDepth;
 
-        const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+        const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
         setNormalizedSection(normalizedSection);
       }
   
@@ -661,7 +689,7 @@ const Main = () => {
         if (scaleProgress > max) {
           currentDepthRef.current = Math.min(
             currentDepth + 1,
-            sectionDepthMapRef.current.size - 1
+            sectionByDepthRef.current.size - 1
           );
         }
       }
@@ -676,7 +704,7 @@ const Main = () => {
 
       setSectionOpacity(currentSection, 1 - t);
       
-      const nextSection = sectionDepthMapRef.current.get(currentDepth + 1);
+      const nextSection = sectionByDepthRef.current.get(currentDepth + 1);
       if (nextSection) {
         setSectionOpacity(nextSection, t);
       }
@@ -694,7 +722,7 @@ const Main = () => {
 
     if (currentSection.id === MODEL_IDS.brain) {
       if (scaleProgress < Math.min(...transitionRange!)) {
-        const angle = getAngle();
+        const angle: "left" | "right" = intentDirectionRef.current ?? getAngle();
 
         const leftOrRightId = angle === "left"
           ? BRAIN_AREA_IDS.left
@@ -716,11 +744,11 @@ const Main = () => {
     if (!camera) return;
     
     const normalizedDepth = normalizedDepthRef.current;
-    const normalizedSection = sectionDepthMapRef.current.get(normalizedDepth);
+    const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
     if (!normalizedSection || normalizedSection.kind !== "node") return;
 
-    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
-    const currentTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth);
+    const prevTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth - 1);
+    const currentTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth);
     if (!prevTransitionRange || !currentTransitionRange) return;
 
     const scaleProgress = scaleProgressRef.current;
@@ -750,16 +778,16 @@ const Main = () => {
   const updateWorldGroupPosition = () => {
     const normalizedDepth = normalizedDepthRef.current;
 
-    const prevSection = sectionDepthMapRef.current.get(normalizedDepth - 1)
-    const currentSection = sectionDepthMapRef.current.get(normalizedDepth);
+    const prevSection = sectionByDepthRef.current.get(normalizedDepth - 1)
+    const currentSection = sectionByDepthRef.current.get(normalizedDepth);
     if (!prevSection || !currentSection) return;
 
-    const prevTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth - 1);
-    const currentTransitionRange = transitionRangeDepthMapRef.current.get(normalizedDepth);
+    const prevTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth - 1);
+    const currentTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepth);
     if (!prevTransitionRange || !currentTransitionRange) return;
 
-    const prevTargetPosition = targetPositionIdMapRef.current.get(prevSection.id);
-    const currentTargetPosition = targetPositionIdMapRef.current.get(currentSection.id);
+    const prevTargetPosition = targetPositionByIdRef.current.get(prevSection.id);
+    const currentTargetPosition = targetPositionByIdRef.current.get(currentSection.id);
 
     const scaleProgress = scaleProgressRef.current;
 
@@ -806,11 +834,11 @@ const Main = () => {
   };
 
   const handleWheel = (event: WheelEvent) => {
-    if (isChasingTarget.current) return;
+    if (isChasingTargetRef.current) return;
 
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (nodeCardRef.current?.contains(target)) return;
+    if (descViewerRef.current?.contains(target)) return;
 
     const worldGroup = worldGroupRef.current;
     if (!worldGroup) return;
@@ -819,9 +847,10 @@ const Main = () => {
     const deltaY = -event.deltaY
     let delta = Math.sign(deltaY);
 
-    if (Math.abs(deltaY) < 40) {
+    const trackPadMax = 40;
+    if (Math.abs(deltaY) < trackPadMax) {
       const limitedDeltaY = THREE.MathUtils.clamp(deltaY, -1.5, 2);
-      delta = limitedDeltaY / 3.5;
+      delta = limitedDeltaY / 2;
     }
     
     const currentScale = worldGroupScaleRef.current.current;
@@ -838,7 +867,7 @@ const Main = () => {
   const handlePointerDown = (event: PointerEvent) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (nodeCardRef.current?.contains(target)) return;
+    if (descViewerRef.current?.contains(target)) return;
 
     if (isZoomingRef.current) return;
     event.preventDefault();
@@ -918,7 +947,19 @@ const Main = () => {
   };
 
   useEffect(() => {
+    if (tree.length === 0 || !normalizedSection) return;
+    isChasingTargetRef.current = false;
+    intentDirectionRef.current = undefined;
+
+    const normalizedNode = treeUtils.getNode(tree, normalizedSection.id);
+    setNormalizedNode(normalizedNode ?? DEFAULT_NODE);
+  }, [tree, normalizedSection]);
+
+  useEffect(() => {
+    if (tree.length === 0) return;
+
     treeRef.current = tree;
+    normalizedNode.children.push(tree[0]);
   }, [tree]);
 
   useEffect(() => {
@@ -978,8 +1019,8 @@ const Main = () => {
       const brainSection = createModelSection(MODEL_IDS.brain, brainModel, modelsTransformAttr.idBrain);
       const milkywaySection = createModelSection(MODEL_IDS.milkyway, milkywayModel, modelsTransformAttr.idMilkyway);
 
-      sectionDepthMapRef.current.set(0, humanSection);
-      sectionDepthMapRef.current.set(1, brainSection);
+      sectionByDepthRef.current.set(0, humanSection);
+      sectionByDepthRef.current.set(1, brainSection);
 
       currentSectionRef.current = humanSection;
       setNormalizedSection(humanSection);
@@ -1046,7 +1087,7 @@ const Main = () => {
       camera.position.copy(offset);
       camera.lookAt(centerVector);
 
-      if (isChasingTarget.current) {
+      if (isChasingTargetRef.current) {
         const currentLog = Math.log(worldGroupScaleRef.current.current / START_SCALE);
         const targetLog = Math.log(worldGroupScaleRef.current.target / START_SCALE);
 
@@ -1072,7 +1113,7 @@ const Main = () => {
       updateTextObject();
       updateWorldGroupPosition();
 
-      if (isChasingTarget.current) {
+      if (isChasingTargetRef.current) {
         worldGroupPositionRef.current.current = worldGroupPositionRef.current.current.lerp(
           worldGroupPositionRef.current.target,
           MOVE_SPEED
@@ -1114,7 +1155,7 @@ const Main = () => {
         window.removeEventListener("pointermove", handlePointerMove);
         window.removeEventListener("pointerup", handlePointerUp);
 
-        window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchstart", handleTouchStart);
         window.removeEventListener("touchmove", handleTouchMove);
         window.removeEventListener("touchend", handleTouchEnd);
       }
@@ -1130,24 +1171,19 @@ const Main = () => {
       <Head>
         <title>Hyunwoo AI</title>
       </Head>
+      <div ref={mountRef} className={clsx(styles.fullScreen)} />
       <SplashImage show={showSplashImage} />
-      <OntologyNavigator tree={tree} currentSectionId={normalizedSection?.id} back={backPreviousSection} push={pushNextSection} />
-      <ChatBox isToggled={isToggleChatBox} />
+      <div className={clsx(styles.nodeName)}>
+        <p>{ normalizedNode?.name }</p>
+      </div>
       <div className={clsx(styles.socialContainer)}>
         <div onClick={() => window.open("https://github.com/hwk06023", "_blank")}>
           <Image src={githubIcon.src} alt={githubIcon.alt} />
         </div>
       </div>
-      <div className={clsx(styles.chatContainer)}>
-        {/* <div>
-          <Image src={videoIcon.src} alt={videoIcon.alt} />
-        </div> */}
-        <div onClick={() => setIsToggleChatBox(!isToggleChatBox)}>
-          <Image src={chatIcon.src} alt={chatIcon.alt} />
-        </div>
-      </div>
-      <div ref={mountRef} className={clsx(styles.fullScreen)} />
-      <NodeCard ref={nodeCardRef} tree={tree} section={normalizedSection} onFirstClick={handleStartExplore} />
+      <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} />
+      <EnergyHandleRight />
+      <EnergyHandleTop ref={descViewerRef} tree={tree} node={normalizedNode} onFirstClick={handleStartExplore} />
     </React.Fragment>
   );
 };

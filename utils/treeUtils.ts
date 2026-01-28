@@ -65,6 +65,23 @@ const getNode = (
   return targetNode;
 };
 
+const getNodeWithTag = (
+  tree: Tree[],
+  targetTag: Tree["tags"][number]
+): Tree[] | undefined => {
+  const targetNodes: Tree[] = [];
+  const visitedNodes = new Set<Tree["nodeId"]>();
+
+  traverseTree(tree, n => {
+    if (visitedNodes.has(n.nodeId)) return;
+    if (n.tags.includes(targetTag)) targetNodes.push(n);
+
+    visitedNodes.add(n.nodeId);
+  });
+
+  return targetNodes;
+};
+
 const insertNode = (
   tree: Tree[],
   parentId: Tree["nodeId"],
@@ -144,6 +161,7 @@ export default {
   traverseTree,
   sortTree,
   getNode,
+  getNodeWithTag,
   insertNode,
   deleteNode,
   updateNode,
