@@ -14,3 +14,7 @@ export { default as TreeFolder } from "./TreeFolder";
 export { default as TreeFile } from "./TreeFile";
 
 export { default as NodeEditor } from "./NodeEditor";
+
+export { default as RAGChat } from "./RAGChat";
+export { default as RAGChatContainer } from "./RAGChatContainer";
+export { default as OntologyNavigator } from "./OntologyNavigator";
