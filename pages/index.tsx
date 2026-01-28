@@ -1,4 +1,4 @@
-import { ChatBox, EnergyHandleLeft, EnergyHandleTop, SplashImage } from "@/components";
+import { EnergyHandleLeft, EnergyHandleRight, EnergyHandleTop, SplashImage } from "@/components";
 import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
@@ -14,16 +14,6 @@ import { CSS3DObject, CSS3DRenderer, GLTFLoader } from "three/examples/jsm/Addon
 const githubIcon = {
   src: require("@/public/icons/github.svg"),
   alt: "github"
-};
-
-const videoIcon = {
-  src: require("@/public/icons/video.svg"),
-  alt: "video"
-};
-
-const chatIcon = {
-  src: require("@/public/icons/chat.svg"),
-  alt: "chat"
 };
 
 const modelsTransformAttr: Record<ModelId, ModelTransformParams> = {
@@ -1191,16 +1181,8 @@ const Main = () => {
           <Image src={githubIcon.src} alt={githubIcon.alt} />
         </div>
       </div>
-      <div className={clsx(styles.chatContainer)}>
-        <div>
-        <Image src={videoIcon.src} alt={videoIcon.alt} />
-        </div>
-        <div onClick={() => setIsToggleChatBox(!isToggleChatBox)}>
-        <Image src={chatIcon.src} alt={chatIcon.alt} />
-        </div>
-      </div>
-      <ChatBox isToggled={isToggleChatBox} />
       <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} />
+      <EnergyHandleRight />
       <EnergyHandleTop ref={descViewerRef} tree={tree} node={normalizedNode} onFirstClick={handleStartExplore} />
     </React.Fragment>
   );
