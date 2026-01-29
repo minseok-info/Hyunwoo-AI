@@ -900,6 +900,10 @@ const Main = () => {
   };
 
   const handleTouchStart = (event: TouchEvent) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (descViewerRef.current?.contains(target)) return;
+
     const touches = event.touches;
     if (touches.length === 2) {
       event.preventDefault();
@@ -912,6 +916,10 @@ const Main = () => {
   };
 
   const handleTouchMove = (event: TouchEvent) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (descViewerRef.current?.contains(target)) return;
+
     const worldGroup = worldGroupRef.current;
     if (!worldGroup) return;
     event.preventDefault();
