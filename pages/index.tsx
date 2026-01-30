@@ -147,6 +147,7 @@ const Main = () => {
   
   const currentMeshesRef = useRef<THREE.Mesh[]>([]);
   const hoveredLabelRef = useRef<THREE.Mesh | null>(null);
+  const pressedLabelRef = useRef<THREE.Mesh | null>(null);
 
   const [tree, setTree] = useState<Tree[]>([]);
   const treeRef = useRef<Tree[]>([]);
@@ -948,8 +949,6 @@ const Main = () => {
     if (showSplashImage) return;
     setShowSplashImage(true);
 
-    window.addEventListener("click", handleClick);
-
     window.addEventListener("wheel", handleWheel, { passive: false });
 
     window.addEventListener("pointerdown", handlePointerDown, { passive: false });
@@ -961,14 +960,27 @@ const Main = () => {
     window.addEventListener("touchend", handleTouchEnd);
   };
 
-  const handleClick = () => {
-    const hovered = hoveredLabelRef.current;
-    if (!hovered) return;
+  const pickLabelByNDC = (): THREE.Mesh | null => {
+    const camera = cameraRef.current;
+    if (!camera) return null;
 
-    const ownerMesh = hovered.userData.ownerMesh;
-    if (!ownerMesh) return;
+    raycasterRef.current.setFromCamera(
+      mouseNDCRef.current,
+      camera
+    );
 
-    setSectionTarget(ownerMesh);
+    const candidates = currentMeshesRef.current
+      .map(m => m.userData.textMesh as THREE.Mesh)
+      .filter(m => m.visible);
+
+    const intersects = raycasterRef.current.intersectObjects(candidates, false);
+
+    if (intersects.length === 0) return null;
+
+    const object = intersects[0].object;
+    return object instanceof THREE.Mesh && object.userData.isLabel
+      ? object
+      : null;
   };
 
   const handleWheel = (event: WheelEvent) => {
@@ -1010,6 +1022,9 @@ const Main = () => {
     if (isZoomingRef.current) return;
     event.preventDefault();
 
+    updateMouseNDCFromClient(event.clientX, event.clientY);
+    pressedLabelRef.current = pickLabelByNDC();
+
     pointerData.current = { x: event.clientX, y: event.clientY };
   };
 
@@ -1036,6 +1051,16 @@ const Main = () => {
 
   const handlePointerUp = () => {
     pointerData.current = { x: null, y: null };
+
+    const label = pressedLabelRef.current;
+    pressedLabelRef.current = null;
+
+    if (!label) return;
+
+    const ownerMesh = label.userData.ownerMesh as THREE.Mesh | undefined;
+    if (!ownerMesh) return;
+
+    setSectionTarget(ownerMesh);
   };
 
   const handleTouchStart = (event: TouchEvent) => {
@@ -1044,11 +1069,6 @@ const Main = () => {
     if (descViewerRef.current?.contains(target)) return;
 
     const touches = event.touches;
-    if (touches.length === 1) {
-      const touch = touches[0];
-      updateMouseNDCFromClient(touch.clientX, touch.clientY);
-    }
-
     if (touches.length === 2) {
       event.preventDefault();
       isZoomingRef.current = true;
@@ -1304,8 +1324,6 @@ const Main = () => {
       isMounted = false;
       window.removeEventListener("resize", handleResize);
       if (mountRef.current) {
-        window.removeEventListener("click", handleClick);
-
         window.removeEventListener("wheel", handleWheel);
 
         window.removeEventListener("pointerdown", handlePointerDown);
