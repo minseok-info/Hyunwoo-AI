@@ -8,6 +8,11 @@ import TreeSearch from "./TreeSearch";
 import Image from "next/image";
 import TreeStatus from "./TreeStatus";
 
+const arrowIcon = {
+  src: require("@/public/icons/arrow.svg"),
+  alt: "arrow"
+};
+
 const explorerIcon = {
   src: require("@/public/icons/file.svg"),
   alt: "explorer"
@@ -40,6 +45,8 @@ const SidebarNavigator = ({ tree }: { tree: Tree[] }) => {
     exit: ""
   };
 
+  const [toggledContainer, setToggledContainer] = useState<boolean>(false);
+
   const returnToLanding = () => {
     router.push("/");
   };
@@ -48,8 +55,15 @@ const SidebarNavigator = ({ tree }: { tree: Tree[] }) => {
     setNavigator(navigator);
   };
 
+  const handleToggleContainer = () => {
+    setToggledContainer(!toggledContainer);
+  };
+
   return (
-    <div className={clsx(styles.container)}>
+    <div className={clsx(styles.container, { [styles.toggledContainer]: toggledContainer })}>
+      <div className={clsx(styles.toggleButton)} onClick={handleToggleContainer}>
+        <Image src={arrowIcon.src} alt={arrowIcon.alt} />
+      </div>
       <div className={clsx(styles.sidebar)}>
         <div className={clsx({ [styles.selected]: navigator === "explorer" })} onClick={() => handleClick("explorer")}>
           <Image src={explorerIcon.src} alt={explorerIcon.alt} />
