@@ -63,7 +63,7 @@ const ROTATE_SENSITIVITY = 0.005;
 const ROTATE_SPEED = 0.05;
 const MOVE_SPEED = 0.05;
 const ZOOM_SPEED = 0.05;
-const CHASING_LOG_SPEED = 0.01;
+const CHASING_LOG_SPEED = 1.35;
 
 const START_SCALE = 1;
 const MIN_SCALE = 0.1;
@@ -148,6 +148,8 @@ const Main = () => {
   const currentMeshesRef = useRef<THREE.Mesh[]>([]);
   const hoveredMeshRef = useRef<THREE.Mesh | null>(null);
   const pressedMeshRef = useRef<THREE.Mesh | null>(null);
+
+  const lastTimeRef = useRef<number>(performance.now());
 
   const [tree, setTree] = useState<Tree[]>([]);
   const treeRef = useRef<Tree[]>([]);
@@ -1248,9 +1250,12 @@ const Main = () => {
     };
     window.addEventListener("resize", handleResize);
     
-    const animate = () => {
+    const animate = (time: number) => {
       if (!isMounted) return;
       requestAnimationFrame(animate);
+
+      const deltaTime = (time - lastTimeRef.current) / 1000;
+      lastTimeRef.current = time;
 
       cameraRotationRef.current.current.theta = THREE.MathUtils.lerp(
         cameraRotationRef.current.current.theta,
@@ -1279,7 +1284,7 @@ const Main = () => {
         const targetLog = Math.log(worldGroupScaleRef.current.target / START_SCALE);
 
         const diff = targetLog - currentLog;
-        const step = CHASING_LOG_SPEED * Math.sign(diff);
+        const step = CHASING_LOG_SPEED * deltaTime * Math.sign(diff);
 
         const nextLog = Math.abs(step) > Math.abs(diff)
           ? targetLog
@@ -1333,7 +1338,7 @@ const Main = () => {
       renderer.render(scene, camera);
       cssRenderer.render(scene, camera);
     };
-    animate();
+    requestAnimationFrame(animate);
 
     return () => {
       isMounted = false;
