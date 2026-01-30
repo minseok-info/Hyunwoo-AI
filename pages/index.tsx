@@ -1107,6 +1107,8 @@ const Main = () => {
 
     const touches = event.touches;
     if (event.touches.length === 2 && touchData.current.prevDistance) {
+      pressedMeshRef.current = null;
+
       const dx = touches[0].clientX - touches[1].clientX;
       const dy = touches[0].clientY - touches[1].clientY;
       const distance = Math.hypot(dx, dy);
