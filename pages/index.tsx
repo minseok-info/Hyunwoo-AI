@@ -146,8 +146,8 @@ const Main = () => {
   const mouseNDCRef = useRef<THREE.Vector2>(new THREE.Vector2());
   
   const currentMeshesRef = useRef<THREE.Mesh[]>([]);
-  const hoveredLabelRef = useRef<THREE.Mesh | null>(null);
-  const pressedLabelRef = useRef<THREE.Mesh | null>(null);
+  const hoveredMeshRef = useRef<THREE.Mesh | null>(null);
+  const pressedMeshRef = useRef<THREE.Mesh | null>(null);
 
   const [tree, setTree] = useState<Tree[]>([]);
   const treeRef = useRef<Tree[]>([]);
@@ -414,8 +414,9 @@ const Main = () => {
       placeholder.add(textMesh);
       placeholder.position.copy(meshPosition);
 
-      mesh.userData.placeholder = placeholder;
+      mesh.userData.isNodeMesh = true;
       mesh.userData.textMesh = textMesh;
+      mesh.userData.placeholder = placeholder;
       
       usedPositions.push(meshPosition);
       group.add(placeholder);
@@ -893,40 +894,46 @@ const Main = () => {
       camera
     );
 
-    const candidates = currentMeshesRef.current
-      .map(m => m.userData.textMesh as THREE.Mesh)
-      .filter(m => m.visible);
-    
-    const intersects = raycasterRef.current.intersectObjects(
-      candidates,
-      false
-    );
+    const candidates: THREE.Object3D[] = [];
+    currentMeshesRef.current.forEach(mesh => {
+      if (mesh.visible) candidates.push(mesh);
 
-    const prevHovered = hoveredLabelRef.current;
+      const textMesh = mesh.userData.textMesh as THREE.Mesh | undefined;
+      if (textMesh?.visible) candidates.push(textMesh);
+    });
+    
+    const intersects = raycasterRef.current.intersectObjects(candidates, false);
+
+    const prevHovered = hoveredMeshRef.current;
     let nextHovered: THREE.Mesh | null = null;
 
     if (intersects.length > 0) {
-      const object = intersects[0].object;
-      if (object instanceof THREE.Mesh && object.userData.isLabel) {
+      const object = intersects[0].object as THREE.Mesh;
+
+      if (object.userData.isLabel) {
+        nextHovered = object.userData.ownerMesh;
+      }
+      else if (object.userData.isNodeMesh) {
         nextHovered = object;
       }
     }
 
     if (prevHovered !== nextHovered) {
-      hoveredLabelRef.current = nextHovered;
+      hoveredMeshRef.current = nextHovered;
       document.body.style.cursor = nextHovered
         ? "pointer"
         : "default";
     }
   };
 
-  const updateLabelScale = () => {
+  const updateMeshScale = () => {
     const candidates = currentMeshesRef.current
       .map(m => m.userData.textMesh as THREE.Mesh)
       .filter(m => m.visible);
     
     for (const label of candidates) {
-      const target = label === hoveredLabelRef.current
+      const ownerMesh = label.userData.ownerMesh as THREE.Mesh;
+      const target = ownerMesh === hoveredMeshRef.current
         ? HOVER_SCALE
         : BASE_SCALE;
 
@@ -960,7 +967,7 @@ const Main = () => {
     window.addEventListener("touchend", handleTouchEnd);
   };
 
-  const pickLabelByNDC = (): THREE.Mesh | null => {
+  const pickByNDC = (): THREE.Mesh | null => {
     const camera = cameraRef.current;
     if (!camera) return null;
 
@@ -969,18 +976,28 @@ const Main = () => {
       camera
     );
 
-    const candidates = currentMeshesRef.current
-      .map(m => m.userData.textMesh as THREE.Mesh)
-      .filter(m => m.visible);
+    const candidates: THREE.Object3D[] = [];
+    currentMeshesRef.current.forEach(mesh => {
+      if (mesh.visible) candidates.push(mesh);
+
+      const textMesh = mesh.userData.textMesh as THREE.Mesh | undefined;
+      if (textMesh?.visible) candidates.push(textMesh);
+    });
 
     const intersects = raycasterRef.current.intersectObjects(candidates, false);
-
     if (intersects.length === 0) return null;
 
-    const object = intersects[0].object;
-    return object instanceof THREE.Mesh && object.userData.isLabel
-      ? object
-      : null;
+    const object = intersects[0].object as THREE.Mesh;
+    
+    if (object.userData.isLabel) {
+      return object.userData.ownerMesh ?? null;
+    }
+
+    if (object.userData.isNodeMesh) {
+      return object;
+    }
+
+    return null;
   };
 
   const handleWheel = (event: WheelEvent) => {
@@ -1023,7 +1040,7 @@ const Main = () => {
     event.preventDefault();
 
     updateMouseNDCFromClient(event.clientX, event.clientY);
-    pressedLabelRef.current = pickLabelByNDC();
+    pressedMeshRef.current = pickByNDC();
 
     pointerData.current = { x: event.clientX, y: event.clientY };
   };
@@ -1052,15 +1069,11 @@ const Main = () => {
   const handlePointerUp = () => {
     pointerData.current = { x: null, y: null };
 
-    const label = pressedLabelRef.current;
-    pressedLabelRef.current = null;
+    const mesh = pressedMeshRef.current;
+    if (!mesh) return;
 
-    if (!label) return;
-
-    const ownerMesh = label.userData.ownerMesh as THREE.Mesh | undefined;
-    if (!ownerMesh) return;
-
-    setSectionTarget(ownerMesh);
+    pressedMeshRef.current = null;
+    setSectionTarget(mesh);
   };
 
   const handleTouchStart = (event: TouchEvent) => {
@@ -1313,7 +1326,7 @@ const Main = () => {
       );
 
       updateRaycast();
-      updateLabelScale();
+      updateMeshScale();
 
       renderer.render(scene, camera);
       cssRenderer.render(scene, camera);
