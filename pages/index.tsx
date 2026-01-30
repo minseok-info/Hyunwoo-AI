@@ -950,7 +950,7 @@ const Main = () => {
 
     mouseNDCRef.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     mouseNDCRef.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-  }
+  };
 
   const handleStartExplore = () => {
     if (showSplashImage) return;
@@ -1047,10 +1047,12 @@ const Main = () => {
 
   const handlePointerMove = (event: PointerEvent) => {
     updateMouseNDCFromClient(event.clientX, event.clientY);
-
+    
     if (isZoomingRef.current) return;
     else if (pointerData.current.x === null || pointerData.current.y === null) return;
     event.preventDefault();
+
+    pressedMeshRef.current = null;
 
     const dx = (event.clientX - pointerData.current.x) * window.devicePixelRatio;
     const dy = (event.clientY - pointerData.current.y) * window.devicePixelRatio;
