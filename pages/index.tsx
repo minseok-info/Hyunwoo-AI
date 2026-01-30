@@ -9,7 +9,7 @@ import Head from "next/head";
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { CSS3DObject, CSS3DRenderer, GLTFLoader } from "three/examples/jsm/Addons.js";
+import { CSS3DRenderer, GLTFLoader } from "three/examples/jsm/Addons.js";
 
 const githubIcon = {
   src: require("@/public/icons/github.svg"),
