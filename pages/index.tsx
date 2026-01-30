@@ -71,6 +71,9 @@ const MAX_SCALE = Infinity;
 
 const NODE_SECTION_RATIO = 0.01;
 
+const BASE_SCALE = 1.0;
+const HOVER_SCALE = 3.5;
+
 const Main = () => {
   const mountRef = useRef<HTMLDivElement>(null);
   const descViewerRef = useRef<HTMLDivElement>(null);
@@ -80,7 +83,6 @@ const Main = () => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
   const isZoomingRef = useRef<boolean>(false);
-  const isProgressBarRef = useRef<boolean>(false);
   const pointerData = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
   const touchData = useRef<{ prevDistance: number | null }>({ prevDistance: null });
 
@@ -139,11 +141,16 @@ const Main = () => {
     [0, [1.80, 2.00]],
     [1, [2.40, 2.75]]
   ]));
+  
+  const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
+  const mouseNDCRef = useRef<THREE.Vector2>(new THREE.Vector2());
+  
+  const currentMeshesRef = useRef<THREE.Mesh[]>([]);
+  const hoveredLabelRef = useRef<THREE.Mesh | null>(null);
 
   const [tree, setTree] = useState<Tree[]>([]);
   const treeRef = useRef<Tree[]>([]);
 
-  const [isToggleChatBox, setIsToggleChatBox] = useState<boolean>(false);
   const [showSplashImage, setShowSplashImage] = useState<boolean>(false);
 
   const getOntology = async ()  => {
@@ -301,6 +308,40 @@ const Main = () => {
       return new THREE.Euler(x, y, z);
     };
 
+    const generateTextTexture = (text: string) => {
+      const DPR = Math.min(window.devicePixelRatio, 2);
+
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d")!;
+
+      const fontSize = 32;
+      const paddingX = 8;
+      const paddingY = 8;
+
+      context.font = `${fontSize}px Noto Sans KR`;
+      const metrics = context.measureText(text);
+
+      const width = Math.ceil(metrics.width + paddingX * 2);
+      const height = Math.ceil(fontSize + paddingY * 2);
+
+      canvas.width = width * DPR;
+      canvas.height = height * DPR;
+
+      context.scale(DPR, DPR);
+      context.font = `${fontSize}px Noto Sans KR`;
+      context.textBaseline = "middle";
+      context.fillStyle = "white";
+
+      context.fillText(text, paddingX, height / 2);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.needsUpdate = true;
+
+      return { texture, width, height };
+    };
+
     for (const c of children) {
       const computedSize = minSize + Math.random() * (maxSize - minSize);
 
@@ -338,29 +379,42 @@ const Main = () => {
       const spriteScale = 17.5 + computedSize;
       sprite.scale.set(spriteScale, spriteScale, spriteScale);
       mesh.add(sprite);
-      
-      const wrapper = document.createElement("span");
-      wrapper.className = styles.marker;
-      
-      const nameSpan = document.createElement("span");
-      nameSpan.className = styles.content;
-      nameSpan.textContent = c.name;
-      
-      wrapper.appendChild(nameSpan);
-      wrapper.addEventListener("click", () => {
-        setSectionTarget(mesh);
+
+      const { texture, width, height } = generateTextTexture(c.name);
+
+      const aspect = width / height;
+      const textHeight = 2.0;
+      const textWidth = textHeight * aspect;
+
+      const textGeometry = new THREE.PlaneGeometry(textWidth, textHeight);
+      const textMaterial = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false
       });
-      
-      const textObject = new CSS3DObject(wrapper);
-      textObject.position.x += geometry.parameters.radius + 0.75;
+
+      textGeometry.computeBoundingBox();
+      const box = textGeometry.boundingBox!;
+
+      textGeometry.translate(-box.min.x, 0, 0);
+
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      textMesh.position.set(
+        geometry.parameters.radius + 0.75,
+        0,
+        0
+      );
+
+      textMesh.userData.isLabel = true;
+      textMesh.userData.ownerMesh = mesh;
 
       const placeholder = new THREE.Object3D();
 
-      placeholder.add(textObject);
+      placeholder.add(textMesh);
       placeholder.position.copy(meshPosition);
 
       mesh.userData.placeholder = placeholder;
-      mesh.userData.textObject = textObject;
+      mesh.userData.textMesh = textMesh;
       
       usedPositions.push(meshPosition);
       group.add(placeholder);
@@ -514,6 +568,8 @@ const Main = () => {
     section.group.visible = opacity > 0;
     section.group.traverse(child => {
       if (child instanceof THREE.Mesh) {
+        if (child.userData.isLabel) return;
+
         const mesh = child as THREE.Mesh;
         const materials = Array.isArray(mesh.material)
           ? mesh.material
@@ -530,7 +586,7 @@ const Main = () => {
       else if (child instanceof THREE.LineSegments) {
         const line = child as THREE.LineSegments;
         const mat = line.material as any;
-
+        
         if (mat) {
           mat.opacity = opacity;
           mat.transparent = opacity < 1;
@@ -540,15 +596,10 @@ const Main = () => {
       else if (child instanceof THREE.Sprite) {
         const sprite = child as THREE.Sprite;
         const mat = sprite.material as THREE.SpriteMaterial;
-
+        
         mat.opacity = opacity;
         mat.transparent = opacity < 1;
         mat.needsUpdate = true;
-      }
-      else if (child instanceof CSS3DObject) {
-        const element = child.element as HTMLElement;
-
-        element.style.opacity = opacity.toString();
       }
     });
   };
@@ -680,8 +731,16 @@ const Main = () => {
 
       if (normalizedDepthRef.current !== normalizedDepth) {
         normalizedDepthRef.current = normalizedDepth;
-
+        
         const normalizedSection = sectionByDepthRef.current.get(normalizedDepth);
+        if (!normalizedSection) return;
+
+        currentMeshesRef.current = [];
+        normalizedSection.group.traverse(obj => {
+          if (!(obj instanceof THREE.Mesh) || !obj.userData.textMesh) return;
+          currentMeshesRef.current.push(obj);
+        });
+
         setNormalizedSection(normalizedSection);
       }
   
@@ -739,7 +798,7 @@ const Main = () => {
     }
   };
 
-  const updateTextObject = () => {
+  const updateTextMesh = () => {
     const camera = cameraRef.current;
     if (!camera) return;
     
@@ -760,18 +819,24 @@ const Main = () => {
     const process = (scaleProgress - minScaleProgress) / maxProcess;
 
     const inverseProcess = 1 - process;
-    const isInteractive = inverseProcess > 0.25;
 
-    normalizedSection.group.traverse(obj => {
-      if (!(obj instanceof THREE.Mesh) || !obj.userData.textObject) return;
-
-      const placeholder: THREE.Object3D = obj.userData.placeholder;
-      const textObject: CSS3DObject = obj.userData.textObject;
-
-      textObject.element.style.pointerEvents = isInteractive ? "auto" : "none";
-      textObject.element.style.setProperty("--inverseProcess", inverseProcess.toString());
-
-      placeholder.quaternion.copy(camera.quaternion);
+    currentMeshesRef.current.forEach(m => {
+      const placeholder: THREE.Object3D = m.userData.placeholder;
+        const textMesh: THREE.Mesh = m.userData.textMesh;
+  
+        placeholder.quaternion.copy(camera.quaternion);
+  
+        const opacity = THREE.MathUtils.clamp(
+          (inverseProcess - 0.25) / 0.25,
+          0,
+          1
+        );
+  
+        const material = textMesh.material as THREE.MeshBasicMaterial;
+        material.opacity = opacity;
+        material.transparent = true;
+  
+        textMesh.visible = opacity > 0.001;
     });
   };
 
@@ -818,9 +883,64 @@ const Main = () => {
     );
   };
 
+  const updateRaycast = () => {
+    const camera = cameraRef.current;
+    if (!camera) return;
+
+    raycasterRef.current.setFromCamera(
+      mouseNDCRef.current,
+      camera
+    );
+
+    const candidates = currentMeshesRef.current
+      .map(m => m.userData.textMesh as THREE.Mesh)
+      .filter(m => m.visible);
+    
+    const intersects = raycasterRef.current.intersectObjects(
+      candidates,
+      false
+    );
+
+    const prevHovered = hoveredLabelRef.current;
+    let nextHovered: THREE.Mesh | null = null;
+
+    if (intersects.length > 0) {
+      const object = intersects[0].object;
+      if (object instanceof THREE.Mesh && object.userData.isLabel) {
+        nextHovered = object;
+      }
+    }
+
+    if (prevHovered !== nextHovered) {
+      hoveredLabelRef.current = nextHovered;
+      document.body.style.cursor = nextHovered
+        ? "pointer"
+        : "default";
+    }
+  };
+
+  const updateLabelScale = () => {
+    const candidates = currentMeshesRef.current
+      .map(m => m.userData.textMesh as THREE.Mesh)
+      .filter(m => m.visible);
+    
+    for (const label of candidates) {
+      const target = label === hoveredLabelRef.current
+        ? HOVER_SCALE
+        : BASE_SCALE;
+
+      label.scale.lerp(
+        new THREE.Vector3(target, target, target),
+        0.15
+      );
+    }
+  };
+
   const handleStartExplore = () => {
     if (showSplashImage) return;
     setShowSplashImage(true);
+
+    window.addEventListener("click", handleClick);
 
     window.addEventListener("wheel", handleWheel, { passive: false });
 
@@ -831,6 +951,16 @@ const Main = () => {
     window.addEventListener("touchstart", handleTouchStart, { passive: false });
     window.addEventListener("touchmove", handleTouchMove, { passive: false });
     window.addEventListener("touchend", handleTouchEnd);
+  };
+
+  const handleClick = () => {
+    const hovered = hoveredLabelRef.current;
+    if (!hovered) return;
+
+    const ownerMesh = hovered.userData.ownerMesh;
+    if (!ownerMesh) return;
+
+    setSectionTarget(ownerMesh);
   };
 
   const handleWheel = (event: WheelEvent) => {
@@ -876,7 +1006,12 @@ const Main = () => {
   };
 
   const handlePointerMove = (event: PointerEvent) => {
-    if (isZoomingRef.current || isProgressBarRef.current) return;
+    const rect = rendererRef.current!.domElement.getBoundingClientRect();
+
+    mouseNDCRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouseNDCRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    if (isZoomingRef.current) return;
     else if (pointerData.current.x === null || pointerData.current.y === null) return;
     event.preventDefault();
 
@@ -895,7 +1030,6 @@ const Main = () => {
   };
 
   const handlePointerUp = () => {
-    isProgressBarRef.current = false;
     pointerData.current = { x: null, y: null };
   };
 
@@ -1118,7 +1252,7 @@ const Main = () => {
       worldGroupRef.current.scale.setScalar(worldGroupScaleRef.current.current);
 
       updateSection();
-      updateTextObject();
+      updateTextMesh();
       updateWorldGroupPosition();
 
       if (isChasingTargetRef.current) {
@@ -1148,6 +1282,9 @@ const Main = () => {
           .multiplyScalar(-worldGroupScaleRef.current.current)
       );
 
+      updateRaycast();
+      updateLabelScale();
+
       renderer.render(scene, camera);
       cssRenderer.render(scene, camera);
     };
@@ -1157,6 +1294,8 @@ const Main = () => {
       isMounted = false;
       window.removeEventListener("resize", handleResize);
       if (mountRef.current) {
+        window.removeEventListener("click", handleClick);
+
         window.removeEventListener("wheel", handleWheel);
 
         window.removeEventListener("pointerdown", handlePointerDown);

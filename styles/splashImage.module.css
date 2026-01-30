@@ -6,6 +6,8 @@
   display: flex;
   pointer-events: none;
   transition: all 500ms;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .splash img {
   width: auto;
