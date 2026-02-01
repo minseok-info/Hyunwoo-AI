@@ -33,7 +33,7 @@
   left: 50%;
 }
 .text p {
-  font-family: "Alex Brush", monospace;
+  font-family: "IAmAPlayer", monospace;
   font-size: clamp(32px, 7.5vw, 64px);
   letter-spacing: 0.12em;
   color: white;
@@ -46,4 +46,11 @@
   filter:
     drop-shadow(0 0 28px rgba(77, 163, 255, 0.55))
     drop-shadow(0 0 60px rgba(40, 120, 255, 0.35));
+}
+
+@font-face {
+    font-family: 'IAmAPlayer';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2307-2@1.0/IAMAPLAYER.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
 }
