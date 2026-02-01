@@ -1,4 +1,4 @@
-import { EnergyHandleLeft, EnergyHandleRight, EnergyHandleTop, SplashImage } from "@/components";
+import { EnergyHandleLeft, EnergyHandleRight, EnergyHandleTop, SplashOverlay } from "@/components";
 import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
@@ -154,7 +154,7 @@ const Main = () => {
   const [tree, setTree] = useState<Tree[]>([]);
   const treeRef = useRef<Tree[]>([]);
 
-  const [showSplashImage, setShowSplashImage] = useState<boolean>(false);
+  const [showSplashOverlay, setshowSplashOverlay] = useState<boolean>(false);
 
   const getOntology = async ()  => {
     let newOntology: Ontology = { nodes: [], relations: [] };
@@ -955,8 +955,8 @@ const Main = () => {
   };
 
   const handleStartExplore = () => {
-    if (showSplashImage) return;
-    setShowSplashImage(true);
+    if (showSplashOverlay) return;
+    setshowSplashOverlay(true);
 
     window.addEventListener("wheel", handleWheel, { passive: false });
 
@@ -1369,7 +1369,7 @@ const Main = () => {
         <title>Hyunwoo AI</title>
       </Head>
       <div ref={mountRef} className={clsx(styles.fullScreen)} />
-      <SplashImage show={showSplashImage} />
+      <SplashOverlay show={showSplashOverlay} />
       <div className={clsx(styles.nodeName)}>
         <p>{ normalizedNode?.name }</p>
       </div>

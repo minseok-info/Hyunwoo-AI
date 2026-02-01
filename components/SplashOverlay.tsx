@@ -1,4 +1,4 @@
-import styles from "@/styles/splashImage.module.css";
+import styles from "@/styles/splashOverlay.module.css";
 import clsx from "clsx";
 import Image from "next/image";
 import { useEffect, useRef } from "react";
@@ -8,11 +8,12 @@ const image = {
   alt: "favicon"
 };
 
-const SplashImage = ({ show }: { show: boolean }) => {
+const SplashOverlay = ({ show }: { show: boolean }) => {
   const splashRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!show) return;
+    
     let duration = 0;
 
     duration += 750;
@@ -30,10 +31,15 @@ const SplashImage = ({ show }: { show: boolean }) => {
 
   return (
     <div ref={splashRef} className={clsx(styles.splash)}>
-      <Image className={clsx(styles.blurred)} src={image.src} alt={image.alt} />
-      <Image className={clsx(styles.normal)} src={image.src} alt={image.alt} />
+      <div className={clsx(styles.image)}>
+        <Image className={clsx(styles.blurred)} src={image.src} alt={image.alt} />
+        <Image className={clsx(styles.normal)} src={image.src} alt={image.alt} />
+      </div>
+      <div className={clsx(styles.text)}>
+        <p>2002.06.02</p>
+      </div>
     </div>
   );
 };
 
-export default SplashImage;
+export default SplashOverlay;
