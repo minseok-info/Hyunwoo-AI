@@ -1,4 +1,4 @@
-export { default as SplashImage } from "./SplashImage";
+export { default as SplashOverlay } from "./SplashOverlay";
 
 export { default as EnergyHandleTop } from "./EnergyHandleTop";
 export { default as EnergyHandleLeft } from "./EnergyHandleLeft";
