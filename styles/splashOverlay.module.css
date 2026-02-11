@@ -48,37 +48,6 @@
     drop-shadow(0 0 60px rgba(40, 120, 255, 0.35));
 }
 
-.text {
-  cursor: pointer;
-  pointer-events: auto;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-.tempFont {
-  position: absolute;
-  transform: translate(-50%);
-  bottom: 140px;
-  left: 50%;
-  display: none;
-  width: 250px;
-  height: 250px;
-  padding: 5px;
-  background-color: rgba(77, 163, 255, 0.6);
-  pointer-events: auto;
-}
-.tempFont textarea {
-  width: 100%;
-  padding: 2.5px;
-  border: none;
-  color: white;
-  background-color: transparent;
-  outline: 1px solid black;
-  resize: none;
-}
-.toggledTempFont {
-  display: flex;
-}
-
 @font-face {
   font-family: 'IAmAPlayer';
   src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2307-2@1.0/IAMAPLAYER.woff2') format('woff2');

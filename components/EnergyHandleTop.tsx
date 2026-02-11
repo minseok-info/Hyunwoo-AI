@@ -22,10 +22,11 @@ const EnergyHandleTop = React.forwardRef<
   {
     tree: Tree[],
     node: Tree,
+    force: number,
     onFirstClick: () => void
   }
 >((props, ref) => {
-  const { tree, node, onFirstClick } = props;
+  const { tree, node, force, onFirstClick } = props;
 
   const [isToggledHandle, setIsToggledHandle] = useState<boolean>(true);
 
@@ -72,6 +73,11 @@ const EnergyHandleTop = React.forwardRef<
   const handleToggleNode = (targetNode: Tree) => {
     setToggledNode(targetNode);
   };
+
+  useEffect(() => {
+    if (!force) return;
+    setIsToggledHandle(true);
+  }, [force]);
 
   useEffect(() => {
     if (!node) return;
