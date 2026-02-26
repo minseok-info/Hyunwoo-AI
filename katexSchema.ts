@@ -18,7 +18,8 @@ const katexSchema = {
     "span",
     "img",
     "ol",
-    "li"
+    "li",
+    "iframe"
   ],
   attributes: {
     ...defaultSchema.attributes,
@@ -32,6 +33,15 @@ const katexSchema = {
       ["src"],
       ["alt"],
       ["title"]
+    ],
+    iframe: [
+      ["src"],
+      ["width"],
+      ["height"],
+      ["style"],
+      ["allowfullscreen"],
+      ["loading"],
+      ["referrerpolicy"]
     ],
     ol: [
       ...(defaultSchema.attributes?.ol || []),

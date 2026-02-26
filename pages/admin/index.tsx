@@ -1,22 +1,24 @@
-import { Modal, NodeEditor, SidebarNavigator } from "@/components";
+import { Modal, NodeEditor, NodeMapViewer, SidebarNavigator } from "@/components";
+import nodeMapStyles from "@/styles/nodeMapViewer.module.css";
 import TreeContext from "@/contexts/TreeContext";
 import styles from "@/styles/admin.module.css";
 import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
 import { ontologyCompare, ontologyToTree, treeToOntology, treeUtils } from "@/utils";
 import clsx from "clsx";
+import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import "katex/dist/katex.min.css"
 
-const Admin = () => {
+const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | null }) => {
   const { query, pathname, push } = useRouter();
   const treeRef = useRef<Tree[]>([]);
 
   const serverUrlRef = useRef<string>("");
   const isUsingServerRef = useRef<boolean>(false);
 
-  const initialOntologyRef = useRef<Ontology | null>(null);
-  const [ontology, setOntology] = useState<Ontology | null>(null);
+  const initialOntologyRef = useRef<Ontology | null>(ssrOntology);
+  const [ontology, setOntology] = useState<Ontology | null>(ssrOntology);
 
   const [treeId, setTreeId] = useState<Tree["treeId"]>("");
   const [nodePath, setNodePath] = useState<Tree[]>([]);
@@ -27,6 +29,8 @@ const Admin = () => {
 
   const [modalTrigger, setModalTrigger] = useState<number>(0);
   const [modalData, setModalData] = useState<{ message: string; status: boolean }>({ message: "", status: false });
+
+  const [nodeMapExpanded, setNodeMapExpanded] = useState<boolean>(false);
 
   const getOntology = async () => {
     if (isUsingServerRef.current) return;
@@ -114,6 +118,22 @@ const Admin = () => {
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {
     event.preventDefault();
     event.returnValue = "";
+    saveMarkdowns();
+  };
+
+  const saveMarkdowns = async () => {
+    const treeCopied = treeRef.current;
+    if (treeCopied.length < 1) return;
+
+    try {
+      await fetch("/api/save-markdowns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tree: treeCopied })
+      });
+    } catch (error) {
+      console.error("Failed to save markdowns:", error);
+    }
   };
 
   const handleSetTree = (newTree: Tree[]) => {
@@ -178,7 +198,7 @@ const Admin = () => {
       ? "http://127.0.0.1:8000/"
       : "https://hyunwoo-ai-backend.fly.dev/";
     serverUrlRef.current = "https://hyunwoo-ai-backend.fly.dev/";
-    getOntology();
+    if (!ssrOntology) getOntology();
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -188,15 +208,69 @@ const Admin = () => {
     }
   }, []);
 
+  const handleNodeMapSelect = (selectedTreeId: string, selectedNodeId: string) => {
+    handleSetId(selectedTreeId, selectedNodeId);
+    setNodeMapExpanded(false);
+  };
+
   return (
-    <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)}>
+    <div className={clsx("fullScreen flex", styles.board, styles.colorAttr)} style={{ position: "relative" }}>
       <TreeContext.Provider value={{ treeId: treeId, nodePath: nodePath, nodeId: nodeId, oldOntology: ontology!, setTree: handleSetTree, setId: handleSetId, saveOntology: saveOntology }}>
         <SidebarNavigator tree={sortedTree} />
-        <NodeEditor tree={sortedTree} />
+        <div style={{ position: "relative", flex: 1, overflow: "hidden" }}>
+          <NodeEditor tree={sortedTree} />
+          {sortedTree.length > 0 && (
+            nodeMapExpanded ? (
+              <div className={clsx(nodeMapStyles.adminOverlay)}>
+                <div className={clsx(nodeMapStyles.adminOverlayHeader)}>
+                  <h4>NODE MAP</h4>
+                  <span className={clsx(nodeMapStyles.adminOverlayClose)} onClick={() => setNodeMapExpanded(false)}>✕</span>
+                </div>
+                <div className={clsx(nodeMapStyles.adminOverlayBody)}>
+                  <NodeMapViewer
+                    tree={sortedTree}
+                    currentNode={sortedTree[0]}
+                    mode="admin"
+                    adminCurrentNodeId={nodeId}
+                    onSelectNode={handleNodeMapSelect}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className={clsx(nodeMapStyles.adminMinimap)} onClick={() => setNodeMapExpanded(true)}>
+                <NodeMapViewer
+                  tree={sortedTree}
+                  currentNode={sortedTree[0]}
+                  mode="admin"
+                  adminCurrentNodeId={nodeId}
+                  isMinimap
+                  onExpandMinimap={() => setNodeMapExpanded(true)}
+                />
+              </div>
+            )
+          )}
+        </div>
       </TreeContext.Provider>
       <Modal data={modalData} trigger={modalTrigger} duration={2000} />
     </div>
   );
 }
+
+export const getServerSideProps: GetServerSideProps<{ initialOntology: Ontology | null }> = async () => {
+  try {
+    const res = await fetch("https://hyunwoo-ai-backend.fly.dev/ontology", { method: "GET" });
+    if (!res.ok) return { props: { initialOntology: null } };
+
+    const j = await res.json();
+    const resOnt = j["ontology"] as { nodes: any[]; relations: any[] };
+
+    const nodes: Node[] = resOnt.nodes.map((r: any) => ({ id: r.id, name: r.name, desc: r.description, tags: r.tags }));
+    const relations: Relation[] = resOnt.relations.map((r: any) => ({ from: r.from_, to: r.to_, type: r.type }));
+
+    return { props: { initialOntology: { nodes, relations } } };
+  } catch {
+    return { props: { initialOntology: null } };
+  }
+};
 
 export default Admin;

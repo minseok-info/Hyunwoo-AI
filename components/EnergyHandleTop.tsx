@@ -11,6 +11,7 @@ import rehypeSanitize from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import GoogleMapEmbed from "./GoogleMapEmbed";
 
 const coreIcon = {
   src: require("@/public/icons/priority.svg"),
@@ -98,7 +99,19 @@ const EnergyHandleTop = React.forwardRef<
                   <p>{ toggledNode.name }</p>
                 </div>
               )}
-              <ReactMarkDown remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]} rehypePlugins={[rehypeKatex, [rehypeSanitize, katexSchema]]}>
+              <ReactMarkDown
+                remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
+                rehypePlugins={[rehypeKatex, [rehypeSanitize, katexSchema]]}
+                components={{
+                  img({ src, alt, ...rest }) {
+                    if (alt?.startsWith("googlemaps") && src) {
+                      const dataMatch = alt.match(/^googlemaps:(.+)$/);
+                      return <GoogleMapEmbed shortUrl={src} embedData={dataMatch?.[1]} />;
+                    }
+                    return <img src={src} alt={alt} {...rest} />;
+                  }
+                }}
+              >
                 { toggledNode?.desc ?? node.desc }
               </ReactMarkDown>
             </div>

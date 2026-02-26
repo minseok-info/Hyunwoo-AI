@@ -15,6 +15,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeSanitize from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
 import katexSchema from "@/katexSchema";
+import GoogleMapEmbed from "./GoogleMapEmbed";
 
 const NodeEditor = ({ tree }: { tree: Tree[] }) => {
   const { nodeId, setTree } = useContext(TreeContext);
@@ -69,9 +70,10 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
     setTree(newTree);
   };
 
-  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const text = event.clipboardData.getData("text/plain");
     const driveRegex = /https:\/\/drive\.google\.com\/file\/d\/([^/]+)/;
+    const mapsRegex = /https:\/\/maps\.app\.goo\.gl\/[A-Za-z0-9]+/;
 
     if (text.includes("drive.google.com/file/d/")) {
       const match = text.match(driveRegex);
@@ -80,10 +82,35 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
       if (fileId) {
         event.preventDefault();
 
-        const  markdownIMG = "![image name]";
+        const markdownIMG = "![image name]";
         const googleDrvieCDN = "https://lh3.googleusercontent.com/d/";
         const normalizedText = `${markdownIMG}(${googleDrvieCDN}${fileId}=w1200)`;
         insertAtCursor(normalizedText);
+      }
+    }
+    else if (mapsRegex.test(text)) {
+      event.preventDefault();
+      const match = text.match(mapsRegex);
+      if (match) {
+        const shortUrl = match[0];
+
+        /* Try to resolve coordinates at paste time for instant rendering */
+        try {
+          const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(shortUrl)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.embedUrl) {
+              const coordMatch = data.embedUrl.match(/q=([^&]+)/);
+              if (coordMatch) {
+                insertAtCursor(`![googlemaps:${decodeURIComponent(coordMatch[1])}](${shortUrl})`);
+                return;
+              }
+            }
+          }
+        } catch {}
+
+        /* Fallback: store without pre-resolved data */
+        insertAtCursor(`![googlemaps](${shortUrl})`);
       }
     }
   };
@@ -147,7 +174,19 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
           )}
           {descMode === "viewer" && (
             <div className={clsx(styles.descContent, styles.descViewer)}>
-              <ReactMarkDown remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]} rehypePlugins={[rehypeKatex, [rehypeSanitize, katexSchema]]}>
+              <ReactMarkDown
+                remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
+                rehypePlugins={[rehypeKatex, [rehypeSanitize, katexSchema]]}
+                components={{
+                  img({ src, alt, ...rest }) {
+                    if (alt?.startsWith("googlemaps") && src) {
+                      const dataMatch = alt.match(/^googlemaps:(.+)$/);
+                      return <GoogleMapEmbed shortUrl={src} embedData={dataMatch?.[1]} />;
+                    }
+                    return <img src={src} alt={alt} {...rest} />;
+                  }
+                }}
+              >
                 { desc }
               </ReactMarkDown>
             </div>

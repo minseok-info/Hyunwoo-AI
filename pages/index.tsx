@@ -1,10 +1,11 @@
-import { EnergyHandleLeft, EnergyHandleRight, EnergyHandleTop, SplashOverlay } from "@/components";
+import { EnergyHandleBottom, EnergyHandleLeft, EnergyHandleRight, EnergyHandleTop, SplashOverlay } from "@/components";
 import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
 import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
 import { ontologyToTree, treeUtils } from "@/utils";
 import clsx from "clsx";
+import type { GetServerSideProps } from "next";
 import Head from "next/head";
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
@@ -74,9 +75,10 @@ const NODE_SECTION_RATIO = 0.01;
 const BASE_SCALE = 1.0;
 const HOVER_SCALE = 3.5;
 
-const Main = () => {
+const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const descViewerRef = useRef<HTMLDivElement>(null);
+  const nodeMapRef = useRef<HTMLDivElement>(null);
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -151,7 +153,9 @@ const Main = () => {
 
   const lastTimeRef = useRef<number>(performance.now());
 
-  const [tree, setTree] = useState<Tree[]>([]);
+  const [tree, setTree] = useState<Tree[]>(() =>
+    initialOntology ? ontologyToTree(initialOntology) : []
+  );
   const treeRef = useRef<Tree[]>([]);
 
   const [showSplashOverlay, setshowSplashOverlay] = useState<boolean>(false);
@@ -1008,26 +1012,32 @@ const Main = () => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (descViewerRef.current?.contains(target)) return;
+    if (nodeMapRef.current?.contains(target)) return;
 
     const worldGroup = worldGroupRef.current;
     if (!worldGroup) return;
     event.preventDefault();
 
-    const deltaY = -event.deltaY
-    let delta = Math.sign(deltaY);
+    // Normalize deltaY across trackpad and mouse for consistent zoom experience
+    // Trackpad: small deltaY (1-10), very high event frequency
+    // Mouse: large deltaY (80-120), low event frequency
+    let pixelDelta = -event.deltaY;
+    if (event.deltaMode === 1) pixelDelta *= 40;        // DOM_DELTA_LINE
+    else if (event.deltaMode === 2) pixelDelta *= 800;  // DOM_DELTA_PAGE
 
-    const trackPadMax = 40;
-    if (Math.abs(deltaY) < trackPadMax) {
-      const limitedDeltaY = THREE.MathUtils.clamp(deltaY, -1.5, 2);
-      delta = limitedDeltaY / 2;
-    }
-    
+    // Clamp to uniform range — this is the key normalization:
+    // Mouse (deltaY=100) gets clamped to 60 → normalized=1.0 (1 event → 1.0 total)
+    // Trackpad (deltaY=3) → normalized=0.05 (20 events → ~1.0 total)
+    const WHEEL_MAX_DELTA = 60;
+    const clampedDelta = THREE.MathUtils.clamp(pixelDelta, -WHEEL_MAX_DELTA, WHEEL_MAX_DELTA);
+    const normalizedInput = clampedDelta / WHEEL_MAX_DELTA; // [-1, 1]
+
     const currentScale = worldGroupScaleRef.current.current;
     const scaleFactor = currentScale / START_SCALE;
-    
-    const normalizedDelta = delta * scaleFactor * ZOOM_SENSITIVITY;
+
+    const step = normalizedInput * scaleFactor * ZOOM_SENSITIVITY;
     worldGroupScaleRef.current.target = THREE.MathUtils.clamp(
-      worldGroupScaleRef.current.target + normalizedDelta,
+      worldGroupScaleRef.current.target + step,
       MIN_SCALE,
       MAX_SCALE
     );
@@ -1037,6 +1047,7 @@ const Main = () => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (descViewerRef.current?.contains(target)) return;
+    if (nodeMapRef.current?.contains(target)) return;
 
     if (isZoomingRef.current) return;
     event.preventDefault();
@@ -1084,6 +1095,7 @@ const Main = () => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (descViewerRef.current?.contains(target)) return;
+    if (nodeMapRef.current?.contains(target)) return;
 
     const touches = event.touches;
     if (touches.length === 2) {
@@ -1100,6 +1112,7 @@ const Main = () => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (descViewerRef.current?.contains(target)) return;
+    if (nodeMapRef.current?.contains(target)) return;
 
     const worldGroup = worldGroupRef.current;
     if (!worldGroup) return;
@@ -1157,7 +1170,7 @@ const Main = () => {
     if (!mountRef.current) return;
     let isMounted = true;
     
-    getOntology();
+    if (!initialOntology) getOntology();
 
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
@@ -1378,11 +1391,29 @@ const Main = () => {
           <Image src={githubIcon.src} alt={githubIcon.alt} />
         </div>
       </div>
-      <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} />
-      <EnergyHandleRight />
+      <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} onFirstClick={handleStartExplore} />
+      <EnergyHandleRight onFirstClick={handleStartExplore} />
       <EnergyHandleTop ref={descViewerRef} tree={tree} node={normalizedNode} onFirstClick={handleStartExplore} />
+      <EnergyHandleBottom ref={nodeMapRef} tree={tree} node={normalizedNode} back={backPreviousSection} push={pushNextSection} onFirstClick={handleStartExplore} />
     </React.Fragment>
   );
+};
+
+export const getServerSideProps: GetServerSideProps<{ initialOntology: Ontology | null }> = async () => {
+  try {
+    const res = await fetch("https://hyunwoo-ai-backend.fly.dev/ontology", { method: "GET" });
+    if (!res.ok) return { props: { initialOntology: null } };
+
+    const j = await res.json();
+    const resOnt = j["ontology"] as { nodes: any[]; relations: any[] };
+
+    const nodes: Node[] = resOnt.nodes.map((r: any) => ({ id: r.id, name: r.name, desc: r.description, tags: r.tags }));
+    const relations: Relation[] = resOnt.relations.map((r: any) => ({ from: r.from_, to: r.to_, type: r.type }));
+
+    return { props: { initialOntology: { nodes, relations } } };
+  } catch {
+    return { props: { initialOntology: null } };
+  }
 };
 
 export default Main;

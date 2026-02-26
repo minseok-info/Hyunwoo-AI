@@ -9,14 +9,16 @@ const coreIcon = {
   alt: "core"
 };
 
-const EnergyHandleLeft = ({ node, back, push }: {
+const EnergyHandleLeft = ({ node, back, push, onFirstClick }: {
   node: Tree,
   back: () => void,
-  push: (node: Tree) => void
+  push: (node: Tree) => void,
+  onFirstClick?: () => void
 }) => {
   const [isToggledHandle, setIsToggledHandle] = useState<boolean>(false);
 
   const handleToggleHandle = () => {
+    onFirstClick?.();
     setIsToggledHandle(!isToggledHandle);
   };
 

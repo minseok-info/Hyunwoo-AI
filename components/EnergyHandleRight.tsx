@@ -8,10 +8,11 @@ const coreIcon = {
   alt: "core"
 };
 
-const EnergyHandleRight = () => {
+const EnergyHandleRight = ({ onFirstClick }: { onFirstClick?: () => void }) => {
   const [isToggledHandle, setIsToggledHandle] = useState<boolean>(false);
 
   const handleToggleHandle = () => {
+    onFirstClick?.();
     setIsToggledHandle(!isToggledHandle);
   };
 
