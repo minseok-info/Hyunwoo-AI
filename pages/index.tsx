@@ -159,6 +159,7 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
   const treeRef = useRef<Tree[]>([]);
 
   const [showSplashOverlay, setshowSplashOverlay] = useState<boolean>(false);
+  const [forceToggleEnergyHandleTop, setForceToggleEnergyHandleTop] = useState<number>(0);
 
   const getOntology = async ()  => {
     let newOntology: Ontology = { nodes: [], relations: [] };
@@ -1157,6 +1158,9 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
 
     const normalizedNode = treeUtils.getNode(tree, normalizedSection.id);
     setNormalizedNode(normalizedNode ?? DEFAULT_NODE);
+
+    if (normalizedNode?.children.length !== 0) return;
+    setForceToggleEnergyHandleTop(v => v + 1);
   }, [tree, normalizedSection]);
 
   useEffect(() => {
@@ -1393,7 +1397,7 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
       </div>
       <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} onFirstClick={handleStartExplore} />
       <EnergyHandleRight onFirstClick={handleStartExplore} />
-      <EnergyHandleTop ref={descViewerRef} tree={tree} node={normalizedNode} onFirstClick={handleStartExplore} />
+      <EnergyHandleTop ref={descViewerRef} tree={tree} node={normalizedNode} force={forceToggleEnergyHandleTop} onFirstClick={handleStartExplore} />
       <EnergyHandleBottom ref={nodeMapRef} tree={tree} node={normalizedNode} back={backPreviousSection} push={pushNextSection} onFirstClick={handleStartExplore} />
     </React.Fragment>
   );
