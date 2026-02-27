@@ -45,6 +45,12 @@ export default function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Disabled — local filesystem write replaced by GitHub repo sync.
+  // See GITHUB_MARKDOWN_SYNC_TASK.md for the planned implementation.
+  return res.status(200).json({ status: true, disabled: true });
+
+  /* --- original implementation (disabled) ---
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -56,16 +62,13 @@ export default function handler(
       return res.status(400).json({ error: "Invalid tree data" });
     }
 
-    /* Target: project root / markdowns */
     const markdownsDir = path.join(process.cwd(), "markdowns");
 
-    /* Clear existing */
     if (fs.existsSync(markdownsDir)) {
       fs.rmSync(markdownsDir, { recursive: true, force: true });
     }
     fs.mkdirSync(markdownsDir, { recursive: true });
 
-    /* Recursively save */
     for (const root of tree) {
       saveNode(root, markdownsDir);
     }
@@ -75,4 +78,6 @@ export default function handler(
     console.error("save-markdowns error:", error);
     return res.status(500).json({ status: false, error: "Failed to save markdowns" });
   }
+
+  --- end disabled block --- */
 }

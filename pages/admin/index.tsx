@@ -118,23 +118,22 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {
     event.preventDefault();
     event.returnValue = "";
-    saveMarkdowns();
+    // saveMarkdowns(); // disabled — replaced by GitHub repo sync (see GITHUB_MARKDOWN_SYNC_TASK.md)
   };
 
-  const saveMarkdowns = async () => {
-    const treeCopied = treeRef.current;
-    if (treeCopied.length < 1) return;
-
-    try {
-      await fetch("/api/save-markdowns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tree: treeCopied })
-      });
-    } catch (error) {
-      console.error("Failed to save markdowns:", error);
-    }
-  };
+  // const saveMarkdowns = async () => {
+  //   const treeCopied = treeRef.current;
+  //   if (treeCopied.length < 1) return;
+  //   try {
+  //     await fetch("/api/save-markdowns", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ tree: treeCopied })
+  //     });
+  //   } catch (error) {
+  //     console.error("Failed to save markdowns:", error);
+  //   }
+  // };
 
   const handleSetTree = (newTree: Tree[]) => {
     setTree(newTree);

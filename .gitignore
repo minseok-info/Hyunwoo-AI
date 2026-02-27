@@ -37,3 +37,10 @@ package-lock.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local markdown export (replaced by GitHub sync)
+/markdowns
+
+# agent/planning documents
+GITHUB_MARKDOWN_SYNC_ANALYSIS.md
+GITHUB_MARKDOWN_SYNC_TASK.md
