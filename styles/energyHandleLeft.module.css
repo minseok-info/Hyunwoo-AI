@@ -70,18 +70,49 @@
   height: 100%;
 }
 
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(120, 180, 255, 0.15);
+  margin-bottom: 4px;
+}
+
+.headerLabel {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(120, 180, 255, 0.6);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.headerNodeName {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .back {
   cursor: pointer;
+  padding: 4px 0;
 }
 .back p {
   opacity: 0.35;
-  color: white;
+  font-size: 12px;
+  color: rgba(120, 180, 255, 0.8);
   transition: all 50ms;
 }
 
 .pushList {
-  height: 100%;
-  padding: 5px;
+  flex: 1;
+  min-height: 0;
+  padding: 4px 0;
   margin: 4px 0;
   border-top: 1px solid rgba(120, 180, 255, 0.15);
   border-bottom: 1px solid rgba(120, 180, 255, 0.15);
@@ -90,16 +121,41 @@
 
 .push {
   cursor: pointer;
-  padding: 1.25px 0px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3.5px 5px;
+  border-radius: 4px;
+  transition: background 100ms;
 }
-.push p {
+
+.pushName {
   opacity: 0.35;
-  font-size: 14px;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: white;
   transition: all 50ms;
+}
+
+.pushChevron {
+  opacity: 0.2;
+  font-size: 11px;
+  color: rgba(120, 180, 255, 0.8);
+  flex-shrink: 0;
+  margin-left: 4px;
+  transition: all 50ms;
+}
+
+.footer {
+  padding-top: 4px;
+}
+.footer span {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.25);
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .pushList::-webkit-scrollbar {
@@ -143,7 +199,19 @@
     opacity: 1;
   }
 
-  .push:hover p {
+  .push:hover {
+    background: rgba(120, 180, 255, 0.08);
+  }
+  .push:hover .pushName {
     opacity: 1;
+  }
+  .push:hover .pushChevron {
+    opacity: 0.6;
+  }
+
+  .pushList::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(120, 180, 255, 0.35);
+    border: 1px solid transparent;
+    background-clip: content-box;
   }
 }

@@ -2,8 +2,7 @@ export { default as SplashOverlay } from "./SplashOverlay";
 
 export { default as EnergyHandleTop } from "./EnergyHandleTop";
 export { default as EnergyHandleLeft } from "./EnergyHandleLeft";
-export { default as EnergyHandleRight } from "./EnergyHandleRight";
-export { default as EnergyHandleBottom } from "./EnergyHandleBottom";
+export { default as NodeMinimap } from "./NodeMinimap";
 
 export { default as Modal } from "./Modal";
 

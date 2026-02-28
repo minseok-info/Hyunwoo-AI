@@ -1,0 +1,47 @@
+.minimap {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  width: 220px;
+  height: 165px;
+  z-index: 50;
+
+  border-radius: 8px;
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      ellipse at 50% 80%,
+      rgba(70, 120, 190, 0.18) 0%,
+      rgba(70, 120, 190, 0.08) 40%,
+      rgba(20, 30, 50, 0.95) 100%
+    );
+  border: 1px solid rgba(120, 180, 255, 0.2);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+
+  opacity: 0.55;
+  transition: opacity 300ms ease, box-shadow 300ms ease, border-color 300ms ease;
+}
+
+@media (hover: hover) {
+  .minimap:hover {
+    opacity: 1;
+    box-shadow: 0 2px 20px rgba(80, 140, 220, 0.4);
+    border-color: rgba(120, 180, 255, 0.4);
+  }
+}
+
+@media (hover: none) {
+  .minimap {
+    opacity: 0.65;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .minimap {
+    width: 160px;
+    height: 120px;
+    bottom: 12px;
+    right: 12px;
+  }
+}

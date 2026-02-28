@@ -1,4 +1,4 @@
-import { EnergyHandleBottom, EnergyHandleLeft, EnergyHandleRight, EnergyHandleTop, SplashOverlay } from "@/components";
+import { EnergyHandleLeft, EnergyHandleTop, NodeMinimap, SplashOverlay } from "@/components";
 import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
@@ -78,7 +78,7 @@ const HOVER_SCALE = 3.5;
 const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const descViewerRef = useRef<HTMLDivElement>(null);
-  const nodeMapRef = useRef<HTMLDivElement>(null);
+  const minimapRef = useRef<HTMLDivElement>(null);
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -160,6 +160,7 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
 
   const [showSplashOverlay, setshowSplashOverlay] = useState<boolean>(false);
   const [forceToggleEnergyHandleTop, setForceToggleEnergyHandleTop] = useState<number>(0);
+  const [canGoBack, setCanGoBack] = useState<boolean>(false);
 
   const getOntology = async ()  => {
     let newOntology: Ontology = { nodes: [], relations: [] };
@@ -1013,7 +1014,7 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (descViewerRef.current?.contains(target)) return;
-    if (nodeMapRef.current?.contains(target)) return;
+    if (minimapRef.current?.contains(target)) return;
 
     const worldGroup = worldGroupRef.current;
     if (!worldGroup) return;
@@ -1048,7 +1049,7 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (descViewerRef.current?.contains(target)) return;
-    if (nodeMapRef.current?.contains(target)) return;
+    if (minimapRef.current?.contains(target)) return;
 
     if (isZoomingRef.current) return;
     event.preventDefault();
@@ -1096,7 +1097,7 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (descViewerRef.current?.contains(target)) return;
-    if (nodeMapRef.current?.contains(target)) return;
+    if (minimapRef.current?.contains(target)) return;
 
     const touches = event.touches;
     if (touches.length === 2) {
@@ -1113,7 +1114,7 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (descViewerRef.current?.contains(target)) return;
-    if (nodeMapRef.current?.contains(target)) return;
+    if (minimapRef.current?.contains(target)) return;
 
     const worldGroup = worldGroupRef.current;
     if (!worldGroup) return;
@@ -1152,12 +1153,18 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
   };
 
   useEffect(() => {
-    if (tree.length === 0 || !normalizedSection) return;
+    if (tree.length === 0 || !normalizedSection) {
+      setCanGoBack(false);
+      return;
+    }
     isChasingTargetRef.current = false;
     intentDirectionRef.current = undefined;
 
     const normalizedNode = treeUtils.getNode(tree, normalizedSection.id);
     setNormalizedNode(normalizedNode ?? DEFAULT_NODE);
+
+    const prevTransitionRange = transitionRangeByDepthRef.current.get(normalizedDepthRef.current - 1);
+    setCanGoBack(!!prevTransitionRange);
 
     if (normalizedNode?.children.length !== 0) return;
     setForceToggleEnergyHandleTop(v => v + 1);
@@ -1395,10 +1402,9 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
           <Image src={githubIcon.src} alt={githubIcon.alt} />
         </div>
       </div>
-      <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} onFirstClick={handleStartExplore} />
-      <EnergyHandleRight onFirstClick={handleStartExplore} />
+      <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} canGoBack={canGoBack} onFirstClick={handleStartExplore} />
       <EnergyHandleTop ref={descViewerRef} tree={tree} node={normalizedNode} force={forceToggleEnergyHandleTop} onFirstClick={handleStartExplore} />
-      <EnergyHandleBottom ref={nodeMapRef} tree={tree} node={normalizedNode} back={backPreviousSection} push={pushNextSection} onFirstClick={handleStartExplore} />
+      <NodeMinimap ref={minimapRef} tree={tree} node={normalizedNode} back={backPreviousSection} push={pushNextSection} />
     </React.Fragment>
   );
 };
