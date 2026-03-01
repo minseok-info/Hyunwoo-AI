@@ -81,6 +81,7 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
     const ontologyDifference = ontologyCompare(oldOntology, newOntology);
 
     let status: boolean = false;
+    let syncCommit: string | null = null;
 
     try {
       const serverUrl = serverUrlRef.current;
@@ -95,6 +96,7 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
 
       await res.json().then(j => {
         status = j["status"];
+        if (j["sync"]?.status) syncCommit = j["sync"].commit;
       });
     }
     catch (error) {
@@ -102,52 +104,17 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
     }
     finally {
       if (status) {
-        setModalData({ message: "Successful", status: true });
-        setModalTrigger(prev => prev + 1);
-
-        initialOntologyRef.current = newOntology;
-        isUsingServerRef.current = false;
-
-        // 온톨로지 저장 성공 후 GitHub 마크다운 동기화
-        await syncMarkdownsToGithub();
+        const msg = syncCommit
+          ? `Saved & Synced (${syncCommit.slice(0, 7)})`
+          : "Saved";
+        setModalData({ message: msg, status: true });
       } else {
         setModalData({ message: "Failed", status: false });
-        setModalTrigger(prev => prev + 1);
-
-        initialOntologyRef.current = newOntology;
-        isUsingServerRef.current = false;
-      }
-    }
-  };
-
-  const syncMarkdownsToGithub = async () => {
-    const treeCopied = treeRef.current;
-    if (treeCopied.length < 1) return;
-
-    try {
-      const serverUrl = serverUrlRef.current;
-      const res = await fetch(`${serverUrl}sync-markdowns`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tree: treeCopied })
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({ detail: "Unknown error" }));
-        setModalData({ message: `GitHub sync failed: ${errData.detail}`, status: false });
-        setModalTrigger(prev => prev + 1);
-        return;
-      }
-
-      const data = await res.json();
-      if (data.status) {
-        setModalData({ message: `Synced to GitHub (${data.commit?.slice(0, 7)})`, status: true });
-      } else {
-        setModalData({ message: "GitHub sync failed", status: false });
       }
       setModalTrigger(prev => prev + 1);
-    } catch (error) {
-      console.error("GitHub sync error:", error);
+
+      initialOntologyRef.current = newOntology;
+      isUsingServerRef.current = false;
     }
   };
 
