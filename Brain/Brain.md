@@ -8,7 +8,7 @@ children: [Left, Right]
 # Brain
 
 김현우
-변경 테스트
+뭐지
 
 ## Children
 
