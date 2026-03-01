@@ -9,6 +9,7 @@ import asyncpg
 import os
 import re
 import base64
+import hashlib
 import httpx
 
 from jose import JWTError, jwt
@@ -43,7 +44,6 @@ GITHUB_API = "https://api.github.com"
 GITHUB_REPO_OWNER = "hyunwoo-ai"
 GITHUB_REPO_NAME = "knowledge-ontology-engine"
 GITHUB_BRANCH = "main"
-GITHUB_MARKDOWN_PATH = "knowledge"
 
 class Node(BaseModel):
   model_config = ConfigDict(populate_by_name=True)
@@ -74,19 +74,6 @@ class RelationsDiff(BaseModel):
 class OntologyDifference(BaseModel):
   nodes: NodesDiff
   relations: RelationsDiff
-
-class TreeNode(BaseModel):
-  treeId: str
-  nodeId: str
-  name: str
-  desc: str
-  tags: List[str]
-  children: List["TreeNode"] = []
-
-TreeNode.model_rebuild()
-
-class SyncMarkdownsRequest(BaseModel):
-  tree: List[TreeNode]
 
 def create_access_token(
   data: dict,
@@ -232,10 +219,14 @@ async def write_ontology(ont_diff: OntologyDifference = Body(...)):
         print(f"DB Operation Failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"DB Operation Failed: {str(e)}")
 
+  # GitHub sync after DB save
+  sync_result = await sync_ontology_to_github(app.state.db)
+
   return {
     "nodes": nodes_diff.model_dump(),
     "relations": relations_diff.model_dump(),
-    "status": True
+    "status": True,
+    "sync": sync_result
   }
 
 # --- GitHub Markdown Sync ---
@@ -243,62 +234,74 @@ async def write_ontology(ont_diff: OntologyDifference = Body(...)):
 def sanitize_name(name: str) -> str:
   return re.sub(r'[<>:"/\\|?*]', '_', name).strip() or "unnamed"
 
-def build_markdown_content(node: TreeNode) -> str:
-  children_names = [c.name for c in node.children]
+def git_blob_sha(content: str) -> str:
+  encoded = content.encode("utf-8")
+  header = f"blob {len(encoded)}\0".encode("utf-8")
+  return hashlib.sha1(header + encoded).hexdigest()
+
+def ontology_to_tree(nodes: list, relations: list) -> list:
+  node_map = {}
+  for n in nodes:
+    node_map[n["id"]] = {
+      "nodeId": n["id"],
+      "name": n["name"],
+      "desc": n.get("description", ""),
+      "tags": n.get("tags", []),
+      "children": []
+    }
+
+  child_ids = set()
+  for r in relations:
+    pid, cid = r["from_"], r["to_"]
+    if pid in node_map and cid in node_map:
+      node_map[pid]["children"].append(node_map[cid])
+      child_ids.add(cid)
+
+  return [node_map[nid] for nid in node_map if nid not in child_ids]
+
+def build_markdown_content(node: dict) -> str:
+  children_names = [c["name"] for c in node["children"]]
   lines = [
     "---",
-    f"nodeId: {node.nodeId}",
-    f"name: {node.name}",
-    f"tags: [{', '.join(node.tags)}]",
+    f"nodeId: {node['nodeId']}",
+    f"name: {node['name']}",
+    f"tags: [{', '.join(node['tags'])}]",
     f"children: [{', '.join(children_names)}]",
-    f"updatedAt: {datetime.utcnow().isoformat()}Z",
     "---",
     "",
-    f"# {node.name}",
+    f"# {node['name']}",
     "",
-    node.desc,
+    node["desc"],
   ]
 
-  if node.children:
+  if node["children"]:
     lines.append("")
     lines.append("## Children")
     lines.append("")
-    for c in node.children:
-      lines.append(f"- [[{c.name}]]")
+    for c in node["children"]:
+      lines.append(f"- [[{c['name']}]]")
 
   return "\n".join(lines)
 
-def build_markdown_files(
-  tree: List[TreeNode],
-  base_path: str = ""
-) -> List[dict]:
+def build_markdown_files(tree: list, base_path: str = "") -> list:
   files = []
-
   for node in tree:
-    safe_name = sanitize_name(node.name)
+    safe_name = sanitize_name(node["name"])
     content = build_markdown_content(node)
 
-    if node.children:
+    if node["children"]:
       node_path = f"{base_path}/{safe_name}" if base_path else safe_name
-      file_path = f"{GITHUB_MARKDOWN_PATH}/{node_path}/{safe_name}.md"
-      files.append({"path": file_path, "content": content})
-      files.extend(build_markdown_files(node.children, node_path))
+      files.append({"path": f"{node_path}/{safe_name}.md", "content": content})
+      files.extend(build_markdown_files(node["children"], node_path))
     else:
-      if base_path:
-        file_path = f"{GITHUB_MARKDOWN_PATH}/{base_path}/{safe_name}.md"
-      else:
-        file_path = f"{GITHUB_MARKDOWN_PATH}/{safe_name}.md"
-      files.append({"path": file_path, "content": content})
+      path = f"{base_path}/{safe_name}.md" if base_path else f"{safe_name}.md"
+      files.append({"path": path, "content": content})
 
   return files
 
-def build_readme(tree: List[TreeNode]) -> str:
-  toc_lines = [f"- [[{node.name}]]" for node in tree]
+def build_readme(tree: list) -> str:
+  toc_lines = [f"- [[{node['name']}]]" for node in tree]
   return "\n".join([
-    "---",
-    f"updatedAt: {datetime.utcnow().isoformat()}Z",
-    "---",
-    "",
     "# Knowledge Ontology Engine",
     "",
     "## Table of Contents",
@@ -314,7 +317,7 @@ def github_headers() -> dict:
     "X-GitHub-Api-Version": "2022-11-28",
   }
 
-async def sync_to_github(files: List[dict]) -> str:
+async def sync_to_github(files: list) -> str:
   headers = github_headers()
   repo_path = f"{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}"
 
@@ -326,6 +329,7 @@ async def sync_to_github(files: List[dict]) -> str:
     has_commits = ref_res.status_code == 200
     current_commit_sha = None
     current_tree_sha = None
+    existing_files: dict[str, str] = {}
 
     if has_commits:
       current_commit_sha = ref_res.json()["object"]["sha"]
@@ -334,24 +338,31 @@ async def sync_to_github(files: List[dict]) -> str:
         headers=headers
       )
       if commit_res.status_code != 200:
-        raise Exception(f"[get-commit] {commit_res.status_code}: {commit_res.text}")
+        raise Exception(f"[get-commit] {commit_res.status_code}")
       current_tree_sha = commit_res.json()["tree"]["sha"]
+
+      # Fetch existing file SHAs
+      tree_res = await client.get(
+        f"{GITHUB_API}/repos/{repo_path}/git/trees/{current_tree_sha}?recursive=1",
+        headers=headers
+      )
+      if tree_res.status_code == 200:
+        for item in tree_res.json().get("tree", []):
+          if item["type"] == "blob":
+            existing_files[item["path"]] = item["sha"]
+
     elif ref_res.status_code in (404, 409):
-      # Empty repo: initialize with a single file via Contents API
+      # Empty repo: initialize
       print("[init] Empty repo detected, initializing...")
-      init_content = base64.b64encode(b"# Knowledge Ontology Engine\n").decode()
+      init_content = base64.b64encode(b"# init\n").decode()
       init_res = await client.put(
-        f"{GITHUB_API}/repos/{repo_path}/contents/README.md",
+        f"{GITHUB_API}/repos/{repo_path}/contents/.gitkeep",
         headers=headers,
-        json={
-          "message": "init: initialize repository",
-          "content": init_content
-        }
+        json={"message": "init", "content": init_content}
       )
       if init_res.status_code not in (200, 201):
         raise Exception(f"[init-repo] {init_res.status_code}: {init_res.text}")
 
-      # Re-fetch the ref now that repo has a commit
       ref_res = await client.get(ref_url, headers=headers)
       if ref_res.status_code == 200:
         has_commits = True
@@ -360,40 +371,50 @@ async def sync_to_github(files: List[dict]) -> str:
           f"{GITHUB_API}/repos/{repo_path}/git/commits/{current_commit_sha}",
           headers=headers
         )
-        if commit_res.status_code != 200:
-          raise Exception(f"[get-commit-after-init] {commit_res.status_code}: {commit_res.text}")
         current_tree_sha = commit_res.json()["tree"]["sha"]
       else:
-        raise Exception(f"[get-ref-after-init] {ref_res.status_code}: {ref_res.text}")
+        raise Exception(f"[get-ref-after-init] {ref_res.status_code}")
     else:
       raise Exception(f"[get-ref] {ref_res.status_code}: {ref_res.text}")
 
-    # 2. Create blobs
-    blob_shas = []
-    for f in files:
-      blob_res = await client.post(
-        f"{GITHUB_API}/repos/{repo_path}/git/blobs",
-        headers=headers,
-        json={"content": f["content"], "encoding": "utf-8"}
-      )
-      if blob_res.status_code != 201:
-        raise Exception(f"[create-blob] {f['path']}: {blob_res.status_code} {blob_res.text}")
-      blob_shas.append(blob_res.json()["sha"])
+    # 2. Diff: compare local SHAs with existing
+    new_file_map = {f["path"]: f["content"] for f in files}
+    tree_items = []
 
-    # 3. Create tree
-    tree_items = [
-      {
-        "path": f["path"],
-        "mode": "100644",
-        "type": "blob",
-        "sha": blob_shas[i]
-      }
-      for i, f in enumerate(files)
-    ]
-    tree_body: dict = {"tree": tree_items}
-    if current_tree_sha:
-      tree_body["base_tree"] = current_tree_sha
+    # Changed/new files: create blobs only for these
+    for path, content in new_file_map.items():
+      local_sha = git_blob_sha(content)
+      if existing_files.get(path) != local_sha:
+        blob_res = await client.post(
+          f"{GITHUB_API}/repos/{repo_path}/git/blobs",
+          headers=headers,
+          json={"content": content, "encoding": "utf-8"}
+        )
+        if blob_res.status_code != 201:
+          raise Exception(f"[create-blob] {path}: {blob_res.status_code}")
+        tree_items.append({
+          "path": path, "mode": "100644", "type": "blob",
+          "sha": blob_res.json()["sha"]
+        })
 
+    # Deleted files: mark with sha null
+    for path in existing_files:
+      if path not in new_file_map:
+        tree_items.append({
+          "path": path, "mode": "100644", "type": "blob",
+          "sha": None
+        })
+
+    if not tree_items:
+      print("No changes to sync")
+      return current_commit_sha
+
+    changed = sum(1 for t in tree_items if t["sha"] is not None)
+    deleted = sum(1 for t in tree_items if t["sha"] is None)
+    print(f"Syncing: {changed} changed, {deleted} deleted")
+
+    # 3. Create tree with base_tree
+    tree_body: dict = {"tree": tree_items, "base_tree": current_tree_sha}
     tree_res = await client.post(
       f"{GITHUB_API}/repos/{repo_path}/git/trees",
       headers=headers,
@@ -404,63 +425,50 @@ async def sync_to_github(files: List[dict]) -> str:
     new_tree_sha = tree_res.json()["sha"]
 
     # 4. Create commit
-    commit_body: dict = {
-      "message": f"sync: update knowledge base {datetime.utcnow().isoformat()}Z",
-      "tree": new_tree_sha,
-      "parents": [current_commit_sha] if current_commit_sha else [],
-    }
     commit_res = await client.post(
       f"{GITHUB_API}/repos/{repo_path}/git/commits",
       headers=headers,
-      json=commit_body
+      json={
+        "message": f"sync: update knowledge base {datetime.utcnow().isoformat()}Z",
+        "tree": new_tree_sha,
+        "parents": [current_commit_sha],
+      }
     )
     if commit_res.status_code != 201:
-      raise Exception(f"[create-commit] {commit_res.status_code}: {commit_res.text}")
+      raise Exception(f"[create-commit] {commit_res.status_code}")
     new_commit_sha = commit_res.json()["sha"]
 
-    # 5. Update or create ref
-    if has_commits:
-      update_res = await client.patch(
-        ref_url,
-        headers=headers,
-        json={"sha": new_commit_sha}
-      )
-    else:
-      update_res = await client.post(
-        f"{GITHUB_API}/repos/{repo_path}/git/refs",
-        headers=headers,
-        json={"ref": f"refs/heads/{GITHUB_BRANCH}", "sha": new_commit_sha}
-      )
-
+    # 5. Update ref
+    update_res = await client.patch(
+      ref_url, headers=headers,
+      json={"sha": new_commit_sha}
+    )
     if update_res.status_code not in (200, 201):
-      raise Exception(f"[update-ref] {update_res.status_code}: {update_res.text}")
+      raise Exception(f"[update-ref] {update_res.status_code}")
 
     return new_commit_sha
 
-@app.post("/sync-markdowns")
-async def sync_markdowns(req: SyncMarkdownsRequest = Body(...)):
+async def sync_ontology_to_github(db_pool) -> dict:
   if not GITHUB_TOKEN:
-    raise HTTPException(status_code=503, detail="GIT_REPO token not configured")
-
-  if not req.tree:
-    raise HTTPException(status_code=400, detail="Empty tree data")
-
-  print(f"sync-markdowns called with {len(req.tree)} root nodes")
-
-  files = build_markdown_files(req.tree)
-  files.append({
-    "path": f"{GITHUB_MARKDOWN_PATH}/README.md",
-    "content": build_readme(req.tree)
-  })
-
-  print(f"Built {len(files)} markdown files, pushing to GitHub...")
+    return {"status": False, "error": "GIT_REPO token not configured"}
 
   try:
+    async with db_pool.acquire() as conn:
+      rows = await conn.fetch("select * from nodes")
+      nodes = [dict(r) for r in rows]
+      rows = await conn.fetch("select * from relations")
+      relations = [dict(r) for r in rows]
+
+    tree = ontology_to_tree(nodes, relations)
+    if not tree:
+      return {"status": False, "error": "Empty ontology"}
+
+    files = build_markdown_files(tree)
+    files.append({"path": "README.md", "content": build_readme(tree)})
+
     commit_sha = await sync_to_github(files)
     print(f"GitHub sync success: {commit_sha[:7]}")
     return {"status": True, "commit": commit_sha}
-  except HTTPException:
-    raise
   except Exception as e:
     print(f"GitHub sync failed: {str(e)}")
-    raise HTTPException(status_code=500, detail=str(e))
+    return {"status": False, "error": str(e)}
