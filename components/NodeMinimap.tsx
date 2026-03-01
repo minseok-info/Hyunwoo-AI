@@ -8,11 +8,10 @@ const NodeMinimap = React.forwardRef<
   {
     tree: Tree[];
     node: Tree;
-    back: () => void;
-    push: (node: Tree) => void;
+    onExpand?: () => void;
   }
 >((props, ref) => {
-  const { tree, node, back, push } = props;
+  const { tree, node, onExpand } = props;
 
   return (
     <div ref={ref} className={styles.minimap}>
@@ -20,8 +19,8 @@ const NodeMinimap = React.forwardRef<
         tree={tree}
         currentNode={node}
         mode="landing"
-        onBack={back}
-        onPush={push}
+        isMinimap
+        onExpandMinimap={onExpand}
       />
     </div>
   );

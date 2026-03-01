@@ -90,7 +90,7 @@
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(120, 180, 255, 0.2);
-  transition: all 200ms;
+  transition: box-shadow 200ms, border-color 200ms;
 }
 .adminMinimap:hover {
   box-shadow: 0 2px 16px rgba(80, 140, 220, 0.4);

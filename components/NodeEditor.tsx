@@ -118,7 +118,7 @@ const NodeEditor = ({ tree }: { tree: Tree[] }) => {
   useEffect(() => {
     if (!node) return;
     else if (node.name === name && node.desc === desc) return;
-    debounceTimer(timerRef, handleChangeTree, 250);
+    debounceTimer(timerRef, handleChangeTree, 50);
   }, [name, desc]);
 
   useEffect(() => {

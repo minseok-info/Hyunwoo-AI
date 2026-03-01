@@ -1,4 +1,4 @@
-import { EnergyHandleLeft, EnergyHandleTop, NodeMinimap, SplashOverlay } from "@/components";
+import { EnergyHandleLeft, EnergyHandleTop, NodeMapViewer, NodeMinimap, SplashOverlay } from "@/components";
 import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
@@ -8,7 +8,8 @@ import clsx from "clsx";
 import type { GetServerSideProps } from "next";
 import Head from "next/head";
 import Image from "next/image";
-import React, { useEffect, useRef, useState } from "react";
+import minimapStyles from "@/styles/nodeMinimap.module.css";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { CSS3DRenderer, GLTFLoader } from "three/examples/jsm/Addons.js";
 
@@ -161,6 +162,28 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
   const [showSplashOverlay, setshowSplashOverlay] = useState<boolean>(false);
   const [forceToggleEnergyHandleTop, setForceToggleEnergyHandleTop] = useState<number>(0);
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
+  const [minimapExpanded, setMinimapExpanded] = useState<boolean>(false);
+
+  const minimapTree = useMemo(() => {
+    if (tree.length === 0) return [];
+    const humanNode: Tree = {
+      treeId: MODEL_IDS.human,
+      nodeId: MODEL_IDS.human,
+      name: "Human",
+      desc: "",
+      tags: [],
+      children: tree
+    };
+    return [humanNode];
+  }, [tree]);
+
+  const minimapNode = useMemo(() => {
+    if (minimapTree.length === 0) return DEFAULT_NODE;
+    if (normalizedNode.nodeId === DEFAULT_NODE.nodeId) {
+      return minimapTree[0];
+    }
+    return normalizedNode;
+  }, [normalizedNode, minimapTree]);
 
   const getOntology = async ()  => {
     let newOntology: Ontology = { nodes: [], relations: [] };
@@ -679,6 +702,11 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
     const targetLog = rangeStart - margin;
     worldGroupScaleRef.current.target = START_SCALE * Math.exp(targetLog);
   };
+
+  const minimapBack = useCallback(() => {
+    backPreviousSection();
+    setMinimapExpanded(false);
+  }, []);
 
   const pushNextSection = (node: Tree) => {
     const normalizedDepth = normalizedDepthRef.current;
@@ -1404,7 +1432,21 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
       </div>
       <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} canGoBack={canGoBack} onFirstClick={handleStartExplore} />
       <EnergyHandleTop ref={descViewerRef} tree={tree} node={normalizedNode} force={forceToggleEnergyHandleTop} onFirstClick={handleStartExplore} />
-      <NodeMinimap ref={minimapRef} tree={tree} node={normalizedNode} back={backPreviousSection} push={pushNextSection} />
+      {minimapExpanded && (
+        <div className={minimapStyles.landingOverlay} onClick={() => setMinimapExpanded(false)}>
+          <div className={minimapStyles.landingOverlayContent} onClick={e => e.stopPropagation()}>
+            <span className={minimapStyles.landingOverlayClose} onClick={() => setMinimapExpanded(false)}>✕</span>
+            <NodeMapViewer
+              tree={minimapTree}
+              currentNode={minimapNode}
+              mode="landing"
+              onBack={minimapBack}
+              onPush={(node) => { pushNextSection(node); setMinimapExpanded(false); }}
+            />
+          </div>
+        </div>
+      )}
+      <NodeMinimap ref={minimapRef} tree={minimapTree} node={minimapNode} onExpand={() => setMinimapExpanded(true)} />
     </React.Fragment>
   );
 };

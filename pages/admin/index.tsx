@@ -2,12 +2,13 @@ import { Modal, NodeEditor, NodeMapViewer, SidebarNavigator } from "@/components
 import nodeMapStyles from "@/styles/nodeMapViewer.module.css";
 import TreeContext from "@/contexts/TreeContext";
 import styles from "@/styles/admin.module.css";
+import { MODEL_IDS } from "@/types/modelParams";
 import { Node, Ontology, Relation, Tree } from "@/types/ontologyTypes";
 import { ontologyCompare, ontologyToTree, treeToOntology, treeUtils } from "@/utils";
 import clsx from "clsx";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "katex/dist/katex.min.css"
 
 const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | null }) => {
@@ -100,12 +101,53 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
       console.error(error);
     }
     finally {
-      if (status) setModalData({ message: "Successful", status: true });
-      else setModalData({ message: "Failed", status: false });
-      setModalTrigger(prev => prev + 1);
+      if (status) {
+        setModalData({ message: "Successful", status: true });
+        setModalTrigger(prev => prev + 1);
 
-      initialOntologyRef.current = newOntology;
-      isUsingServerRef.current = false;
+        initialOntologyRef.current = newOntology;
+        isUsingServerRef.current = false;
+
+        // 온톨로지 저장 성공 후 GitHub 마크다운 동기화
+        await syncMarkdownsToGithub();
+      } else {
+        setModalData({ message: "Failed", status: false });
+        setModalTrigger(prev => prev + 1);
+
+        initialOntologyRef.current = newOntology;
+        isUsingServerRef.current = false;
+      }
+    }
+  };
+
+  const syncMarkdownsToGithub = async () => {
+    const treeCopied = treeRef.current;
+    if (treeCopied.length < 1) return;
+
+    try {
+      const serverUrl = serverUrlRef.current;
+      const res = await fetch(`${serverUrl}sync-markdowns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tree: treeCopied })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ detail: "Unknown error" }));
+        setModalData({ message: `GitHub sync failed: ${errData.detail}`, status: false });
+        setModalTrigger(prev => prev + 1);
+        return;
+      }
+
+      const data = await res.json();
+      if (data.status) {
+        setModalData({ message: `Synced to GitHub (${data.commit?.slice(0, 7)})`, status: true });
+      } else {
+        setModalData({ message: "GitHub sync failed", status: false });
+      }
+      setModalTrigger(prev => prev + 1);
+    } catch (error) {
+      console.error("GitHub sync error:", error);
     }
   };
 
@@ -118,22 +160,7 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {
     event.preventDefault();
     event.returnValue = "";
-    // saveMarkdowns(); // disabled — replaced by GitHub repo sync (see GITHUB_MARKDOWN_SYNC_TASK.md)
   };
-
-  // const saveMarkdowns = async () => {
-  //   const treeCopied = treeRef.current;
-  //   if (treeCopied.length < 1) return;
-  //   try {
-  //     await fetch("/api/save-markdowns", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ tree: treeCopied })
-  //     });
-  //   } catch (error) {
-  //     console.error("Failed to save markdowns:", error);
-  //   }
-  // };
 
   const handleSetTree = (newTree: Tree[]) => {
     setTree(newTree);
@@ -207,7 +234,21 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
     }
   }, []);
 
+  const adminMinimapTree = useMemo(() => {
+    if (sortedTree.length === 0) return [];
+    const humanNode: Tree = {
+      treeId: MODEL_IDS.human,
+      nodeId: MODEL_IDS.human,
+      name: "Human",
+      desc: "",
+      tags: [],
+      children: sortedTree
+    };
+    return [humanNode];
+  }, [sortedTree]);
+
   const handleNodeMapSelect = (selectedTreeId: string, selectedNodeId: string) => {
+    if (selectedNodeId === MODEL_IDS.human) return;
     handleSetId(selectedTreeId, selectedNodeId);
     setNodeMapExpanded(false);
   };
@@ -218,17 +259,17 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
         <SidebarNavigator tree={sortedTree} />
         <div style={{ position: "relative", flex: 1, overflow: "hidden" }}>
           <NodeEditor tree={sortedTree} />
-          {sortedTree.length > 0 && (
+          {adminMinimapTree.length > 0 && (
             nodeMapExpanded ? (
-              <div className={clsx(nodeMapStyles.adminOverlay)}>
+              <div key="overlay" className={clsx(nodeMapStyles.adminOverlay)}>
                 <div className={clsx(nodeMapStyles.adminOverlayHeader)}>
                   <h4>NODE MAP</h4>
                   <span className={clsx(nodeMapStyles.adminOverlayClose)} onClick={() => setNodeMapExpanded(false)}>✕</span>
                 </div>
                 <div className={clsx(nodeMapStyles.adminOverlayBody)}>
                   <NodeMapViewer
-                    tree={sortedTree}
-                    currentNode={sortedTree[0]}
+                    tree={adminMinimapTree}
+                    currentNode={adminMinimapTree[0]}
                     mode="admin"
                     adminCurrentNodeId={nodeId}
                     onSelectNode={handleNodeMapSelect}
@@ -236,10 +277,10 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
                 </div>
               </div>
             ) : (
-              <div className={clsx(nodeMapStyles.adminMinimap)} onClick={() => setNodeMapExpanded(true)}>
+              <div key="minimap" className={clsx(nodeMapStyles.adminMinimap)} onClick={() => setNodeMapExpanded(true)}>
                 <NodeMapViewer
-                  tree={sortedTree}
-                  currentNode={sortedTree[0]}
+                  tree={adminMinimapTree}
+                  currentNode={adminMinimapTree[0]}
                   mode="admin"
                   adminCurrentNodeId={nodeId}
                   isMinimap
