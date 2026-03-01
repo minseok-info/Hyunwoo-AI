@@ -29,7 +29,7 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
   const [nodeId, setNodeId] = useState<Tree["nodeId"]>("");
 
   const [modalTrigger, setModalTrigger] = useState<number>(0);
-  const [modalData, setModalData] = useState<{ message: string; status: boolean }>({ message: "", status: false });
+  const [modalData, setModalData] = useState<{ message: string; status: boolean; loading?: boolean }>({ message: "", status: false });
 
   const [nodeMapExpanded, setNodeMapExpanded] = useState<boolean>(false);
 
@@ -83,6 +83,9 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
     let status: boolean = false;
     let syncCommit: string | null = null;
 
+    setModalData({ message: "Saving...", status: true, loading: true });
+    setModalTrigger(prev => prev + 1);
+
     try {
       const serverUrl = serverUrlRef.current;
       const res = await fetch(`${serverUrl}ontology`, {
@@ -94,10 +97,9 @@ const Admin = ({ initialOntology: ssrOntology }: { initialOntology: Ontology | n
       });
       if (!res.ok) return;
 
-      await res.json().then(j => {
-        status = j["status"];
-        if (j["sync"]?.status) syncCommit = j["sync"].commit;
-      });
+      const j = await res.json();
+      status = j["status"];
+      if (j["sync"]?.status) syncCommit = j["sync"].commit as string;
     }
     catch (error) {
       console.error(error);
