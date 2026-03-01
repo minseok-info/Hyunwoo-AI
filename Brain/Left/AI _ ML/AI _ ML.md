@@ -2,8 +2,7 @@
 nodeId: 54edd916-ee79-450d-817e-c25183db0e4d
 name: AI / ML
 tags: []
-children: [Generative Models, LLM, PEFT, Preference Optimization, Prerequisites, Gaussian Mixture Model (GMM), Normalizing Flows (NF), Rectified Flow (RF), Triton server, Variational AutoEncoder (VAE), vLLM]
-updatedAt: 2026-03-01T14:14:17.400554Z
+children: [vLLM, Triton server, PEFT, LLM, Generative Models, Preference Optimization, Prerequisites, Gaussian Mixture Model (GMM), Normalizing Flows (NF), Variational AutoEncoder (VAE), Rectified Flow (RF)]
 ---
 
 # AI / ML
@@ -12,14 +11,14 @@ updatedAt: 2026-03-01T14:14:17.400554Z
 
 ## Children
 
-- [[Generative Models]]
-- [[LLM]]
+- [[vLLM]]
+- [[Triton server]]
 - [[PEFT]]
+- [[LLM]]
+- [[Generative Models]]
 - [[Preference Optimization]]
 - [[Prerequisites]]
 - [[Gaussian Mixture Model (GMM)]]
 - [[Normalizing Flows (NF)]]
-- [[Rectified Flow (RF)]]
-- [[Triton server]]
 - [[Variational AutoEncoder (VAE)]]
-- [[vLLM]]
+- [[Rectified Flow (RF)]]

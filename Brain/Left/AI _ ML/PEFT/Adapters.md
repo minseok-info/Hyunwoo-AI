@@ -3,7 +3,6 @@ nodeId: b8629801-1f74-47e7-994a-c0363ddbd3c2
 name: Adapters
 tags: []
 children: []
-updatedAt: 2026-03-01T14:14:17.400619Z
 ---
 
 # Adapters

@@ -3,7 +3,6 @@ nodeId: idLeft
 name: Left
 tags: []
 children: [AI / ML, Mathematics, Ontology, Tools]
-updatedAt: 2026-03-01T14:14:17.400541Z
 ---
 
 # Left

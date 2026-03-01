@@ -2,8 +2,7 @@
 nodeId: idRight
 name: Right
 tags: []
-children: [기억, 여행 / 맛집, Professional Experience (AI)]
-updatedAt: 2026-03-01T14:14:17.400746Z
+children: [여행 / 맛집, 기억, Professional Experience (AI)]
 ---
 
 # Right
@@ -14,6 +13,6 @@ Episodic Layer 스럽게 작성하고자 함.
 
 ## Children
 
-- [[기억]]
 - [[여행 / 맛집]]
+- [[기억]]
 - [[Professional Experience (AI)]]

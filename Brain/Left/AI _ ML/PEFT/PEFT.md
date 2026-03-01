@@ -2,8 +2,7 @@
 nodeId: e5b421a6-e08b-437a-94d1-5961bc34cb95
 name: PEFT
 tags: []
-children: [Adapters, LoRA]
-updatedAt: 2026-03-01T14:14:17.400613Z
+children: [LoRA, Adapters]
 ---
 
 # PEFT
@@ -26,5 +25,5 @@ updatedAt: 2026-03-01T14:14:17.400613Z
 
 ## Children
 
-- [[Adapters]]
 - [[LoRA]]
+- [[Adapters]]

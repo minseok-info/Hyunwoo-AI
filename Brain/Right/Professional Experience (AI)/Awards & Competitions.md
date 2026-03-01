@@ -3,7 +3,6 @@ nodeId: c9440be7-136a-4095-9b1c-d6715a340ae1
 name: Awards & Competitions
 tags: []
 children: []
-updatedAt: 2026-03-01T14:14:17.400805Z
 ---
 
 # Awards & Competitions

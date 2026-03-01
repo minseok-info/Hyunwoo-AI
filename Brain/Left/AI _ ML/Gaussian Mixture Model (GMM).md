@@ -3,7 +3,6 @@ nodeId: 37e245b8-5923-4b1a-83c4-2c6d39167471
 name: Gaussian Mixture Model (GMM)
 tags: []
 children: []
-updatedAt: 2026-03-01T14:14:17.400673Z
 ---
 
 # Gaussian Mixture Model (GMM)
