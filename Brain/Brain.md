@@ -8,7 +8,6 @@ children: [Left, Right]
 # Brain
 
 김현우
-뭐지
 
 ## Children
 
