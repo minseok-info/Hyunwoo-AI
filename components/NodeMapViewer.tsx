@@ -24,6 +24,9 @@ export interface NodeMapViewerProps {
   /* minimap toggle (admin) */
   isMinimap?: boolean;
   onExpandMinimap?: () => void;
+
+  /* click on empty space (no node hit) — used to collapse expanded minimap */
+  onEmptyClick?: () => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -126,6 +129,7 @@ const NodeMapViewer = React.forwardRef<HTMLDivElement, NodeMapViewerProps>(
       onSelectNode,
       isMinimap = false,
       onExpandMinimap,
+      onEmptyClick,
     } = props;
 
     const svgRef = useRef<SVGSVGElement>(null);
@@ -135,6 +139,7 @@ const NodeMapViewer = React.forwardRef<HTMLDivElement, NodeMapViewerProps>(
     const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 800, h: 600 });
     const isPanning = useRef(false);
     const panStart = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
+    const dragDistance = useRef(0);
     const touchPrevDist = useRef<number | null>(null);
 
     /* layout */
@@ -256,6 +261,7 @@ const NodeMapViewer = React.forwardRef<HTMLDivElement, NodeMapViewerProps>(
     const handleMouseDown = (e: React.MouseEvent) => {
       if (isMinimap) return;
       isPanning.current = true;
+      dragDistance.current = 0;
       panStart.current = { x: e.clientX, y: e.clientY, vx: viewBox.x, vy: viewBox.y };
     };
 
@@ -268,6 +274,7 @@ const NodeMapViewer = React.forwardRef<HTMLDivElement, NodeMapViewerProps>(
       const scaleY = viewBox.h / rect.height;
       const dx = (e.clientX - panStart.current.x) * scaleX;
       const dy = (e.clientY - panStart.current.y) * scaleY;
+      dragDistance.current = Math.hypot(e.clientX - panStart.current.x, e.clientY - panStart.current.y);
       setViewBox(prev => ({ ...prev, x: panStart.current.vx - dx, y: panStart.current.vy - dy }));
     };
 
@@ -342,6 +349,13 @@ const NodeMapViewer = React.forwardRef<HTMLDivElement, NodeMapViewerProps>(
       if (isMinimap && onExpandMinimap) onExpandMinimap();
     };
 
+    /* empty-space click (drag < 5px threshold) */
+    const handleSvgClick = () => {
+      if (dragDistance.current < 5) {
+        onEmptyClick?.();
+      }
+    };
+
     /* ---- render ---- */
     const vbStr = `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`;
 
@@ -361,6 +375,7 @@ const NodeMapViewer = React.forwardRef<HTMLDivElement, NodeMapViewerProps>(
           ref={svgRef}
           className={clsx(styles.svg)}
           viewBox={vbStr}
+          onClick={handleSvgClick}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}

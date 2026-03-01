@@ -1,4 +1,4 @@
-import { EnergyHandleLeft, EnergyHandleTop, NodeMapViewer, NodeMinimap, SplashOverlay } from "@/components";
+import { EnergyHandleLeft, EnergyHandleTop, NodeMinimap, SplashOverlay } from "@/components";
 import { loadBrainModel, loadHumanModel, loadMilkywayModel } from "@/public/three/loaders";
 import styles from "@/styles/main.module.css";
 import { BRAIN_AREA_IDS, Depth, MODEL_IDS, ModelId, ModelSection, ModelTransformParams, NodeSection, Section, SectionId, SectionRelation, TransitionRange } from "@/types/modelParams";
@@ -8,7 +8,6 @@ import clsx from "clsx";
 import type { GetServerSideProps } from "next";
 import Head from "next/head";
 import Image from "next/image";
-import minimapStyles from "@/styles/nodeMinimap.module.css";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { CSS3DRenderer, GLTFLoader } from "three/examples/jsm/Addons.js";
@@ -1432,21 +1431,17 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
       </div>
       <EnergyHandleLeft node={normalizedNode} back={backPreviousSection} push={pushNextSection} canGoBack={canGoBack} onFirstClick={handleStartExplore} />
       <EnergyHandleTop ref={descViewerRef} tree={tree} node={normalizedNode} force={forceToggleEnergyHandleTop} onFirstClick={handleStartExplore} />
-      {minimapExpanded && (
-        <div className={minimapStyles.landingOverlay} onClick={() => setMinimapExpanded(false)}>
-          <div className={minimapStyles.landingOverlayContent} onClick={e => e.stopPropagation()}>
-            <span className={minimapStyles.landingOverlayClose} onClick={() => setMinimapExpanded(false)}>✕</span>
-            <NodeMapViewer
-              tree={minimapTree}
-              currentNode={minimapNode}
-              mode="landing"
-              onBack={minimapBack}
-              onPush={(node) => { pushNextSection(node); setMinimapExpanded(false); }}
-            />
-          </div>
-        </div>
-      )}
-      <NodeMinimap ref={minimapRef} tree={minimapTree} node={minimapNode} onExpand={() => setMinimapExpanded(true)} />
+      <NodeMinimap
+        ref={minimapRef}
+        tree={minimapTree}
+        node={minimapNode}
+        expanded={minimapExpanded}
+        onExpand={() => setMinimapExpanded(true)}
+        onCollapse={() => setMinimapExpanded(false)}
+        onBack={minimapBack}
+        onPush={(node) => { pushNextSection(node); setMinimapExpanded(false); }}
+        onStartExplore={handleStartExplore}
+      />
     </React.Fragment>
   );
 };
