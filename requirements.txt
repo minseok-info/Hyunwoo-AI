@@ -7,3 +7,5 @@ pydantic
 python-multipart
 
 python-jose
+
+httpx
