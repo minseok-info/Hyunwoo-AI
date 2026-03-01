@@ -3,7 +3,7 @@ nodeId: 2358139b-4fdd-43b7-ba42-a3bf6cb5f763
 name: NeoVim
 tags: [neovim, lua, AI, Tools, vim, Linux]
 children: []
-updatedAt: 2026-03-01T13:41:47.997022Z
+updatedAt: 2026-03-01T13:47:53.527140Z
 ---
 
 # NeoVim

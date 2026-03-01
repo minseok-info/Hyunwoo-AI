@@ -3,7 +3,7 @@ nodeId: 25cabb8b-61db-454a-935a-4811577edc3c
 name: Normalizing Flows (NF)
 tags: []
 children: []
-updatedAt: 2026-03-01T13:41:47.996960Z
+updatedAt: 2026-03-01T13:47:53.527058Z
 ---
 
 # Normalizing Flows (NF)

@@ -3,7 +3,7 @@ nodeId: idRight
 name: Right
 tags: []
 children: [기억, 여행 / 맛집, Professional Experience (AI)]
-updatedAt: 2026-03-01T13:41:47.997028Z
+updatedAt: 2026-03-01T13:47:53.527149Z
 ---
 
 # Right

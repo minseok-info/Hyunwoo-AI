@@ -3,7 +3,7 @@ nodeId: 6f373ee0-629c-4a12-8240-c106728c9c74
 name: Variational AutoEncoder (VAE)
 tags: []
 children: []
-updatedAt: 2026-03-01T13:41:47.996973Z
+updatedAt: 2026-03-01T13:47:53.527075Z
 ---
 
 # Variational AutoEncoder (VAE)

@@ -3,7 +3,7 @@ nodeId: 15d54707-d377-4b49-84c0-d5b334b7586e
 name: GPT
 tags: []
 children: []
-updatedAt: 2026-03-01T13:41:47.996885Z
+updatedAt: 2026-03-01T13:47:53.526952Z
 ---
 
 # GPT
