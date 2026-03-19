@@ -9,7 +9,7 @@ const coreIcon = {
   alt: "core"
 };
 
-const EnergyHandleLeft = ({ node, back, push, canGoBack, onFirstClick }: {
+const EnergyHandleLeft = React.memo(({ node, back, push, canGoBack, onFirstClick }: {
   node: Tree,
   back: () => void,
   push: (node: Tree) => void,
@@ -61,6 +61,8 @@ const EnergyHandleLeft = ({ node, back, push, canGoBack, onFirstClick }: {
       </div>
     </React.Fragment>
   );
-};
+});
+
+EnergyHandleLeft.displayName = "EnergyHandleLeft";
 
 export default EnergyHandleLeft;

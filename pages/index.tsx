@@ -75,6 +75,12 @@ const NODE_SECTION_RATIO = 0.01;
 const BASE_SCALE = 1.0;
 const HOVER_SCALE = 3.5;
 
+// Module-scope reusable Three.js objects — avoids per-render allocation
+const _centerVector = new THREE.Vector3(0, 0, 0);
+const _tempBox = new THREE.Box3();
+const _tempVec = new THREE.Vector3();
+const _scaleVec = new THREE.Vector3();
+
 const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const descViewerRef = useRef<HTMLDivElement>(null);
@@ -88,7 +94,7 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
   const pointerData = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
   const touchData = useRef<{ prevDistance: number | null }>({ prevDistance: null });
 
-  const centerVector = new THREE.Vector3(0, 0, 0);
+  const centerVector = _centerVector;
 
   const cameraRotationRef = useRef<{
     current: { theta: number; phi: number }
@@ -114,8 +120,8 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
     target: centerVector.clone()
   });
 
-  const tempBox = new THREE.Box3();
-  const tempVec = new THREE.Vector3();
+  const tempBox = _tempBox;
+  const tempVec = _tempVec;
 
   const worldGroupRef = useRef<THREE.Group>(new THREE.Group());
   const sectionsRootRef = useRef<THREE.Group>(new THREE.Group());
@@ -973,7 +979,7 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
         : BASE_SCALE;
 
       label.scale.lerp(
-        new THREE.Vector3(target, target, target),
+        _scaleVec.set(target, target, target),
         0.15
       );
     }
@@ -1410,6 +1416,28 @@ const Main = ({ initialOntology }: { initialOntology: Ontology | null }) => {
       if (rendererRef.current && mountRef.current?.contains(rendererRef.current.domElement)) {
         mountRef.current.removeChild(renderer.domElement);
       }
+
+      // Dispose all Three.js geometries, materials, and textures to prevent GPU memory leaks
+      scene.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.geometry?.dispose();
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          materials.forEach((mat) => {
+            if (mat.map) mat.map.dispose();
+            if (mat.emissiveMap) mat.emissiveMap.dispose();
+            mat.dispose();
+          });
+        }
+        else if (object instanceof THREE.Sprite) {
+          object.material?.map?.dispose();
+          object.material?.dispose();
+        }
+        else if (object instanceof THREE.LineSegments) {
+          object.geometry?.dispose();
+          (object.material as THREE.Material)?.dispose();
+        }
+      });
+
       renderer.dispose();
     }
   }, []);

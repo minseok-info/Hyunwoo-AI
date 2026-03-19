@@ -1,14 +1,14 @@
 import styles from "@/styles/splashOverlay.module.css";
 import clsx from "clsx";
 import Image from "next/image";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState, memo } from "react";
 
 const image = {
   src: require("@/public/favicon.ico"),
   alt: "favicon"
 };
 
-const SplashOverlay = ({ show }: { show: boolean }) => {
+const SplashOverlay = memo(({ show }: { show: boolean }) => {
   const splashRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,6 +40,8 @@ const SplashOverlay = ({ show }: { show: boolean }) => {
       </div>
     </div>
   );
-};
+});
+
+SplashOverlay.displayName = "SplashOverlay";
 
 export default SplashOverlay;
