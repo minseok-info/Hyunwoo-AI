@@ -7,7 +7,7 @@ children: [Left, Right]
 
 # Brain
 
-김현우 내용
+김현우
 
 ## Children
 
