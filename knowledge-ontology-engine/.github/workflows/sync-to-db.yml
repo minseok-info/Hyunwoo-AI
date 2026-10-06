@@ -1,0 +1,62 @@
+name: Sync Knowledge Base to Database
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.md'
+      - '!.github/**'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Skip commits from web-page sync to avoid redundant DB writes
+    if: "!startsWith(github.event.head_commit.message, 'sync:')"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Collect markdown files and sync to database
+        env:
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+          BACKEND_URL: https://hyunwoo-ai-backend.fly.dev
+        run: |
+          # Collect all .md files excluding README.md
+          FILES_JSON=$(find . -name "*.md" ! -name "README.md" ! -path "./.github/*" -type f | while read file; do
+            filepath="${file#./}"
+            content=$(cat "$file")
+            jq -n --arg path "$filepath" --arg content "$content" '{path: $path, content: $content}'
+          done | jq -s '.')
+
+          FILE_COUNT=$(echo "$FILES_JSON" | jq 'length')
+          echo "Found $FILE_COUNT markdown files to sync"
+
+          if [ "$FILE_COUNT" -eq "0" ]; then
+            echo "No markdown files found, skipping sync"
+            exit 0
+          fi
+
+          # Build payload and send to backend
+          PAYLOAD=$(jq -n --arg secret "$SYNC_SECRET" --argjson files "$FILES_JSON" '{secret: $secret, files: $files}')
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${BACKEND_URL}/sync_from_github" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            --max-time 120)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Response: $BODY"
+          echo "HTTP Code: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Sync failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          NODES=$(echo "$BODY" | jq -r '.nodes_count // "unknown"')
+          RELS=$(echo "$BODY" | jq -r '.relations_count // "unknown"')
+          echo "✅ Sync complete: $NODES nodes, $RELS relations"
