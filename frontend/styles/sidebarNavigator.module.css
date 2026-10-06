@@ -1,0 +1,93 @@
+.container {
+  display: flex;
+  color: var(--text);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background-color: var(--darkTheme);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.sidebar > div {
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  padding: 10px;
+  border-left: 2px solid transparent;
+}
+.sidebar img {
+  width: 100%;
+  height: auto;
+  filter: invert(0.75) opacity(0.25);
+  transition: all 50ms;
+}
+
+.navigator {
+  min-width: 250px;
+  max-width: 250px;
+  border-right: 1px solid var(--line);
+  background-color: var(--darkTheme);
+}
+.navigator h4 {
+  padding: 3.75px;
+}
+
+.selected {
+  border-left: #0078D4 2px solid !important;
+}
+.selected img {
+  filter: invert(0.75) opacity(1) !important;
+}
+
+.toggleButton {
+  display: none;
+  z-index: -1;
+  position: absolute;
+  transform: translate(100%, -50%);
+  top: 50%;
+  right: 1px;
+  padding: 5px;
+  background-color: var(--darkTheme);
+  border: 1px solid var(--line);
+  border-left: none;
+  box-shadow: 0px 0px 5px 1px rgba(0, 0, 0, 0.75);
+}
+.toggleButton img {
+  width: 24px;
+  height: auto;
+  transform: rotate(-90deg);
+  filter: invert(0.75);
+}
+
+@media (hover: hover) {
+  .sidebar > div:hover img {
+    filter: invert(0.75) opacity(1);
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .container {
+    z-index: 20;
+    position: absolute;
+    transform: translateX(-100%);
+    top: 0;
+    left: 0;
+    width: 294px;
+    height: 100%;
+    box-shadow: 0px 0px 5px 1px rgba(0, 0, 0, 0.75);
+    transition: all 500ms;
+  }
+  .toggledContainer {
+    transform: translateX(0);
+  }
+
+  .toggleButton {
+    display: flex;
+  }
+  .toggledContainer .toggleButton img {
+    transform: rotate(90deg);
+  }
+}

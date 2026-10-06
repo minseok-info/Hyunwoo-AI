@@ -1,0 +1,69 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #000000;
+  color: #ffffff;
+  overflow: hidden;
+}
+
+.display {
+  width: 100dvw;
+  height: 100dvh;
+  position: relative;
+  user-select: none;
+}
+
+.fullScreen {
+  width: 100dvw;
+  height: 100dvh;
+}
+
+.fullWidth {
+  width: 100dvw;
+}
+
+.flex {
+  display: flex;
+}
+
+.flexColumn {
+  flex-direction: column;
+}
+
+.justifyCenter {
+  justify-content: center;
+}
+
+.alignCenter {
+  align-items: center;
+}
+
+.textStart {
+  text-align: start;
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.textEnd {
+  text-align: flex-end;
+}
+
+.pointer {
+  cursor: pointer;
+}
+
+.pointer:disabled {
+  cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: light) {
+  body {
+    background-color: #ffffff;
+    color: #000000
+  }
+}

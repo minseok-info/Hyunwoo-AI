@@ -1,0 +1,456 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+}
+.wrapper {
+  max-width: 720px;
+  width: 100%;
+  margin: 0px auto;
+}
+
+.path {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  display: flex;
+  gap: 5px;
+  padding: 10px;
+  background-color: var(--theme);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.path > p {
+  padding: 2.5px;
+  font-size: 14px;
+}
+.path > p:nth-child(2n - 1) {
+  cursor: pointer;
+  border-radius: 2.5px;
+  transition: all 50ms;
+}
+
+.name {
+  border-bottom: 1px solid var(--line);
+  margin: 75px 25px 0px;
+  padding-bottom: 2.5px;
+  display: flex;
+}
+.name input {
+  width: 100%;
+  font-size: 32px;
+  border: 0px;
+  color: var(--text);
+  background-color: transparent;
+  outline: none;
+}
+
+.meta {
+  display: flex;
+  margin: 25px;
+  gap: 10px;
+}
+.meta > div {
+  flex: 1 0;
+  min-width: 0px;
+  max-height: 250px;
+  padding: 5px;
+  border-radius: 2.5px;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.parentEditor {
+  display: flex;
+  flex-direction: column;
+  max-width: 250px;
+  height: 250px;
+  gap: 5px;
+}
+.parentEditor input {
+  padding: 2.5px;
+  border-radius: 2.5px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--text);
+  background-color: var(--darkTheme);
+  outline: none;
+}
+
+.parentList {
+  overflow-y: scroll;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 5px;
+  box-shadow: inset -2px 0px 5px 3px rgba(0, 0, 0, 0.75);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.parentList > div {
+  cursor: pointer;
+  min-height: 17px;
+  padding: 3.75px;
+  font-size: 12px;
+  transition: all 50ms;
+}
+
+.selectedParent {
+  background-color: var(--selected);
+}
+
+.tagEditor {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: 400px;
+  height: 100%;
+  gap: 5px;
+}
+.tagList {
+  cursor: text;
+  display: flex;
+  flex-wrap: wrap;
+  padding: 5px;
+  border-radius: 2.5px;
+  border: 1px solid var(--darkTheme);
+  margin-top: 5px;
+  background-color: var(--darkTheme);
+  gap: 7.5px;
+  overflow-y: auto;
+}
+
+.tag {
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  max-width: calc(100% - 20px);
+  padding: 3.5px 10px;
+  border-radius: 2.5px;
+  background-color: var(--theme);
+  transition: all 50ms;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.tag p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tagInput {
+  flex: 1 1 50px;
+  display: flex;
+}
+.tagInput input {
+  width: 100%;
+  padding: 5px 0px;
+  border: 0px;
+  color: var(--text);
+  background-color: transparent;
+  font-size: 12px;
+  outline: none;
+}
+
+.tagInputPanel {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 5px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - 10px - 2px);
+  max-height: 200px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 2.5px;
+  background-color: var(--darkTheme);
+  gap: 7.5px;
+}
+.tagInputPanel > div:not(:nth-child(1)) {
+  padding: 5px;
+}
+.tagInputPanel > div:nth-child(1) {
+  padding: 0px 5px;
+}
+
+.tagExplorer {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  gap: 5px;
+  overflow-y: scroll;
+}
+.tagExplorer > div {
+  display: flex;
+}
+
+.generateTag {
+  cursor: pointer;
+  display: flex;
+  gap: 7.5px;
+  transition: all 50ms;
+}
+.generateTag p {
+  word-break: keep-all;
+  font-size: 14px;
+}
+.generateTag p:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desc {
+  display: flex;
+  margin: 25px;
+  position: relative;
+}
+.desc textarea {
+  width: 100%;
+  height: 450px;
+  padding: 10px;
+  border: 0px;
+  border-radius: 2.5px;
+  border-top-right-radius: 0px;
+  color: var(--text);
+  background-color: var(--darkTheme);
+  resize: none;
+  outline: none;
+}
+
+.descTool {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translateY(-100%);
+  display: flex;
+  border-top-left-radius: 2.5px;
+  border-top-right-radius: 2.5px;
+  background-color: var(--darkTheme);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.descTool > p {
+  cursor: pointer;
+  font-size: 12px;
+  padding: 3.5px 5px;
+  color: var(--text);
+  transition: all 50ms;
+}
+
+.descContent::-webkit-scrollbar {
+  width: 10px;
+}
+.descContent::-webkit-scrollbar-track {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.05);
+}
+.descContent::-webkit-scrollbar-thumb {
+  cursor: default;
+  background: #303030;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50ms;
+}
+
+.descViewer {
+  width: 100%;
+  height: 450px;
+  padding: 10px;
+  border: 0px;
+  border-radius: 2.5px;
+  background-color: var(--darkTheme);
+  overflow-y: auto;
+}
+.descViewer h1 {
+  font-size: 24px;
+  color: var(--text);
+  margin: 5px 0px;
+}
+.descViewer h2 {
+  margin: 4px 0px;
+}
+.descViewer h3 {
+  margin: 3.5px 0px;
+}
+.descViewer h4 {
+  margin: 3px 0px;
+}
+.descViewer p {
+  font-size: 14px;
+  color: var(--text);
+  margin: 5px 0px;
+}
+.descViewer p:has(img) {
+  display: flex;
+  flex-direction: column;
+}
+.descViewer img {
+  margin: 10px 0px;
+}
+.descViewer ol, .descViewer ul {
+  margin-left: 1.25em;
+}
+.descViewer ol:not(:nth-child(1)) {
+  margin-top: 15px;
+}
+.descViewer ul {
+  list-style-position: inside;
+}
+.descViewer hr {
+  margin: 10px 0px;
+}
+.descViewer pre:has(code) {
+  padding: 2.5px;
+  border-radius: 2.5px;
+  margin: 3.5px 0px;
+  background-color: rgba(0, 0, 0, 0.35);
+  overflow-x: auto;
+}
+.descViewer code:not(pre code) {
+  padding: 2.5px;
+  border-radius: 2.5px;
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.descViewer pre:has(code)::-webkit-scrollbar {
+  height: 10px;
+}
+.descViewer pre:has(code)::-webkit-scrollbar-track {
+  cursor: default;
+}
+.descViewer pre:has(code)::-webkit-scrollbar-thumb {
+  cursor: default;
+  background: #303030;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50ms;
+}
+
+.descToolSelected {
+  background-color: var(--selected);
+}
+
+.children {
+  display: flex;
+  margin: 25px;
+}
+
+.childrenEditor {
+  width: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.childrenEditor > div  {
+  display: flex;
+}
+
+.childrenToolbar {
+  display: flex;
+  margin-left: auto;
+  gap: 25px;
+}
+.childrenToolbar p {
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.35;
+  transition: all 50ms;
+}
+
+.childrenList {
+  display: flex;
+  flex-direction: column;
+  margin-top: 5px;
+  gap: 2.5px;
+}
+.childrenList > div {
+  cursor: pointer;
+  display: flex;
+  border-radius: 5px;
+  transition: all 50ms;
+}
+.childrenList > div > div {
+  cursor: alias;
+  display: flex;
+  align-items: center;
+  padding: 5px 7.5px;
+  gap: 5px;
+}
+.childrenList p {
+  font-size: 12px;
+  text-decoration: solid;
+  text-decoration-line: underline;
+  text-underline-offset: 2px;
+}
+.childrenList img {
+  width: auto;
+  height: 17px;
+  filter: invert(0.75);
+}
+.selectedChild {
+  background-color: var(--selected);
+}
+
+.additionalText > p {
+  font-size: 12px;
+}
+
+.list::-webkit-scrollbar {
+  width: 10px;
+}
+.list::-webkit-scrollbar-track {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.05);
+}
+.list::-webkit-scrollbar-thumb {
+  cursor: default;
+  background: #555555;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 50m;
+}
+
+.nothingWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+@media (hover: hover) {
+  .path > p:nth-child(2n - 1):hover {
+    background-color: var(--hoveredFile);
+  }
+
+  .parentList > div:hover:not(.selectedParent) {
+    background-color: var(--hoveredFile);
+  }
+  
+  .tag:hover {
+    background-color: var(--hoveredFile);
+  }
+  .generateTag:hover {
+    background-color: var(--hoveredFile);
+  }
+  
+  .childrenToolbar p:hover {
+    opacity: 1;
+  }
+  
+  .childrenList > div:hover:not(.nothingWrapper, .selectedChild) {
+    background-color: var(--hoveredFile);
+  }
+
+  .descContent::-webkit-scrollbar-thumb:hover,
+  .descViewer pre:has(code)::-webkit-scrollbar-thumb:hover,
+  .list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
+}

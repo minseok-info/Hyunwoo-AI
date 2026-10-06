@@ -1,0 +1,44 @@
+.fullScreen {
+  width: 100dvw;
+  height: 100dvh;
+}
+
+.nodeName {
+  z-index: 10;
+  position: absolute;
+  transform: translateX(-50%);
+  top: 25px;
+  left: 50%;
+  color: white;
+  pointer-events: none;
+}
+
+.socialContainer {
+  position: absolute;
+  bottom: 25px;
+  left: 25px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-rows: 40px;
+  grid-auto-columns: 40px;
+  gap: 20px;
+}
+.socialContainer > div {
+  cursor: pointer;
+  display: flex;
+  border-radius: 2.5px;
+  overflow: hidden;
+  filter: opacity(0.5) brightness(0.75);
+  transition: all 150ms;
+}
+.socialContainer img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+@media (hover: hover) {
+  .socialContainer > div:hover {
+    filter: opacity(1) brightness(1);
+  }
+}

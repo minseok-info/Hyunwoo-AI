@@ -1,0 +1,63 @@
+.line {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 1px 0px;
+  padding-left: calc(var(--depth) * 7.5px + 7.5px);
+  font-size: 14px;
+  gap: 10px;
+  color: var(--text);
+  transition: all 50ms;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.line > div:nth-child(1) {
+  display: flex;
+  height: 100%;
+  border-radius: 2.5px;
+}
+
+.folderLine img {
+  width: auto;
+  height: 15px;
+  filter: invert(0.75);
+}
+.fileLine img {
+  width: auto;
+  height: 10px;
+  filter: invert(0.75);
+}
+
+.name {
+  overflow: hidden;
+}
+.name > p {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selected {
+  background-color: var(--selected);
+}
+
+.rotatedIMG {
+  transform: rotate(-90deg);
+}
+
+@media (hover: hover) {
+  .folder:hover > .folderLine:not(.selected) {
+    background-color: var(--hoveredFolder);
+  }
+  .folderLine:hover:not(.selected) {
+    background-color: var(--hoveredFile) !important;
+  }
+  .fileLine:hover:not(.selected) {
+    background-color: var(--hoveredFile);
+  }
+
+  .folderLine > div:nth-child(1):hover {
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+}
